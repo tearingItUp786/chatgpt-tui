@@ -6,8 +6,8 @@ import (
 )
 
 type Model struct {
-	sessionID     string
-	sessionName   string
+	SessionID     string
+	SessionName   string
 	terminalWidth int
 }
 

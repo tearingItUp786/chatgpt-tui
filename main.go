@@ -2,12 +2,14 @@ package main
 
 import (
 	"log"
-	"tea/sessions"
-	"tea/settings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
+	"github.com/tearingItUp786/golang-tui/sessions"
+	"github.com/tearingItUp786/golang-tui/settings"
 )
 
 // fake enum to keep tab of the currently focused pane
@@ -20,6 +22,7 @@ const (
 type model struct {
 	focused          int
 	promptContainer  lipgloss.Style
+	viewport         viewport.Model
 	promptInput      textinput.Model
 	settingsModel    settings.Model
 	sessionModel     sessions.Model
@@ -45,8 +48,7 @@ func initialModal() model {
 		promptContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Bottom).
 			BorderStyle(lipgloss.NormalBorder()).
-			MarginTop(1).
-			Padding(1),
+			MarginTop(1),
 	}
 }
 
@@ -62,16 +64,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyTab:
 			m.focused = (m.focused + 1) % 3
-			return m, nil
+			m.viewport.SetContent(m.focusedPaneName())
+			return m, cmd
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
+		case tea.KeyEnter:
+			go sessions.CallChatGpt()
+			return m, cmd
 		}
+
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
 		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
 			Width(m.terminalWidth - 3)
 
+		height := (m.terminalHeight - m.promptContainer.GetHeight() - 5)
+		width := (m.terminalWidth / 3 * 2)
+		m.viewport = viewport.New(width, height)
+		content := "FUCK"
+		m.viewport.SetContent(content)
 		yolo, cmd := m.settingsModel.Update(msg)
 		another, cmd := m.sessionModel.Update(msg)
 		m.settingsModel = yolo
@@ -79,7 +91,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	log.Printf("You wrote: %v", msg)
 	m.promptInput, cmd = m.promptInput.Update(msg)
 	return m, cmd
 }
@@ -98,9 +109,14 @@ func (m model) View() string {
 				lipgloss.Top,
 				lipgloss.NewStyle().
 					Border(lipgloss.NormalBorder()).
-					Height(m.terminalHeight-m.promptContainer.GetHeight()-7).
+					Height(m.terminalHeight-m.promptContainer.GetHeight()-5).
 					Width(m.terminalWidth/3*2).
-					Render("FUCK"),
+					// this is where we want to render all the messages
+					Render(
+						wordwrap.String(
+							m.viewport.View(),
+							50,
+						)),
 				settingsStuff,
 			),
 		)
@@ -111,6 +127,22 @@ func (m model) View() string {
 			m.promptInput.View(),
 		),
 	)
+}
+
+func (m model) focusedPaneName() string {
+	if m.focused == sessionsType {
+		return "SESSSION"
+	}
+
+	if m.focused == settingsType {
+		return "SETTINGS"
+	}
+
+	return "PROMPT"
+}
+
+func (m model) renderMessages() string {
+	return ""
 }
 
 func main() {
