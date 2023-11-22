@@ -1,6 +1,8 @@
 package sessions
 
 import (
+	"log"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -9,10 +11,15 @@ type Model struct {
 	SessionID     string
 	SessionName   string
 	terminalWidth int
+	ResultChannel chan ProcessResult
+	DataArray     []ProcessResult
 }
 
 func New() Model {
-	return Model{}
+	return Model{
+		ResultChannel: make(chan ProcessResult),
+		DataArray:     []ProcessResult{},
+	}
 }
 
 func (m Model) Init() tea.Cmd {
@@ -57,6 +64,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
+		return m, nil
+	case ArrayProccessResult:
+		log.Println("Got result from CallChatGpt")
 		return m, nil
 	}
 	return m, nil

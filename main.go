@@ -20,12 +20,14 @@ const (
 )
 
 type model struct {
-	focused          int
-	promptContainer  lipgloss.Style
-	viewport         viewport.Model
-	promptInput      textinput.Model
-	settingsModel    settings.Model
-	sessionModel     sessions.Model
+	focused         int
+	promptContainer lipgloss.Style
+	viewport        viewport.Model
+	promptInput     textinput.Model
+	settingsModel   settings.Model
+	sessionModel    sessions.Model
+	msgChan         chan tea.Msg
+
 	currentSessionID string
 	terminalWidth    int
 	terminalHeight   int
@@ -45,6 +47,7 @@ func initialModal() model {
 		settingsModel:    si,
 		currentSessionID: "",
 		sessionModel:     sm,
+		msgChan:          make(chan tea.Msg),
 		promptContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Bottom).
 			BorderStyle(lipgloss.NormalBorder()).
@@ -69,9 +72,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
-			go sessions.CallChatGpt()
-			return m, cmd
+			// Start CallChatGpt on Enter key
+			return m, tea.Batch(
+				sessions.CallChatGpt(),
+			)
 		}
+
+	case sessions.ArrayProccessResult:
+		log.Println("Got result from CallChatGpt")
 
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
