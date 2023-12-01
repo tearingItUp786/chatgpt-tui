@@ -1,0 +1,22 @@
+{
+  "id": "chatcmpl-8OcnnFOBaZndC2XfxMTjSuvn18QsP",
+  "object": "chat.completion.chunk",
+  "created": 1700879719,
+  "model": "gpt-3.5-turbo-1106",
+  "system_fingerprint": "fp_eeff13170a",
+  "choices": [{ "index": 0, "delta": {}, "finish_reason": "stop" }]
+}
+
+
+{
+  "id": "chatcmpl-8OcnnFOBaZndC2XfxMTjSuvn18QsP",
+  "object": "chat.completion.chunk",
+  "created": 1700879719,
+  "model": "gpt-3.5-turbo-1106",
+  "system_fingerprint": "fp_eeff13170a",
+  "choices": [
+    { "index": 0, "delta": { "content": " right" }, "finish_reason": null }
+  ]
+}
+
+choices[0].delta.content
