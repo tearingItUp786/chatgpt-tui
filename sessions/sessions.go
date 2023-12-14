@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"log"
 	"sort"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -116,10 +117,52 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
 	return newMessage
 }
 
+func userMessage(msg string, width int) string {
+	return lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderLeft(true).
+		Foreground(lipgloss.Color("12")).
+		Width(width - 2).
+		Render("💁 " + msg)
+}
+
+func BotMessage(msg string, width int) string {
+	if msg == "" {
+		return ""
+	}
+
+	return lipgloss.NewStyle().
+		Align(lipgloss.Left).
+		BorderStyle(lipgloss.RoundedBorder()).
+		Foreground(lipgloss.Color("#FAFAFA")).
+		BorderLeft(true).
+		BorderLeftForeground(lipgloss.Color("214")).
+		Width(width - 5).
+		Render(
+			"🤖 " + msg,
+			// lipgloss.NewStyle().Padding(2).Render(msg),
+		)
+}
+
 func (m Model) GetMessagesAsString() string {
 	var messages string
 	for _, message := range m.ArrayOfMessages {
-		messages = messages + "\n" + message.Content
+		messageToUse := message.Content
+
+		if message.Role == "user" {
+			messageToUse = userMessage(messageToUse, m.terminalWidth/3*2)
+		}
+
+		if message.Role == "assistant" {
+			log.Println("messageToUse", messageToUse)
+			messageToUse = BotMessage(messageToUse, m.terminalWidth/3*2)
+		}
+
+		if messages == "" {
+			messages = messageToUse
+			continue
+		}
+		messages = messages + "\n" + messageToUse
 	}
 
 	return messages

@@ -87,7 +87,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Println("got a message", msg)
 		m.sessionModel, cmd = m.sessionModel.Update(msg)
 		oldContent := m.sessionModel.GetMessagesAsString()
-		m.viewport.SetContent(wrap.String(oldContent+"\n"+m.sessionModel.CurrentAnswer, m.terminalWidth/3*2))
+		log.Print("current message", m.sessionModel.CurrentAnswer)
+		styledBufferMessage := sessions.BotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
+		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
 		return m, waitForActivity(m.msgChan)
 
 	case tea.KeyMsg:
