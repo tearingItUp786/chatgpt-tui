@@ -88,7 +88,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sessionModel, cmd = m.sessionModel.Update(msg)
 		oldContent := m.sessionModel.GetMessagesAsString()
 		log.Print("current message", m.sessionModel.CurrentAnswer)
-		styledBufferMessage := sessions.BotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
+		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
 		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
 		return m, waitForActivity(m.msgChan)
 
@@ -105,6 +105,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
 			content := m.sessionModel.GetMessagesAsString()
 			m.promptInput.SetValue("")
+			// TODO: add a loading indicator / icon when we are waiting for chat gpt to return with a response.
 			m.viewport.SetContent(wrap.String(content, m.terminalWidth/3*2))
 			return m, m.sessionModel.CallChatGpt(m.msgChan)
 		}

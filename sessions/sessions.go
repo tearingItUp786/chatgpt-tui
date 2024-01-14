@@ -31,11 +31,17 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case ProcessResult:
+		// add the latest message to the array of messages
 		m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
 		m.CurrentAnswer = ""
+
+		// we need to sort on ID here because go routines are done in different threads
+		// and the order in which our channel receives messages is not guaranteed.
+		// TODO: look into a better way to insert (can I Insert in order)
 		sort.Slice(m.ArrayOfProcessResult, func(i, j int) bool {
 			return m.ArrayOfProcessResult[i].ID < m.ArrayOfProcessResult[j].ID
 		})
+
 		for _, msg := range m.ArrayOfProcessResult {
 			if len(msg.Result.Choices) > 0 {
 				choice := msg.Result.Choices[0]
@@ -102,6 +108,7 @@ func listItem(heading string, value string) string {
 	return headingEl(" "+heading, spanEl(value))
 }
 
+// Converts the arraj of json messages into a single Message
 func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
 	newMessage := MessageToSend{Role: "assistant", Content: ""}
 	for _, aMessage := range arrayOfProcessResult {
@@ -117,7 +124,7 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
 	return newMessage
 }
 
-func userMessage(msg string, width int) string {
+func renderUseMessage(msg string, width int) string {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderLeft(true).
@@ -126,7 +133,7 @@ func userMessage(msg string, width int) string {
 		Render("💁 " + msg)
 }
 
-func BotMessage(msg string, width int) string {
+func RenderBotMessage(msg string, width int) string {
 	if msg == "" {
 		return ""
 	}
@@ -140,7 +147,6 @@ func BotMessage(msg string, width int) string {
 		Width(width - 5).
 		Render(
 			"🤖 " + msg,
-			// lipgloss.NewStyle().Padding(2).Render(msg),
 		)
 }
 
@@ -150,12 +156,12 @@ func (m Model) GetMessagesAsString() string {
 		messageToUse := message.Content
 
 		if message.Role == "user" {
-			messageToUse = userMessage(messageToUse, m.terminalWidth/3*2)
+			messageToUse = renderUseMessage(messageToUse, m.terminalWidth/3*2)
 		}
 
 		if message.Role == "assistant" {
 			log.Println("messageToUse", messageToUse)
-			messageToUse = BotMessage(messageToUse, m.terminalWidth/3*2)
+			messageToUse = RenderBotMessage(messageToUse, m.terminalWidth/3*2)
 		}
 
 		if messages == "" {

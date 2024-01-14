@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -84,6 +83,7 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 	return func() tea.Msg {
 		body, err := m.constructJsonBody()
 
+		// API endpoint to call -- should be an env variable
 		req, err := http.NewRequest(
 			"POST",
 			"https://api.openai.com/v1/chat/completions",
@@ -107,9 +107,11 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 			log.Println("Error sending request:", err)
 		}
 		defer resp.Body.Close()
+
+		// any kind of error, just break out man
 		if resp.StatusCode >= 400 {
 			// Read the response body
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			bodyBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				log.Printf("Error reading response body: %v\n", err)
 			}
@@ -126,9 +128,11 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 					log.Println("end of file")
 					break // End of the stream
 				}
+				// TODO: proper error handler when the stream breaks
 				log.Fatal(err) // Handle other errors
 			}
 
+			// This should be a constant (checking to see if the stream is done)
 			if line == "data: [DONE]\n" {
 				// log.Println("Stream ended with [DONE] message.")
 				resultChan <- ProcessResult{ID: processResultID, Err: nil, Final: true}
@@ -159,7 +163,5 @@ func processChunk(chunkData string, resultChan chan<- ProcessResult, id int) {
 	}
 
 	// Process the chunk as needed
-	// log.Printf("Processed Data :v %v", chunkData)
 	resultChan <- ProcessResult{ID: id, Result: chunk, Err: nil}
-	// Send the result back through the channel
 }
