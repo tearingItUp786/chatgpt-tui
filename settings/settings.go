@@ -12,6 +12,7 @@ import (
 
 type Model struct {
 	terminalWidth int
+	IsFocused     bool
 }
 
 func (m Model) Init() tea.Cmd {
@@ -31,8 +32,13 @@ func listItem(heading string, value string) string {
 }
 
 func (m Model) View() string {
+	borderColor := lipgloss.Color("#bbb")
+	if m.IsFocused {
+		borderColor = lipgloss.Color("#d70073")
+	}
 	list := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), true).
+		BorderForeground(borderColor).
 		Height(8).
 		Width(m.terminalWidth/3 - 5)
 

@@ -62,7 +62,7 @@ func (m Model) constructJsonBody() ([]byte, error) {
 	for _, singleMessage := range m.ArrayOfMessages {
 		messages = append(messages, singleMessage)
 	}
-	log.Println("Messages: ", messages)
+	// log.Println("Messages: ", messages)
 	body, err := json.Marshal(map[string]interface{}{
 		"model":    model, // Use string literals for keys
 		"stream":   true,
@@ -125,7 +125,7 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 			line, err := scanner.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
-					log.Println("end of file")
+					// log.Println("end of file")
 					break // End of the stream
 				}
 				// TODO: proper error handler when the stream breaks
@@ -140,7 +140,7 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 			}
 
 			if strings.HasPrefix(line, "data:") {
-				log.Printf("Process Array: %v", line)
+				// log.Printf("Process Array: %v", line)
 				jsonStr := strings.TrimPrefix(line, "data:")
 				// Create a channel to receive the results
 				// Start the goroutine, passing the channel for communication

@@ -39,7 +39,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyEnter:
 			m.done = false
-			log.Printf("You wrote: " + m.textInput.Value())
+			// log.Printf("You wrote: " + m.textInput.Value())
 			return m, tea.Quit
 		}
 

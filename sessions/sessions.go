@@ -1,6 +1,8 @@
 package sessions
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
 	"sort"
 
@@ -9,27 +11,58 @@ import (
 )
 
 type Model struct {
-	SessionID            string
+	SessionID            int
 	SessionName          string
 	terminalWidth        int
 	ArrayOfProcessResult []ProcessResult
 	ArrayOfMessages      []MessageToSend
 	CurrentAnswer        string
+	IsFocused            bool
+	sessionService       *SessionService
 }
 
-func New() Model {
+func New(db *sql.DB) Model {
+	ss := NewSessionService(db)
+
 	return Model{
 		ArrayOfProcessResult: []ProcessResult{},
+		sessionService:       ss,
 	}
 }
 
+type LoadDataFromDB struct {
+	session Session
+}
+
 func (m Model) Init() tea.Cmd {
-	return nil
+	// Need to load the latest session as the current session  (select recently created)
+	// OR we need to create a brand new session for the user with a random name (insert new and return)
+	return func() tea.Msg {
+		session, err := m.sessionService.GetLatestSession()
+		if err != nil {
+			// TODO: better error handling
+			log.Println("error", err)
+			panic(err)
+		}
+
+		log.Println("init")
+		return LoadDataFromDB{
+			session: session,
+		}
+	}
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+
+	case LoadDataFromDB:
+		log.Println("LoadDataFromDB", msg.session.ID)
+		m.SessionID = msg.session.ID
+		m.SessionName = msg.session.SessionName
+		m.ArrayOfMessages = msg.session.Messages
+		return m, cmd
+
 	case ProcessResult:
 		// add the latest message to the array of messages
 		m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
@@ -49,10 +82,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				if choice.FinishReason == "stop" || msg.Final {
 					// empty out the array bro
 					m.ArrayOfMessages = append(m.ArrayOfMessages, constructJsonMessage(m.ArrayOfProcessResult))
+
+					m.sessionService.UpdateSessionMessages(m.SessionID, m.ArrayOfMessages)
 					m.ArrayOfProcessResult = []ProcessResult{}
 					break
 				}
 				choiceContent, ok := choice.Delta["content"]
+
 				if !ok {
 					// TODO: this should be an error
 					continue
@@ -76,9 +112,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 func (m Model) View() string {
 	width := (m.terminalWidth / 3) - 5
+	borderColor := lipgloss.Color("#bbb")
+	if m.IsFocused {
+		borderColor = lipgloss.Color("#d70073")
+	}
+
 	list := lipgloss.NewStyle().
 		AlignVertical(lipgloss.Top).
 		Border(lipgloss.NormalBorder(), true).
+		BorderForeground(borderColor).
 		Height(8).
 		Width(width)
 
@@ -91,7 +133,7 @@ func (m Model) View() string {
 	return list.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			listHeader("Session"),
-			listItem("2323lkjsdfsd", "Some Session"),
+			listItem(fmt.Sprint(m.SessionID), m.SessionName),
 		),
 	)
 }
@@ -108,7 +150,7 @@ func listItem(heading string, value string) string {
 	return headingEl(" "+heading, spanEl(value))
 }
 
-// Converts the arraj of json messages into a single Message
+// Converts the array of json messages into a single Message
 func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
 	newMessage := MessageToSend{Role: "assistant", Content: ""}
 	for _, aMessage := range arrayOfProcessResult {
@@ -124,7 +166,7 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
 	return newMessage
 }
 
-func renderUseMessage(msg string, width int) string {
+func renderUserMessage(msg string, width int) string {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderLeft(true).
@@ -156,11 +198,10 @@ func (m Model) GetMessagesAsString() string {
 		messageToUse := message.Content
 
 		if message.Role == "user" {
-			messageToUse = renderUseMessage(messageToUse, m.terminalWidth/3*2)
+			messageToUse = renderUserMessage(messageToUse, m.terminalWidth/3*2)
 		}
 
 		if message.Role == "assistant" {
-			log.Println("messageToUse", messageToUse)
 			messageToUse = RenderBotMessage(messageToUse, m.terminalWidth/3*2)
 		}
 
