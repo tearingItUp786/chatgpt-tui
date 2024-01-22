@@ -77,6 +77,22 @@ SELECT id, messages, created_at, session_name FROM sessions ORDER BY created_at 
 	return session, nil
 }
 
+// get me all the sessions
+func (ss *SessionService) GetAllSessions() ([]Session, error) {
+	rows, err := ss.DB.Query(`SELECT id,  created_at, session_name FROM sessions`)
+	if err != nil {
+		panic(err)
+	}
+	sessions := []Session{}
+	for rows.Next() {
+		aSession := Session{}
+		rows.Scan(&aSession.ID, &aSession.CreatedAt, &aSession.SessionName)
+		sessions = append(sessions, aSession)
+	}
+
+	return sessions, nil
+}
+
 func (ss *SessionService) UpdateSessionMessages(id int, messages []MessageToSend) {
 	jsonData, err := json.Marshal(messages)
 	if err != nil {

@@ -2,23 +2,29 @@ package sessions
 
 import (
 	"database/sql"
-	"fmt"
+	"encoding/json"
 	"log"
 	"sort"
 
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 type Model struct {
-	SessionID            int
-	SessionName          string
+	CurrentSessionID     int
+	CurrentSessionName   string
 	terminalWidth        int
 	ArrayOfProcessResult []ProcessResult
 	ArrayOfMessages      []MessageToSend
 	CurrentAnswer        string
 	IsFocused            bool
 	sessionService       *SessionService
+	AllSessions          []Session
+	table                table.Model // table for sessions edit view
+	textInput            textinput.Model
+	isEdittingRow        bool
 }
 
 func New(db *sql.DB) Model {
@@ -31,7 +37,9 @@ func New(db *sql.DB) Model {
 }
 
 type LoadDataFromDB struct {
-	session Session
+	session     Session
+	allSessions []Session
+	listTable   table.Model
 }
 
 func (m Model) Init() tea.Cmd {
@@ -45,9 +53,19 @@ func (m Model) Init() tea.Cmd {
 			panic(err)
 		}
 
+		allSessions, err := m.sessionService.GetAllSessions()
+		if err != nil {
+			// TODO: better error handling
+			log.Println("error", err)
+			panic(err)
+		}
+
 		log.Println("init")
+
 		return LoadDataFromDB{
-			session: session,
+			session:     session,
+			allSessions: allSessions,
+			listTable:   initEditListViewTable(allSessions),
 		}
 	}
 }
@@ -58,9 +76,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case LoadDataFromDB:
 		log.Println("LoadDataFromDB", msg.session.ID)
-		m.SessionID = msg.session.ID
-		m.SessionName = msg.session.SessionName
+		m.CurrentSessionID = msg.session.ID
+		m.CurrentSessionName = msg.session.SessionName
 		m.ArrayOfMessages = msg.session.Messages
+		m.AllSessions = msg.allSessions
+		m.table = msg.listTable
+		m.isEdittingRow = false
 		return m, cmd
 
 	case ProcessResult:
@@ -83,7 +104,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					// empty out the array bro
 					m.ArrayOfMessages = append(m.ArrayOfMessages, constructJsonMessage(m.ArrayOfProcessResult))
 
-					m.sessionService.UpdateSessionMessages(m.SessionID, m.ArrayOfMessages)
+					m.sessionService.UpdateSessionMessages(m.CurrentSessionID, m.ArrayOfMessages)
 					m.ArrayOfProcessResult = []ProcessResult{}
 					break
 				}
@@ -104,50 +125,57 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 		return m, cmd
 	case tea.WindowSizeMsg:
+		log.Println("window size", msg.Width)
 		m.terminalWidth = msg.Width
 		return m, nil
+
+	case tea.KeyMsg:
+		if m.isEdittingRow {
+			m.textInput, cmd = m.textInput.Update(msg)
+			if msg.String() == "enter" {
+				m.isEdittingRow = false
+				return m, cmd
+			}
+		} else {
+			// Check if the 'r' key was pressed
+			if msg.String() == "r" {
+				log.Println("The 'r' key was pressed!")
+				m.isEdittingRow = true
+				ti := textinput.New()
+				ti.Width = 0
+				m.textInput = ti
+				m.textInput.SetValue(m.table.SelectedRow()[1])
+				m.textInput.Focus()
+				m.textInput.CharLimit = 100
+			}
+		}
+
 	}
-	return m, nil
+
+	if m.IsFocused && !m.isEdittingRow {
+		m.table, cmd = m.table.Update(msg)
+	}
+	return m, cmd
 }
 
 func (m Model) View() string {
-	width := (m.terminalWidth / 3) - 5
-	borderColor := lipgloss.Color("#bbb")
+	listView := m.normaListView()
+
 	if m.IsFocused {
-		borderColor = lipgloss.Color("#d70073")
+		listView = m.editListView()
 	}
 
-	list := lipgloss.NewStyle().
-		AlignVertical(lipgloss.Top).
-		Border(lipgloss.NormalBorder(), true).
-		BorderForeground(borderColor).
-		Height(8).
-		Width(width)
-
-	listHeader := lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderBottom(true).
-		MarginLeft(2).
-		Render
-
-	return list.Render(
+	editForm := ""
+	if m.isEdittingRow {
+		editForm = m.textInput.View()
+	}
+	return m.container().Render(
 		lipgloss.JoinVertical(lipgloss.Left,
-			listHeader("Session"),
-			listItem(fmt.Sprint(m.SessionID), m.SessionName),
+			listHeader("Sessions"),
+			listView,
+			editForm,
 		),
 	)
-}
-
-func listItem(heading string, value string) string {
-	headingEl := lipgloss.NewStyle().
-		PaddingLeft(2).
-		Foreground(lipgloss.Color("#FFC0CB")).
-		Render
-	spanEl := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#fff")).
-		Render
-
-	return headingEl(" "+heading, spanEl(value))
 }
 
 // Converts the array of json messages into a single Message
@@ -213,4 +241,22 @@ func (m Model) GetMessagesAsString() string {
 	}
 
 	return messages
+}
+
+func (m Model) insertRandomSession() {
+	newSession := Session{
+		// Initialize your session fields as needed
+		// ID will be set by the database if using auto-increment
+		SessionName: "Random session",  // Set a default or generate a name
+		Messages:    []MessageToSend{}, // Assuming Messages is a slice of Message
+	}
+	// Insert the new session into the database
+	// Insert the new session into the database
+	messagesJSON, err := json.Marshal(newSession.Messages)
+	if err != nil {
+		// TODO: better error handling
+		log.Println("error", err)
+		panic(err)
+	}
+	m.sessionService.InsertNewSession(newSession.SessionName, messagesJSON)
 }

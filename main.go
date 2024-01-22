@@ -22,6 +22,7 @@ const (
 	settingsType = iota
 	sessionsType
 	promptType
+	chatMessagesType
 )
 
 type model struct {
@@ -50,7 +51,7 @@ func initialModal(db *sql.DB) model {
 	msgChan := make(chan sessions.ProcessResult)
 
 	return model{
-		focused:          sessionsType,
+		focused:          promptType,
 		promptInput:      ti,
 		settingsModel:    si,
 		currentSessionID: "",
@@ -82,15 +83,24 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
+		cmd                    tea.Cmd
+		cmds                   []tea.Cmd
+		enableUpdateOfViewport = true
 	)
 
-	switch msg := msg.(type) {
-	// each time we get a new message coming in from the model
+	// isSessionFocused := m.focused == sessionsType
+	// isSettingsFocused := m.focused == settingsType
+	isPromptFocused := m.focused == promptType
+	isChatMessagesFocused := m.focused == chatMessagesType
+
+	m.sessionModel, cmd = m.sessionModel.Update(msg)
+	cmds = append(cmds, cmd)
+	m.settingsModel, cmd = m.settingsModel.Update(msg)
+	cmds = append(cmds, cmd)
+
+	switch msg := msg.(type) { // each time we get a new message coming in from the model
 	// lets handle it and pass it to the lower model
 	case sessions.LoadDataFromDB:
-		m.sessionModel, cmd = m.sessionModel.Update(msg)
 		oldContent := m.sessionModel.GetMessagesAsString()
 		if oldContent == "" {
 			oldContent = "Everyone starts somewhere. You can do it!"
@@ -104,32 +114,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
 		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
 
+		m.viewport.GotoBottom()
+
 		return m, waitForActivity(m.msgChan)
 
 	case tea.KeyMsg:
+
+		if !isChatMessagesFocused {
+			enableUpdateOfViewport = false
+		}
+
 		switch msg.Type {
 
 		case tea.KeyTab:
-			m.focused = (m.focused + 1) % 3
-			m.viewport.SetContent(m.focusedPaneName())
+			m.updateFocusedSession()
 			return m, cmd
 
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 
 		case tea.KeyEnter:
-			// Start CallChatGpt on Enter key
-			m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
-			content := m.sessionModel.GetMessagesAsString()
-			m.promptInput.SetValue("")
-			// TODO: add a loading indicator / icon when we are waiting for chat gpt to return with a response.
-			m.viewport.SetContent(wrap.String(content, m.terminalWidth/3*2))
+			if isPromptFocused {
+				// Start CallChatGpt on Enter key
+				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
+				content := m.sessionModel.GetMessagesAsString()
+				m.promptInput.SetValue("")
+				// TODO: add a loading indicator / icon when we are waiting for chat gpt to return with a response.
+				m.viewport.SetContent(wrap.String(content, m.terminalWidth/3*2))
 
-			return m, m.sessionModel.CallChatGpt(m.msgChan)
+				return m, m.sessionModel.CallChatGpt(m.msgChan)
+			}
+
+			return m, cmd
 		}
 
 	case tea.WindowSizeMsg:
-		log.Printf("width : %v", msg.Width)
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
 
@@ -145,29 +164,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// we can initialize the viewport. The initial dimensions come in
 			// quickly, though asynchronously, which is why we wait for them
 			// here.
-			m.viewport = viewport.New(msg.Width, msg.Height-prompContinerHeight) // need to get rid of this magic number
+			m.viewport = viewport.New(msg.Width, msg.Height-prompContinerHeight)
 			m.viewport.Style.MaxHeight(msg.Height)
 			m.ready = true
-
+			m.promptInput.Width = msg.Width - 3
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - prompContinerHeight
+			m.promptInput.Width = msg.Width - 3
 		}
-
-		updatedSettingsModel, _ := m.settingsModel.Update(msg)
-		updatedSessionModel, _ := m.sessionModel.Update(msg)
-
-		m.settingsModel = updatedSettingsModel
-		m.sessionModel = updatedSessionModel
 
 		return m, cmd
 	}
 
 	m.promptInput, cmd = m.promptInput.Update(msg)
 	cmds = append(cmds, cmd)
-	m.viewport, cmd = m.viewport.Update(msg)
-	cmds = append(cmds, cmd)
 
+	if enableUpdateOfViewport {
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 	return m, tea.Batch(cmds...)
 }
 
@@ -180,6 +196,11 @@ func (m model) View() string {
 		m.sessionModel.View(),
 	)
 
+	borderColor := lipgloss.Color("#bbb")
+	if m.focused == chatMessagesType {
+		borderColor = lipgloss.Color("#d70073")
+	}
+
 	val = lipgloss.NewStyle().
 		Align(lipgloss.Right, lipgloss.Right).
 		Render(
@@ -187,6 +208,7 @@ func (m model) View() string {
 				lipgloss.Top,
 				lipgloss.NewStyle().
 					Border(lipgloss.NormalBorder()).
+					BorderForeground(borderColor).
 					Width(m.terminalWidth/3*2).
 					// this is where we want to render all the messages
 					Render(
@@ -204,16 +226,16 @@ func (m model) View() string {
 	)
 }
 
-func (m model) focusedPaneName() string {
-	if m.focused == sessionsType {
-		return "SESSSION"
-	}
+func (m *model) updateFocusedSession() {
+	m.focused = (m.focused + 1) % 4
+	m.sessionModel.IsFocused = m.focused == sessionsType
+	m.settingsModel.IsFocused = m.focused == settingsType
 
-	if m.focused == settingsType {
-		return "SETTINGS"
+	if m.focused == promptType {
+		m.promptInput.Focus()
+	} else {
+		m.promptInput.Blur()
 	}
-
-	return "PROMPT"
 }
 
 func main() {
@@ -246,7 +268,7 @@ func main() {
 	p := tea.NewProgram(
 		initialModal(db),
 		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
+		// tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
 	)
 	_, err = p.Run()
 	if err != nil {
