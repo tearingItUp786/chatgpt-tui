@@ -108,6 +108,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(wrap.String(oldContent, m.terminalWidth/3*2))
 		return m, cmd
 
+	case sessions.UpdateCurrentSession:
+		oldContent := m.sessionModel.GetMessagesAsString()
+		if oldContent == "" {
+			oldContent = "Everyone starts somewhere. You can do it!"
+		}
+		m.viewport.SetContent(wrap.String(oldContent, m.terminalWidth/3*2))
+		return m, cmd
+
 	case sessions.ProcessResult:
 		oldContent := m.sessionModel.GetMessagesAsString()
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
@@ -152,8 +160,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return m, m.sessionModel.CallChatGpt(m.msgChan)
 			}
-
-			return m, cmd
 		}
 
 	case tea.WindowSizeMsg:

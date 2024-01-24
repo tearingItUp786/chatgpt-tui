@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"database/sql"
-	"encoding/json"
 	"log"
 	"sort"
 
@@ -44,6 +43,16 @@ type LoadDataFromDB struct {
 	listTable   list.Model
 }
 
+type UpdateCurrentSession struct {
+	fuck string
+}
+
+func SendUpdateCurrentSessionMsg() tea.Cmd {
+	return func() tea.Msg {
+		return UpdateCurrentSession{fuck: "fuck"}
+	}
+}
+
 func (m Model) Init() tea.Cmd {
 	// Need to load the latest session as the current session  (select recently created)
 	// OR we need to create a brand new session for the user with a random name (insert new and return)
@@ -55,6 +64,7 @@ func (m Model) Init() tea.Cmd {
 			panic(err)
 		}
 
+		// m.insertRandomSession()
 		allSessions, err := m.sessionService.GetAllSessions()
 		if err != nil {
 			// TODO: better error handling
@@ -73,17 +83,19 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	log.Println("update", m.isFocused)
-
+	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 
+	case UpdateCurrentSession:
+		log.Println("yo UpdateCurrentSession", m.CurrentSessionID)
+
 	case LoadDataFromDB:
-		log.Println("LoadDataFromDB", msg.session.ID)
 		m.CurrentSessionID = msg.session.ID
 		m.CurrentSessionName = msg.session.SessionName
 		m.ArrayOfMessages = msg.session.Messages
 		m.AllSessions = msg.allSessions
+
 		m.list = msg.listTable
 		m.currentEditID = -1
 		return m, cmd
@@ -92,6 +104,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.isFocused = msg.IsFocused
 		m.currentEditID = -1
 		return m, nil
+
 	case ProcessResult:
 		// add the latest message to the array of messages
 		m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
@@ -137,10 +150,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.terminalWidth = msg.Width
 		return m, nil
 
+	// TODO: clean this up and make it more neat
 	case tea.KeyMsg:
 		if m.isFocused {
 			if m.currentEditID != -1 {
 				m.textInput, cmd = m.textInput.Update(msg)
+
 				if msg.String() == "enter" {
 					if m.textInput.Value() != "" {
 						m.sessionService.UpdateSessionName(m.currentEditID, m.textInput.Value())
@@ -159,6 +174,24 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					}
 				}
 			} else {
+				if msg.String() == "enter" {
+					i, ok := m.list.SelectedItem().(item)
+					if ok {
+						session, err := m.sessionService.GetSession(i.id)
+						if err != nil {
+							log.Println("error", err)
+							panic(err)
+						}
+
+						m.CurrentSessionID = session.ID
+						m.CurrentSessionName = session.SessionName
+						m.ArrayOfMessages = session.Messages
+						log.Println("enter taran", session)
+
+						cmd = SendUpdateCurrentSessionMsg()
+						cmds = append(cmds, cmd)
+					}
+				}
 				// Check if the 'r' key was pressed
 				if msg.String() == "r" {
 					log.Println("The 'r' key was pressed!")
@@ -168,11 +201,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					i, ok := m.list.SelectedItem().(item)
 					if ok {
 						m.currentEditID = i.id
-						m.textInput.Placeholder = i.text
+						m.textInput.Placeholder = "New Session Name"
 					}
 					m.textInput.Focus()
 					m.textInput.CharLimit = 100
 				}
+
 			}
 		}
 
@@ -180,8 +214,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	if m.isFocused && m.currentEditID == -1 {
 		m.list, cmd = m.list.Update(msg)
+		cmds = append(cmds, cmd)
 	}
-	return m, cmd
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m Model) View() string {
@@ -271,19 +307,6 @@ func (m Model) GetMessagesAsString() string {
 }
 
 func (m Model) insertRandomSession() {
-	newSession := Session{
-		// Initialize your session fields as needed
-		// ID will be set by the database if using auto-increment
-		SessionName: "Random session",  // Set a default or generate a name
-		Messages:    []MessageToSend{}, // Assuming Messages is a slice of Message
-	}
 	// Insert the new session into the database
-	// Insert the new session into the database
-	messagesJSON, err := json.Marshal(newSession.Messages)
-	if err != nil {
-		// TODO: better error handling
-		log.Println("error", err)
-		panic(err)
-	}
-	m.sessionService.InsertNewSession(newSession.SessionName, messagesJSON)
+	m.sessionService.InsertNewSession("Test", []MessageToSend{})
 }
