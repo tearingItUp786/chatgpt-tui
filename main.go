@@ -109,7 +109,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case sessions.ProcessResult:
-		m.sessionModel, cmd = m.sessionModel.Update(msg)
 		oldContent := m.sessionModel.GetMessagesAsString()
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
 		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
@@ -127,7 +126,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 
 		case tea.KeyTab:
-			m.updateFocusedSession()
+			m.focused = (m.focused + 1) % 4
+
+			m.sessionModel, _ = m.sessionModel.Update(other.MakeFocusMsg(m.focused == sessionsType))
+			m.settingsModel, _ = m.settingsModel.Update(other.MakeFocusMsg(m.focused == settingsType))
+
+			if m.focused == promptType {
+				m.promptInput.Focus()
+			} else {
+				m.promptInput.Blur()
+			}
 			return m, cmd
 
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -188,54 +196,46 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	var val string
-
-	settingsStuff := lipgloss.JoinVertical(
-		lipgloss.Left,
-		m.settingsModel.View(),
-		m.sessionModel.View(),
-	)
+	var windowViews string
 
 	borderColor := lipgloss.Color("#bbb")
 	if m.focused == chatMessagesType {
 		borderColor = lipgloss.Color("#d70073")
 	}
 
-	val = lipgloss.NewStyle().
+	chatMessagesView := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(borderColor).
+		Width(m.terminalWidth / 3 * 2).
+		// this is where we want to render all the messages
+		Render(
+			m.viewport.View(),
+		)
+
+	settingsAndSessionViews := lipgloss.JoinVertical(
+		lipgloss.Left,
+		m.settingsModel.View(),
+		m.sessionModel.View(),
+	)
+
+	windowViews = lipgloss.NewStyle().
 		Align(lipgloss.Right, lipgloss.Right).
 		Render(
 			lipgloss.JoinHorizontal(
 				lipgloss.Top,
-				lipgloss.NewStyle().
-					Border(lipgloss.NormalBorder()).
-					BorderForeground(borderColor).
-					Width(m.terminalWidth/3*2).
-					// this is where we want to render all the messages
-					Render(
-						m.viewport.View(),
-					),
-				settingsStuff,
+				chatMessagesView,
+				settingsAndSessionViews,
 			),
 		)
 
-	return lipgloss.NewStyle().Render(
-		val,
-		m.promptContainer.Render(
-			m.promptInput.View(),
-		),
+	promptView := m.promptContainer.Render(
+		m.promptInput.View(),
 	)
-}
 
-func (m *model) updateFocusedSession() {
-	m.focused = (m.focused + 1) % 4
-	m.sessionModel.IsFocused = m.focused == sessionsType
-	m.settingsModel.IsFocused = m.focused == settingsType
-
-	if m.focused == promptType {
-		m.promptInput.Focus()
-	} else {
-		m.promptInput.Blur()
-	}
+	return lipgloss.NewStyle().Render(
+		windowViews,
+		promptView,
+	)
 }
 
 func main() {

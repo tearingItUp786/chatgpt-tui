@@ -6,25 +6,27 @@ import (
 	"log"
 	"sort"
 
-	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/golang-tui/other"
 )
 
 type Model struct {
+	textInput     textinput.Model
+	list          list.Model
+	isFocused     bool
+	currentEditID int
+
 	CurrentSessionID     int
 	CurrentSessionName   string
 	terminalWidth        int
 	ArrayOfProcessResult []ProcessResult
 	ArrayOfMessages      []MessageToSend
 	CurrentAnswer        string
-	IsFocused            bool
 	sessionService       *SessionService
 	AllSessions          []Session
-	table                table.Model // table for sessions edit view
-	textInput            textinput.Model
-	isEdittingRow        bool
 }
 
 func New(db *sql.DB) Model {
@@ -39,7 +41,7 @@ func New(db *sql.DB) Model {
 type LoadDataFromDB struct {
 	session     Session
 	allSessions []Session
-	listTable   table.Model
+	listTable   list.Model
 }
 
 func (m Model) Init() tea.Cmd {
@@ -65,12 +67,14 @@ func (m Model) Init() tea.Cmd {
 		return LoadDataFromDB{
 			session:     session,
 			allSessions: allSessions,
-			listTable:   initEditListViewTable(allSessions),
+			listTable:   initEditListViewTable(allSessions, session.ID),
 		}
 	}
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+	log.Println("update", m.isFocused)
+
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 
@@ -80,10 +84,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.CurrentSessionName = msg.session.SessionName
 		m.ArrayOfMessages = msg.session.Messages
 		m.AllSessions = msg.allSessions
-		m.table = msg.listTable
-		m.isEdittingRow = false
+		m.list = msg.listTable
+		m.currentEditID = -1
 		return m, cmd
 
+	case other.FocusEvent:
+		m.isFocused = msg.IsFocused
+		m.currentEditID = -1
+		return m, nil
 	case ProcessResult:
 		// add the latest message to the array of messages
 		m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
@@ -130,30 +138,48 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		if m.isEdittingRow {
-			m.textInput, cmd = m.textInput.Update(msg)
-			if msg.String() == "enter" {
-				m.isEdittingRow = false
-				return m, cmd
-			}
-		} else {
-			// Check if the 'r' key was pressed
-			if msg.String() == "r" {
-				log.Println("The 'r' key was pressed!")
-				m.isEdittingRow = true
-				ti := textinput.New()
-				ti.Width = 0
-				m.textInput = ti
-				m.textInput.SetValue(m.table.SelectedRow()[1])
-				m.textInput.Focus()
-				m.textInput.CharLimit = 100
+		if m.isFocused {
+			if m.currentEditID != -1 {
+				m.textInput, cmd = m.textInput.Update(msg)
+				if msg.String() == "enter" {
+					if m.textInput.Value() != "" {
+						m.sessionService.UpdateSessionName(m.currentEditID, m.textInput.Value())
+						m.AllSessions, _ = m.sessionService.GetAllSessions()
+						items := []list.Item{}
+
+						for _, session := range m.AllSessions {
+							anItem := item{
+								id:   session.ID,
+								text: session.SessionName,
+							}
+							items = append(items, anItem)
+						}
+						m.list.SetItems(items)
+						m.currentEditID = -1
+					}
+				}
+			} else {
+				// Check if the 'r' key was pressed
+				if msg.String() == "r" {
+					log.Println("The 'r' key was pressed!")
+					ti := textinput.New()
+					ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
+					m.textInput = ti
+					i, ok := m.list.SelectedItem().(item)
+					if ok {
+						m.currentEditID = i.id
+						m.textInput.Placeholder = i.text
+					}
+					m.textInput.Focus()
+					m.textInput.CharLimit = 100
+				}
 			}
 		}
 
 	}
 
-	if m.IsFocused && !m.isEdittingRow {
-		m.table, cmd = m.table.Update(msg)
+	if m.isFocused && m.currentEditID == -1 {
+		m.list, cmd = m.list.Update(msg)
 	}
 	return m, cmd
 }
@@ -161,14 +187,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	listView := m.normaListView()
 
-	if m.IsFocused {
+	if m.isFocused {
 		listView = m.editListView()
 	}
 
 	editForm := ""
-	if m.isEdittingRow {
+	if m.currentEditID != -1 {
 		editForm = m.textInput.View()
 	}
+
 	return m.container().Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			listHeader("Sessions"),
@@ -194,7 +221,7 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
 	return newMessage
 }
 
-func renderUserMessage(msg string, width int) string {
+func RenderUserMessage(msg string, width int) string {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderLeft(true).
@@ -226,7 +253,7 @@ func (m Model) GetMessagesAsString() string {
 		messageToUse := message.Content
 
 		if message.Role == "user" {
-			messageToUse = renderUserMessage(messageToUse, m.terminalWidth/3*2)
+			messageToUse = RenderUserMessage(messageToUse, m.terminalWidth/3*2)
 		}
 
 		if message.Role == "assistant" {

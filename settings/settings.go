@@ -6,13 +6,14 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/golang-tui/other"
 )
 
 // var subtle = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
 
 type Model struct {
 	terminalWidth int
-	IsFocused     bool
+	isFocused     bool
 }
 
 func (m Model) Init() tea.Cmd {
@@ -33,7 +34,7 @@ func listItem(heading string, value string) string {
 
 func (m Model) View() string {
 	borderColor := lipgloss.Color("#bbb")
-	if m.IsFocused {
+	if m.isFocused {
 		borderColor = lipgloss.Color("#d70073")
 	}
 	list := lipgloss.NewStyle().
@@ -60,6 +61,9 @@ func (m Model) View() string {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case other.FocusEvent:
+		m.isFocused = msg.IsFocused
+		return m, nil
 	case tea.WindowSizeMsg:
 		log.Printf("width : %v", msg.Width)
 		m.terminalWidth = msg.Width
