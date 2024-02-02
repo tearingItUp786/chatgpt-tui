@@ -188,7 +188,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.promptInput.Width = msg.Width - 3
 		}
 
-		return m, cmd
 	}
 
 	m.promptInput, cmd = m.promptInput.Update(msg)

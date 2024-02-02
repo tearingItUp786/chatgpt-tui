@@ -31,37 +31,7 @@ SELECT id, messages, created_at, session_name FROM sessions ORDER BY created_at 
 	err := row.Scan(&session.ID, &messages, &session.CreatedAt, &session.SessionName)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// No session found, create a new one
-			newSession := Session{
-				// Initialize your session fields as needed
-				// ID will be set by the database if using auto-increment
-				SessionName: "New Session",     // Set a default or generate a name
-				Messages:    []MessageToSend{}, // Assuming Messages is a slice of Message
-			}
-			// Insert the new session into the database
-			// Insert the new session into the database
-			insertSQL := `INSERT INTO sessions (session_name, messages) VALUES (?, ?);`
-			messagesJSON, err := json.Marshal(newSession.Messages)
-			if err != nil {
-				return Session{}, err
-			}
-			result, err := ss.DB.Exec(
-				insertSQL,
-				newSession.SessionName,
-				messagesJSON,
-			)
-			if err != nil {
-				return Session{}, err
-			}
-			// Get the last inserted ID
-			lastInsertID, err := result.LastInsertId()
-			if err != nil {
-				return Session{}, err
-			}
-			// Set the ID of the new session
-			newSession.ID = int(lastInsertID)
-			// Return the new session
-			return newSession, nil
+			return ss.InsertNewSession("default", []MessageToSend{})
 		} else {
 			// An error occurred that isn't due to no rows being found
 			return Session{}, err
