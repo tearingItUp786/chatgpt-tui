@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tearingItUp786/golang-tui/other"
+	"github.com/tearingItUp786/golang-tui/util"
 )
 
 type Model struct {
@@ -98,7 +98,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.currentEditID = -1
 		return m, cmd
 
-	case other.FocusEvent:
+	case util.FocusEvent:
 		m.isFocused = msg.IsFocused
 		m.currentEditID = -1
 		return m, nil

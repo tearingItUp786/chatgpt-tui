@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tearingItUp786/golang-tui/other"
+	"github.com/tearingItUp786/golang-tui/util"
 )
 
 // var subtle = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
@@ -61,7 +61,7 @@ func (m Model) View() string {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case other.FocusEvent:
+	case util.FocusEvent:
 		m.isFocused = msg.IsFocused
 		return m, nil
 	case tea.WindowSizeMsg:

@@ -12,9 +12,9 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/muesli/reflow/wrap"
 	"github.com/tearingItUp786/golang-tui/migrations"
-	"github.com/tearingItUp786/golang-tui/other"
 	"github.com/tearingItUp786/golang-tui/sessions"
 	"github.com/tearingItUp786/golang-tui/settings"
+	"github.com/tearingItUp786/golang-tui/util"
 )
 
 // fake enum to keep tab of the currently focused pane
@@ -136,8 +136,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyTab:
 			m.focused = (m.focused + 1) % 4
 
-			m.sessionModel, _ = m.sessionModel.Update(other.MakeFocusMsg(m.focused == sessionsType))
-			m.settingsModel, _ = m.settingsModel.Update(other.MakeFocusMsg(m.focused == settingsType))
+			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == sessionsType))
+			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == settingsType))
 
 			if m.focused == promptType {
 				m.promptInput.Focus()
@@ -263,8 +263,8 @@ func main() {
 	defer f.Close()
 
 	// run migrations for our database
-	db := other.InitDb()
-	err = other.MigrateFS(db, migrations.FS, ".")
+	db := util.InitDb()
+	err = util.MigrateFS(db, migrations.FS, ".")
 	if err != nil {
 		panic(err)
 	}

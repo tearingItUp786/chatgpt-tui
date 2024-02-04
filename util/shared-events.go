@@ -1,4 +1,4 @@
-package other
+package util
 
 import tea "github.com/charmbracelet/bubbletea"
 
