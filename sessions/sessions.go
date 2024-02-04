@@ -85,10 +85,8 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
+	dKeyPressed := false
 	switch msg := msg.(type) {
-
-	case UpdateCurrentSession:
-		log.Println("yo UpdateCurrentSession", m.CurrentSessionID)
 
 	case LoadDataFromDB:
 		m.CurrentSessionID = msg.session.ID
@@ -118,62 +116,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	// TODO: clean this up and make it more neat
 	case tea.KeyMsg:
 		if m.isFocused {
+			dKeyPressed = msg.String() == "d"
 			if m.currentEditID != -1 {
-				m.textInput, cmd = m.textInput.Update(msg)
-
-				if msg.String() == "enter" {
-					if m.textInput.Value() != "" {
-						m.sessionService.UpdateSessionName(m.currentEditID, m.textInput.Value())
-						m.updateSessionList()
-						m.currentEditID = -1
-					}
-				}
+				cmd = m.handleCurrentEditID(msg)
+				cmds = append(cmds, cmd)
 			} else {
-				if msg.String() == "ctrl+n" {
-					m.sessionService.InsertNewSession("New Session", []MessageToSend{})
-					m.updateSessionList()
-				}
-
-				if msg.String() == "enter" {
-					i, ok := m.list.SelectedItem().(item)
-					if ok {
-						session, err := m.sessionService.GetSession(i.id)
-						if err != nil {
-							log.Println("error", err)
-							panic(err)
-						}
-
-						m.CurrentSessionID = session.ID
-						m.CurrentSessionName = session.SessionName
-						m.ArrayOfMessages = session.Messages
-						m.list.SetItems(ConstructListItems(m.AllSessions, m.CurrentSessionID))
-
-						log.Println("enter taran", session)
-
-						cmd = SendUpdateCurrentSessionMsg()
-						cmds = append(cmds, cmd)
-					}
-				}
-				// Check if the 'r' key was pressed
-				if msg.String() == "r" {
-					log.Println("The 'r' key was pressed!")
-					ti := textinput.New()
-					ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
-					m.textInput = ti
-					i, ok := m.list.SelectedItem().(item)
-					if ok {
-						m.currentEditID = i.id
-						m.textInput.Placeholder = "New Session Name"
-					}
-					m.textInput.Focus()
-					m.textInput.CharLimit = 100
-				}
+				cmd := m.handleCurrentNormalMode(msg)
+				cmds = append(cmds, cmd)
 			}
 		}
-
 	}
 
-	if m.isFocused && m.currentEditID == -1 {
+	if m.isFocused && m.currentEditID == -1 && !dKeyPressed {
 		m.list, cmd = m.list.Update(msg)
 		cmds = append(cmds, cmd)
 	}
@@ -200,22 +154,6 @@ func (m Model) View() string {
 			editForm,
 		),
 	)
-}
-
-// Converts the array of json messages into a single Message
-func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
-	newMessage := MessageToSend{Role: "assistant", Content: ""}
-	for _, aMessage := range arrayOfProcessResult {
-		if len(aMessage.Result.Choices) > 0 {
-			choice := aMessage.Result.Choices[0]
-			if choice.FinishReason == "stop" || aMessage.Final {
-				break
-			}
-
-			newMessage.Content += choice.Delta["content"].(string)
-		}
-	}
-	return newMessage
 }
 
 func RenderUserMessage(msg string, width int) string {
@@ -310,21 +248,85 @@ func (m *Model) handleMsgProcessing(msg ProcessResult) {
 	}
 }
 
+func (m *Model) handleCurrentEditID(msg tea.KeyMsg) tea.Cmd {
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+
+	if msg.String() == "enter" {
+		if m.textInput.Value() != "" {
+			m.sessionService.UpdateSessionName(m.currentEditID, m.textInput.Value())
+			m.updateSessionList()
+			m.currentEditID = -1
+		}
+	}
+	return cmd
+}
+
+func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
+	var cmd tea.Cmd
+
+	switch msg.String() {
+	case "ctrl+n":
+		m.sessionService.InsertNewSession("New Session", []MessageToSend{})
+		m.updateSessionList()
+
+	case "enter":
+		i, ok := m.list.SelectedItem().(item)
+		if ok {
+			session, err := m.sessionService.GetSession(i.id)
+			if err != nil {
+				log.Println("error", err)
+				panic(err)
+			}
+
+			m.CurrentSessionID = session.ID
+			m.CurrentSessionName = session.SessionName
+			m.ArrayOfMessages = session.Messages
+			m.list.SetItems(ConstructListItems(m.AllSessions, m.CurrentSessionID))
+
+			log.Println("enter taran", session)
+
+			cmd = SendUpdateCurrentSessionMsg()
+		}
+
+	case "r":
+		ti := textinput.New()
+		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
+		m.textInput = ti
+		i, ok := m.list.SelectedItem().(item)
+		if ok {
+			m.currentEditID = i.id
+			m.textInput.Placeholder = "New Session Name"
+		}
+		m.textInput.Focus()
+		m.textInput.CharLimit = 100
+
+	case "d":
+		i, ok := m.list.SelectedItem().(item)
+		if ok {
+			// delete this one if it's not the active one
+			if i.id != m.CurrentSessionID {
+				m.sessionService.DeleteSession(i.id)
+				m.updateSessionList()
+			}
+		}
+
+	}
+
+	return cmd
+}
+
 func (m *Model) updateSessionList() {
 	m.AllSessions, _ = m.sessionService.GetAllSessions()
 	items := []list.Item{}
 
 	for _, session := range m.AllSessions {
 		anItem := item{
-			id:   session.ID,
-			text: session.SessionName,
+			id:       session.ID,
+			text:     session.SessionName,
+			isActive: session.ID == m.CurrentSessionID,
 		}
 		items = append(items, anItem)
 	}
 	m.list.SetItems(items)
-}
-
-func (m Model) insertRandomSession() {
-	// Insert the new session into the database
-	m.sessionService.InsertNewSession("Test", []MessageToSend{})
 }

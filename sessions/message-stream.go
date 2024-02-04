@@ -154,6 +154,22 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 	}
 }
 
+// Converts the array of json messages into a single Message
+func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
+	newMessage := MessageToSend{Role: "assistant", Content: ""}
+	for _, aMessage := range arrayOfProcessResult {
+		if len(aMessage.Result.Choices) > 0 {
+			choice := aMessage.Result.Choices[0]
+			if choice.FinishReason == "stop" || aMessage.Final {
+				break
+			}
+
+			newMessage.Content += choice.Delta["content"].(string)
+		}
+	}
+	return newMessage
+}
+
 func processChunk(chunkData string, resultChan chan<- ProcessResult, id int) {
 	var chunk CompletionChunk
 	err := json.Unmarshal([]byte(chunkData), &chunk)

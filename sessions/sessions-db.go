@@ -161,3 +161,13 @@ func (ss *SessionService) InsertNewSession(name string, messages []MessageToSend
 	// Return the new session
 	return newSession, nil
 }
+
+func (ss *SessionService) DeleteSession(id int) {
+	_, err := ss.DB.Exec(`
+		DELETE FROM sessions
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		panic(err)
+	}
+}
