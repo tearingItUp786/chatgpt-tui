@@ -62,6 +62,7 @@ func (m Model) normaListView() string {
 	}
 
 	return lipgloss.NewStyle().
+		Height(m.terminalHeight - 18).
 		MaxHeight(m.terminalHeight - 18).
 		Render(strings.Join(sessionListItems, "\n"))
 }

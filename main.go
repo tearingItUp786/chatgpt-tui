@@ -60,6 +60,7 @@ func initialModal(db *sql.DB) model {
 		promptContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Bottom).
 			BorderStyle(lipgloss.NormalBorder()).
+			MaxHeight(4).
 			MarginTop(1),
 	}
 }
@@ -73,7 +74,6 @@ func waitForActivity(sub chan sessions.ProcessResult) tea.Cmd {
 }
 
 func (m model) Init() tea.Cmd {
-	log.Println("init main")
 	return tea.Batch(
 		m.promptInput.Cursor.BlinkCmd(),
 		waitForActivity(m.msgChan),

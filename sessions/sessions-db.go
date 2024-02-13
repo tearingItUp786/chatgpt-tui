@@ -26,7 +26,7 @@ func (ss *SessionService) GetLatestSession() (Session, error) {
 	var messages string
 	session := Session{}
 	row := ss.DB.QueryRow(`
-SELECT id, messages, created_at, session_name FROM sessions ORDER BY created_at DESC LIMIT 1;
+SELECT sessions_id, sessions_messages, sessions_created_at, sessions_session_name FROM sessions ORDER BY sessions_created_at DESC LIMIT 1;
     `)
 	err := row.Scan(&session.ID, &messages, &session.CreatedAt, &session.SessionName)
 	if err != nil {
@@ -49,7 +49,7 @@ SELECT id, messages, created_at, session_name FROM sessions ORDER BY created_at 
 func (ss *SessionService) GetSession(id int) (Session, error) {
 	var messages string
 	rows, err := ss.DB.Query(
-		`SELECT id, messages, created_at, session_name FROM sessions WHERE id=$1`,
+		`SELECT sessions_id, sessions_messages, sessions_created_at, sessions_session_name FROM sessions WHERE sessions_id=$1`,
 		id,
 	)
 	if err != nil {
@@ -83,7 +83,9 @@ func (ss *SessionService) GetSession(id int) (Session, error) {
 
 // get me all the sessions
 func (ss *SessionService) GetAllSessions() ([]Session, error) {
-	rows, err := ss.DB.Query(`SELECT id,  created_at, session_name FROM sessions ORDER BY id DESC`)
+	rows, err := ss.DB.Query(
+		`SELECT sessions_id,  sessions_created_at, sessions_session_name FROM sessions ORDER BY sessions_id DESC`,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -107,8 +109,8 @@ func (ss *SessionService) UpdateSessionMessages(id int, messages []MessageToSend
 
 	_, err = ss.DB.Exec(`
 			UPDATE sessions
-			SET messages  = $1
-			where id = $2
+			SET sessions_messages  = $1
+			where sessions_id = $2
 	`, jsonData, id)
 
 	if err != nil {
@@ -120,8 +122,8 @@ func (ss *SessionService) UpdateSessionMessages(id int, messages []MessageToSend
 func (ss *SessionService) UpdateSessionName(id int, name string) {
 	_, err := ss.DB.Exec(`
 			UPDATE sessions
-			SET session_name = $1
-			where id = $2
+			SET sessions_session_name = $1
+			where sessions_id= $2
 	`, name, id)
 	if err != nil {
 		// TODO: handle better
@@ -138,7 +140,7 @@ func (ss *SessionService) InsertNewSession(name string, messages []MessageToSend
 		Messages:    []MessageToSend{}, // Assuming Messages is a slice of Message
 	}
 
-	insertSQL := `INSERT INTO sessions (session_name, messages) VALUES (?, ?);`
+	insertSQL := `INSERT INTO sessions (sessions_session_name, sessions_messages) VALUES (?, ?);`
 	messagesJSON, err := json.Marshal(newSession.Messages)
 	if err != nil {
 		return Session{}, err
@@ -165,7 +167,7 @@ func (ss *SessionService) InsertNewSession(name string, messages []MessageToSend
 func (ss *SessionService) DeleteSession(id int) {
 	_, err := ss.DB.Exec(`
 		DELETE FROM sessions
-		WHERE id = $1
+		WHERE sessions_id = $1
 	`, id)
 	if err != nil {
 		panic(err)

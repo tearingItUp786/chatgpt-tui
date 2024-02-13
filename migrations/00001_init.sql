@@ -1,10 +1,10 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE sessions (
-  id INTEGER PRIMARY KEY,
-  messages JSON NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  session_name VARCHAR(255) NOT NULL
+  sessions_id INTEGER PRIMARY KEY,
+  sessions_messages JSON NOT NULL,
+  sessions_created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  sessions_session_name VARCHAR(255) NOT NULL
 );
 -- +goose StatementEnd
 

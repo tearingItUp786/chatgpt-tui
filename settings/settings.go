@@ -2,7 +2,6 @@ package settings
 
 import (
 	"fmt"
-	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -65,7 +64,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.isFocused = msg.IsFocused
 		return m, nil
 	case tea.WindowSizeMsg:
-		log.Printf("width : %v", msg.Width)
 		m.terminalWidth = msg.Width
 		return m, nil
 	}
