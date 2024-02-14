@@ -9,5 +9,5 @@ CREATE TABLE settings (
 
 -- +goose Down
 -- +goose StatementBegin
-SELECT 'down SQL query';
+DROP TABLE settings;
 -- +goose StatementEnd

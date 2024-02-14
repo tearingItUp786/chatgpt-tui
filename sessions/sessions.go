@@ -9,14 +9,17 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/golang-tui/user"
 	"github.com/tearingItUp786/golang-tui/util"
 )
 
 type Model struct {
-	textInput     textinput.Model
-	list          list.Model
-	isFocused     bool
-	currentEditID int
+	textInput      textinput.Model
+	list           list.Model
+	isFocused      bool
+	currentEditID  int
+	sessionService *SessionService
+	userService    *user.UserService
 
 	CurrentSessionID     int
 	CurrentSessionName   string
@@ -25,23 +28,25 @@ type Model struct {
 	ArrayOfProcessResult []ProcessResult
 	ArrayOfMessages      []MessageToSend
 	CurrentAnswer        string
-	sessionService       *SessionService
 	AllSessions          []Session
 }
 
 func New(db *sql.DB) Model {
 	ss := NewSessionService(db)
+	us := user.NewUserService(db)
 
 	return Model{
 		ArrayOfProcessResult: []ProcessResult{},
 		sessionService:       ss,
+		userService:          us,
 	}
 }
 
 type LoadDataFromDB struct {
-	session     Session
-	allSessions []Session
-	listTable   list.Model
+	session                Session
+	allSessions            []Session
+	listTable              list.Model
+	currentActiveSessionID int
 }
 
 type UpdateCurrentSession struct{}
@@ -55,19 +60,23 @@ func SendUpdateCurrentSessionMsg() tea.Cmd {
 func (m Model) Init() tea.Cmd {
 	// Need to load the latest session as the current session  (select recently created)
 	// OR we need to create a brand new session for the user with a random name (insert new and return)
-	session, _ := m.sessionService.GetLatestSession()
-	y := []Session{}
-	y = append(y, session)
-	m.list = initEditListViewTable(y, m.CurrentSessionID)
 	return func() tea.Msg {
-		session, err := m.sessionService.GetLatestSession()
+		mostRecentSession, err := m.sessionService.GetMostRecessionSessionOrCreateOne()
 		if err != nil {
 			// TODO: better error handling
-			log.Println("error", err)
 			panic(err)
 		}
 
-		// m.insertRandomSession()
+		user, err := m.userService.GetUser(1)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				user, err = m.userService.InsertNewUser(mostRecentSession.ID)
+			} else {
+				// TODO: better error handling
+				panic(err)
+			}
+		}
+
 		allSessions, err := m.sessionService.GetAllSessions()
 		if err != nil {
 			// TODO: better error handling
@@ -76,8 +85,9 @@ func (m Model) Init() tea.Cmd {
 		}
 
 		return LoadDataFromDB{
-			session:     session,
-			allSessions: allSessions,
+			session:                mostRecentSession,
+			allSessions:            allSessions,
+			currentActiveSessionID: user.CurrentActiveSessionID,
 		}
 	}
 }
@@ -89,7 +99,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case LoadDataFromDB:
-		m.CurrentSessionID = msg.session.ID
+		m.CurrentSessionID = msg.currentActiveSessionID
 		m.CurrentSessionName = msg.session.SessionName
 		m.ArrayOfMessages = msg.session.Messages
 		m.AllSessions = msg.allSessions
@@ -275,9 +285,11 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		if ok {
 			session, err := m.sessionService.GetSession(i.id)
 			if err != nil {
-				log.Println("error", err)
+				// TODO: better error
 				panic(err)
 			}
+
+			m.userService.UpdateUserCurrentActiveSession(1, session.ID)
 
 			m.CurrentSessionID = session.ID
 			m.CurrentSessionName = session.SessionName

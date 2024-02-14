@@ -22,13 +22,16 @@ func NewSessionService(db *sql.DB) *SessionService {
 	}
 }
 
-func (ss *SessionService) GetLatestSession() (Session, error) {
+func (ss *SessionService) GetMostRecessionSessionOrCreateOne() (Session, error) {
 	var messages string
 	session := Session{}
+
 	row := ss.DB.QueryRow(`
 SELECT sessions_id, sessions_messages, sessions_created_at, sessions_session_name FROM sessions ORDER BY sessions_created_at DESC LIMIT 1;
     `)
 	err := row.Scan(&session.ID, &messages, &session.CreatedAt, &session.SessionName)
+	// this is the case where we first boot up and we don't have any data at all
+	// so we create a latest sesion
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ss.InsertNewSession("default", []MessageToSend{})
