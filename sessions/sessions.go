@@ -21,6 +21,7 @@ type Model struct {
 	sessionService *SessionService
 	userService    *user.UserService
 
+	ModelToUse           string
 	CurrentSessionID     int
 	CurrentSessionName   string
 	terminalWidth        int
@@ -39,6 +40,7 @@ func New(db *sql.DB) Model {
 		ArrayOfProcessResult: []ProcessResult{},
 		sessionService:       ss,
 		userService:          us,
+		ModelToUse:           "gpt-3.5-turbo",
 	}
 }
 

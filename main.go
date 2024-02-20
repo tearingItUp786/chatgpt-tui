@@ -45,7 +45,7 @@ func initialModal(db *sql.DB) model {
 	ti.Placeholder = "Ask ChatGPT a question!"
 	ti.Focus()
 
-	si := settings.New()
+	si := settings.New(db)
 	sm := sessions.New(db)
 
 	msgChan := make(chan sessions.ProcessResult)
@@ -88,11 +88,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		enableUpdateOfViewport = true
 	)
 
-	// isSessionFocused := m.focused == sessionsType
-	// isSettingsFocused := m.focused == settingsType
 	isPromptFocused := m.focused == promptType
 	isChatMessagesFocused := m.focused == chatMessagesType
 
+	// the settings model is actually an input into the session model
 	m.sessionModel, cmd = m.sessionModel.Update(msg)
 	cmds = append(cmds, cmd)
 	m.settingsModel, cmd = m.settingsModel.Update(msg)

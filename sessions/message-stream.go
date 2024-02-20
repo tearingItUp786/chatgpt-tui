@@ -46,10 +46,6 @@ type MessageToSend struct {
 	Content string `json:"content"`
 }
 
-const (
-	model = "gpt-3.5-turbo"
-)
-
 func ConstructUserMessage(content string) MessageToSend {
 	return MessageToSend{
 		Role:    "user",
@@ -64,7 +60,7 @@ func (m Model) constructJsonBody() ([]byte, error) {
 	}
 	// log.Println("Messages: ", messages)
 	body, err := json.Marshal(map[string]interface{}{
-		"model":    model, // Use string literals for keys
+		"model":    m.ModelToUse, // Use string literals for keys
 		"stream":   true,
 		"messages": messages,
 	})
