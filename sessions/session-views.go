@@ -5,14 +5,15 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/golang-tui/util"
 )
 
 func (m *Model) settingsContainer() lipgloss.Style {
 	width := (m.terminalWidth / 3) - 5
-	borderColor := lipgloss.Color("#bbb")
+	borderColor := util.NormalTabBorderColor
 
 	if m.isFocused {
-		borderColor = lipgloss.Color("#d70073")
+		borderColor = util.ActiveTabBorderColor
 	}
 
 	container := lipgloss.NewStyle().

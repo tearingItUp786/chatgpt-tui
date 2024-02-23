@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/golang-tui/settings"
 	"github.com/tearingItUp786/golang-tui/user"
 	"github.com/tearingItUp786/golang-tui/util"
 )
@@ -21,7 +22,7 @@ type Model struct {
 	sessionService *SessionService
 	userService    *user.UserService
 
-	ModelToUse           string
+	Settings             settings.Settings
 	CurrentSessionID     int
 	CurrentSessionName   string
 	terminalWidth        int
@@ -36,11 +37,18 @@ func New(db *sql.DB) Model {
 	ss := NewSessionService(db)
 	us := user.NewUserService(db)
 
+	// default --> get some default settings
+	defaultSettings := settings.Settings{
+		Model:     "gpt-3.5-turbo",
+		MaxTokens: 300,
+		Frequency: 0,
+	}
+
 	return Model{
 		ArrayOfProcessResult: []ProcessResult{},
 		sessionService:       ss,
 		userService:          us,
-		ModelToUse:           "gpt-3.5-turbo",
+		Settings:             defaultSettings,
 	}
 }
 
@@ -79,6 +87,13 @@ func (m Model) Init() tea.Cmd {
 			}
 		}
 
+		mostRecentSession, err = m.sessionService.GetSession(user.CurrentActiveSessionID)
+		if err != nil {
+			// TODO: better error handling
+			log.Println("error", err)
+			panic(err)
+		}
+
 		allSessions, err := m.sessionService.GetAllSessions()
 		if err != nil {
 			// TODO: better error handling
@@ -109,6 +124,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.list = initEditListViewTable(m.AllSessions, m.CurrentSessionID)
 		m.currentEditID = -1
 		return m, cmd
+
+	case settings.UpdateSettingsEvent:
+		m.Settings = msg.Settings
 
 	case util.FocusEvent:
 		m.isFocused = msg.IsFocused

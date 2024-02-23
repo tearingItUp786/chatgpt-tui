@@ -96,7 +96,6 @@ func initEditListViewTable(sessions []Session, currentSessionId int) list.Model 
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.Styles.Title = titleStyle
-	log.Println(l)
 	return l
 }
 

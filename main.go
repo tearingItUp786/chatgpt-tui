@@ -202,9 +202,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var windowViews string
 
-	borderColor := lipgloss.Color("#bbb")
+	borderColor := util.NormalTabBorderColor
 	if m.focused == chatMessagesType {
-		borderColor = lipgloss.Color("#d70073")
+		borderColor = util.ActiveTabBorderColor
 	}
 
 	chatMessagesView := lipgloss.NewStyle().

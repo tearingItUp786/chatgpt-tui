@@ -60,9 +60,11 @@ func (m Model) constructJsonBody() ([]byte, error) {
 	}
 	// log.Println("Messages: ", messages)
 	body, err := json.Marshal(map[string]interface{}{
-		"model":    m.ModelToUse, // Use string literals for keys
-		"stream":   true,
-		"messages": messages,
+		"model":             m.Settings.Model, // Use string literals for keys
+		"frequency_penalty": m.Settings.Frequency,
+		"max_tokens":        m.Settings.MaxTokens,
+		"stream":            true,
+		"messages":          messages,
 	})
 	if err != nil {
 		log.Fatalf("Error marshaling JSON: %v", err)

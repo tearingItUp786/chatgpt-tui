@@ -50,9 +50,9 @@ func listItem(heading string, value string) string {
 }
 
 func (m Model) View() string {
-	borderColor := lipgloss.Color("#bbb")
+	borderColor := util.NormalTabBorderColor
 	if m.isFocused {
-		borderColor = lipgloss.Color("#d70073")
+		borderColor = util.ActiveTabBorderColor
 	}
 	list := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), true).
@@ -168,6 +168,7 @@ func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 				m.settings.MaxTokens = 3
 			}
 			settingsService.UpdateSettings(m.settings)
+			cmd = MakeSettingsUpdateMsg(m.settings)
 			m.mode = viewMode
 		}
 	}
