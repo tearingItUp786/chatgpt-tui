@@ -34,10 +34,10 @@ func listHeader(str ...string) string {
 }
 
 func listItem(heading string, value string, isActive bool) string {
-	headingColor := "#FFC0CB"
+	headingColor := util.Pink100
 	color := "#bbb"
 	if isActive {
-		const colorValue = "#E591A6"
+		colorValue := util.Pink200
 		color = colorValue
 		headingColor = colorValue
 	}

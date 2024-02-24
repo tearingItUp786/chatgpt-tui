@@ -35,6 +35,7 @@ type model struct {
 	sessionModel    sessions.Model
 	msgChan         chan sessions.ProcessResult
 
+	error            util.ErrorEvent
 	currentSessionID string
 	terminalWidth    int
 	terminalHeight   int
@@ -60,6 +61,7 @@ func initialModal(db *sql.DB) model {
 		promptContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Bottom).
 			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(util.ActiveTabBorderColor).
 			MaxHeight(4).
 			MarginTop(1),
 	}
@@ -124,6 +126,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, waitForActivity(m.msgChan)
 
+	case util.ErrorEvent:
+		m.error = msg
+
 	case tea.KeyMsg:
 
 		if !isChatMessagesFocused {
@@ -139,8 +144,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == settingsType))
 
 			if m.focused == promptType {
+				borderColor := util.ActiveTabBorderColor
+				m.promptContainer = m.promptContainer.Copy().BorderForeground(borderColor)
 				m.promptInput.Focus()
 			} else {
+				borderColor := util.NormalTabBorderColor
+				m.promptContainer = m.promptContainer.Copy().BorderForeground(borderColor)
 				m.promptInput.Blur()
 			}
 			return m, cmd
@@ -151,6 +160,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if isPromptFocused {
 				// Start CallChatGpt on Enter key
+				m.error = util.ErrorEvent{}
 				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
 				content := m.sessionModel.GetMessagesAsString()
 				m.promptInput.SetValue("")
@@ -207,14 +217,13 @@ func (m model) View() string {
 		borderColor = util.ActiveTabBorderColor
 	}
 
-	chatMessagesView := lipgloss.NewStyle().
+	chatMessagesViewRender := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(m.terminalWidth / 3 * 2).
+		MarginRight(1).
 		// this is where we want to render all the messages
-		Render(
-			m.viewport.View(),
-		)
+		Render
 
 	settingsAndSessionViews := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -222,12 +231,20 @@ func (m model) View() string {
 		m.sessionModel.View(),
 	)
 
+	strToRender := m.viewport.View()
+	if m.error.Message != "" {
+		log.Println("error", m.error.Message)
+		strToRender = m.error.Message
+	}
+
+	mainView := chatMessagesViewRender(strToRender)
+
 	windowViews = lipgloss.NewStyle().
 		Align(lipgloss.Right, lipgloss.Right).
 		Render(
 			lipgloss.JoinHorizontal(
 				lipgloss.Top,
-				chatMessagesView,
+				mainView,
 				settingsAndSessionViews,
 			),
 		)

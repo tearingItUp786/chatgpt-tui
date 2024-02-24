@@ -2,8 +2,10 @@ package sessions
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"sort"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -73,8 +75,7 @@ func (m Model) Init() tea.Cmd {
 	return func() tea.Msg {
 		mostRecentSession, err := m.sessionService.GetMostRecessionSessionOrCreateOne()
 		if err != nil {
-			// TODO: better error handling
-			panic(err)
+			return util.MakeErrorMsg(err.Error())
 		}
 
 		user, err := m.userService.GetUser(1)
@@ -82,23 +83,18 @@ func (m Model) Init() tea.Cmd {
 			if err == sql.ErrNoRows {
 				user, err = m.userService.InsertNewUser(mostRecentSession.ID)
 			} else {
-				// TODO: better error handling
-				panic(err)
+				return util.MakeErrorMsg(err.Error())
 			}
 		}
 
 		mostRecentSession, err = m.sessionService.GetSession(user.CurrentActiveSessionID)
 		if err != nil {
-			// TODO: better error handling
-			log.Println("error", err)
-			panic(err)
+			return util.MakeErrorMsg(err.Error())
 		}
 
 		allSessions, err := m.sessionService.GetAllSessions()
 		if err != nil {
-			// TODO: better error handling
-			log.Println("error", err)
-			panic(err)
+			return util.MakeErrorMsg(err.Error())
 		}
 
 		return LoadDataFromDB{
@@ -190,7 +186,7 @@ func RenderUserMessage(msg string, width int) string {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderLeft(true).
-		Foreground(lipgloss.Color("12")).
+		Foreground(lipgloss.Color(util.Pink100)).
 		Width(width - 2).
 		Render("💁 " + msg)
 }
@@ -205,7 +201,7 @@ func RenderBotMessage(msg string, width int) string {
 		BorderStyle(lipgloss.RoundedBorder()).
 		Foreground(lipgloss.Color("#FAFAFA")).
 		BorderLeft(true).
-		BorderLeftForeground(lipgloss.Color("214")).
+		BorderLeftForeground(lipgloss.Color(util.Indigo)).
 		Width(width - 5).
 		Render(
 			"🤖 " + msg,
@@ -217,18 +213,19 @@ func (m Model) GetMessagesAsString() string {
 	for _, message := range m.ArrayOfMessages {
 		messageToUse := message.Content
 
-		if message.Role == "user" {
+		switch {
+		case message.Role == "user":
 			messageToUse = RenderUserMessage(messageToUse, m.terminalWidth/3*2)
-		}
-
-		if message.Role == "assistant" {
+		case message.Role == "assistant":
 			messageToUse = RenderBotMessage(messageToUse, m.terminalWidth/3*2)
+
 		}
 
 		if messages == "" {
 			messages = messageToUse
 			continue
 		}
+
 		messages = messages + "\n" + messageToUse
 	}
 
@@ -297,7 +294,11 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 
 	switch msg.String() {
 	case "ctrl+n":
-		m.sessionService.InsertNewSession("New Session", []MessageToSend{})
+
+		currentTime := time.Now()
+		formattedTime := currentTime.Format(time.ANSIC)
+		defaultSessionName := fmt.Sprintf("%s", formattedTime)
+		m.sessionService.InsertNewSession(defaultSessionName, []MessageToSend{})
 		m.updateSessionList()
 
 	case "enter":
@@ -305,8 +306,7 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		if ok {
 			session, err := m.sessionService.GetSession(i.id)
 			if err != nil {
-				// TODO: better error
-				panic(err)
+				util.MakeErrorMsg(err.Error())
 			}
 
 			m.userService.UpdateUserCurrentActiveSession(1, session.ID)

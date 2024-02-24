@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/tearingItUp786/golang-tui/util"
 )
 
 type Choice struct {
@@ -112,9 +113,15 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 			bodyBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				log.Printf("Error reading response body: %v\n", err)
+				return util.ErrorEvent{
+					Message: err.Error(),
+				}
 			}
 			bodyString := string(bodyBytes)
 			log.Printf("Error response (status code %d): %s\n", resp.StatusCode, bodyString)
+			return util.ErrorEvent{
+				Message: bodyString,
+			}
 		}
 
 		scanner := bufio.NewReader(resp.Body)

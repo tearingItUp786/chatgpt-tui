@@ -90,7 +90,7 @@ func (ss *SessionService) GetAllSessions() ([]Session, error) {
 		`SELECT sessions_id,  sessions_created_at, sessions_session_name FROM sessions ORDER BY sessions_id DESC`,
 	)
 	if err != nil {
-		panic(err)
+		return []Session{}, err
 	}
 	sessions := []Session{}
 	for rows.Next() {
@@ -103,11 +103,10 @@ func (ss *SessionService) GetAllSessions() ([]Session, error) {
 	return sessions, nil
 }
 
-func (ss *SessionService) UpdateSessionMessages(id int, messages []MessageToSend) {
+func (ss *SessionService) UpdateSessionMessages(id int, messages []MessageToSend) error {
 	jsonData, err := json.Marshal(messages)
 	if err != nil {
-		// TODO: better error handling
-		panic(err)
+		return err
 	}
 
 	_, err = ss.DB.Exec(`
@@ -120,18 +119,20 @@ func (ss *SessionService) UpdateSessionMessages(id int, messages []MessageToSend
 		// TODO: handle better
 		panic(err)
 	}
+	return nil
 }
 
-func (ss *SessionService) UpdateSessionName(id int, name string) {
+func (ss *SessionService) UpdateSessionName(id int, name string) error {
 	_, err := ss.DB.Exec(`
 			UPDATE sessions
 			SET sessions_session_name = $1
 			where sessions_id= $2
 	`, name, id)
 	if err != nil {
-		// TODO: handle better
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
 func (ss *SessionService) InsertNewSession(name string, messages []MessageToSend) (Session, error) {
@@ -167,12 +168,14 @@ func (ss *SessionService) InsertNewSession(name string, messages []MessageToSend
 	return newSession, nil
 }
 
-func (ss *SessionService) DeleteSession(id int) {
+func (ss *SessionService) DeleteSession(id int) error {
 	_, err := ss.DB.Exec(`
 		DELETE FROM sessions
 		WHERE sessions_id = $1
 	`, id)
 	if err != nil {
-		panic(err)
+		return (err)
 	}
+
+	return nil
 }

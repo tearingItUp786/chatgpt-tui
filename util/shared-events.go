@@ -17,3 +17,13 @@ type FocusEvent struct {
 func MakeFocusMsg(v bool) tea.Msg {
 	return FocusEvent{IsFocused: v}
 }
+
+type ErrorEvent struct {
+	Message string
+}
+
+func MakeErrorMsg(v string) tea.Cmd {
+	return func() tea.Msg {
+		return ErrorEvent{Message: v}
+	}
+}

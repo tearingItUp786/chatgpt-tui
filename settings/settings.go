@@ -40,7 +40,7 @@ func (m Model) Init() tea.Cmd {
 func listItem(heading string, value string) string {
 	headingEl := lipgloss.NewStyle().
 		PaddingLeft(2).
-		Foreground(lipgloss.Color("#FFC0CB")).
+		Foreground(lipgloss.Color(util.Pink100)).
 		Render
 	spanEl := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#fff")).
@@ -88,6 +88,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case util.FocusEvent:
 		m.isFocused = msg.IsFocused
+		m.mode = viewMode
+
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
@@ -167,8 +169,12 @@ func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 			case maxTokensMode:
 				m.settings.MaxTokens = 3
 			}
-			settingsService.UpdateSettings(m.settings)
+			_, err := settingsService.UpdateSettings(m.settings)
 			cmd = MakeSettingsUpdateMsg(m.settings)
+			if err != nil {
+				cmd = util.MakeErrorMsg(err.Error())
+			}
+
 			m.mode = viewMode
 		}
 	}
@@ -180,7 +186,6 @@ func New(db *sql.DB) Model {
 	settingsService = NewSettingsService(db)
 	settings, err := settingsService.GetSettings()
 	if err != nil {
-		// TODO: better error handling
 		panic(err)
 	}
 	return Model{
