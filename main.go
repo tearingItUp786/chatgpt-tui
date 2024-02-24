@@ -62,6 +62,7 @@ func initialModal(db *sql.DB) model {
 			AlignVertical(lipgloss.Bottom).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(util.ActiveTabBorderColor).
+			Foreground(lipgloss.Color(util.ActiveTabBorderColor)).
 			MaxHeight(4).
 			MarginTop(1),
 	}
@@ -104,7 +105,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sessions.LoadDataFromDB:
 		oldContent := m.sessionModel.GetMessagesAsString()
 		if oldContent == "" {
-			oldContent = "Everyone starts somewhere. You can do it!"
+			oldContent = util.MotivationalMessage
 		}
 		m.viewport.SetContent(wrap.String(oldContent, m.terminalWidth/3*2))
 		return m, cmd
@@ -112,7 +113,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sessions.UpdateCurrentSession:
 		oldContent := m.sessionModel.GetMessagesAsString()
 		if oldContent == "" {
-			oldContent = "Everyone starts somewhere. You can do it!"
+			oldContent = util.MotivationalMessage
 		}
 		m.viewport.SetContent(wrap.String(oldContent, m.terminalWidth/3*2))
 		return m, cmd
@@ -146,10 +147,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.focused == promptType {
 				borderColor := util.ActiveTabBorderColor
 				m.promptContainer = m.promptContainer.Copy().BorderForeground(borderColor)
+				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
 				m.promptInput.Focus()
 			} else {
 				borderColor := util.NormalTabBorderColor
 				m.promptContainer = m.promptContainer.Copy().BorderForeground(borderColor)
+				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.NormalTabBorderColor))
 				m.promptInput.Blur()
 			}
 			return m, cmd
@@ -176,7 +179,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalHeight = msg.Height
 
 		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
-			Width(m.terminalWidth - 3)
+			Width(m.terminalWidth - 2)
 
 		// TODO: get rid of this magic number
 		prompContinerHeight := m.promptContainer.GetHeight() + 5

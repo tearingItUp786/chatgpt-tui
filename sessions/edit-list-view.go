@@ -9,13 +9,14 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/golang-tui/util"
 )
 
 var (
 	titleStyle        = lipgloss.NewStyle().MarginLeft(-2)
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(2)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(-2).Foreground(lipgloss.Color("170"))
-	activeItemStyle   = itemStyle.Copy().Foreground(lipgloss.Color("200"))
+	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(-2).Foreground(lipgloss.Color(util.Pink200))
+	activeItemStyle   = itemStyle.Copy().Foreground(lipgloss.Color(util.Pink300))
 )
 
 type item struct {
@@ -32,14 +33,6 @@ func (d itemDelegate) Height() int  { return 1 }
 func (d itemDelegate) Spacing() int { return 0 }
 func (d itemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 	var cmds []tea.Cmd
-	// var cmd tea.Cmd
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEnter:
-			log.Println("fuck")
-		}
-	}
 
 	return tea.Batch(cmds...)
 }

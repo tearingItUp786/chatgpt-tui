@@ -1,14 +1,21 @@
 package util
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
 
 // fake enum to keep tab of the currently focused pane
 const (
-	settingsType = iota
-	sessionsType
-	promptType
-	chatMessagesType
+	SettingsType = iota
+	SessionsType
+	PromptType
+	ChatMessagesType
 )
+
+var MotivationalMessage = lipgloss.NewStyle().
+	PaddingLeft(1).
+	Render("There's something scary about a blank canvas...that's why I'm here 😼!")
 
 type FocusEvent struct {
 	IsFocused bool
