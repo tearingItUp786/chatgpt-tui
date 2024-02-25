@@ -17,33 +17,27 @@ import (
 	"github.com/tearingItUp786/golang-tui/util"
 )
 
-// fake enum to keep tab of the currently focused pane
-const (
-	settingsType = iota
-	sessionsType
-	promptType
-	chatMessagesType
-)
-
 type model struct {
-	ready           bool
-	focused         int
+	ready            bool
+	focused          util.FocusPane
+	viewMode         util.ViewMode
+	msgChan          chan sessions.ProcessResult
+	error            util.ErrorEvent
+	currentSessionID string
+
 	promptContainer lipgloss.Style
 	viewport        viewport.Model
 	promptInput     textinput.Model
 	settingsModel   settings.Model
 	sessionModel    sessions.Model
-	msgChan         chan sessions.ProcessResult
-
-	error            util.ErrorEvent
-	currentSessionID string
-	terminalWidth    int
-	terminalHeight   int
+	terminalWidth   int
+	terminalHeight  int
 }
 
 func initialModal(db *sql.DB) model {
 	ti := textinput.New()
 	ti.Placeholder = "Ask ChatGPT a question!"
+	ti.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
 	ti.Focus()
 
 	si := settings.New(db)
@@ -52,7 +46,8 @@ func initialModal(db *sql.DB) model {
 	msgChan := make(chan sessions.ProcessResult)
 
 	return model{
-		focused:          promptType,
+		viewMode:         util.NormalMode,
+		focused:          util.PromptType,
 		promptInput:      ti,
 		settingsModel:    si,
 		currentSessionID: "",
@@ -62,7 +57,6 @@ func initialModal(db *sql.DB) model {
 			AlignVertical(lipgloss.Bottom).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(util.ActiveTabBorderColor).
-			Foreground(lipgloss.Color(util.ActiveTabBorderColor)).
 			MaxHeight(4).
 			MarginTop(1),
 	}
@@ -91,14 +85,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		enableUpdateOfViewport = true
 	)
 
-	isPromptFocused := m.focused == promptType
-	isChatMessagesFocused := m.focused == chatMessagesType
+	isPromptFocused := m.focused == util.PromptType
+	isChatMessagesFocused := m.focused == util.ChatMessagesType
 
 	// the settings model is actually an input into the session model
-	m.sessionModel, cmd = m.sessionModel.Update(msg)
-	cmds = append(cmds, cmd)
-	m.settingsModel, cmd = m.settingsModel.Update(msg)
-	cmds = append(cmds, cmd)
+	if m.viewMode == util.NormalMode {
+		m.sessionModel, cmd = m.sessionModel.Update(msg)
+		cmds = append(cmds, cmd)
+		m.settingsModel, cmd = m.settingsModel.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	switch msg := msg.(type) { // each time we get a new message coming in from the model
 	// lets handle it and pass it to the lower model
@@ -136,15 +132,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			enableUpdateOfViewport = false
 		}
 
+		switch keypress := msg.String(); keypress {
+		case "ctrl+o":
+			switch m.viewMode {
+			case util.NormalMode:
+				m.viewMode = util.ZenMode
+			case util.ZenMode:
+				m.viewMode = util.NormalMode
+			}
+		}
+
 		switch msg.Type {
 
 		case tea.KeyTab:
-			m.focused = (m.focused + 1) % 4
+			m.focused = util.GetNewFocusMode(m.viewMode, m.focused)
+			if m.viewMode == util.NormalMode {
+				m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
+				m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
+			}
 
-			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == sessionsType))
-			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == settingsType))
-
-			if m.focused == promptType {
+			if m.focused == util.PromptType {
 				borderColor := util.ActiveTabBorderColor
 				m.promptContainer = m.promptContainer.Copy().BorderForeground(borderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
@@ -216,17 +223,15 @@ func (m model) View() string {
 	var windowViews string
 
 	borderColor := util.NormalTabBorderColor
-	if m.focused == chatMessagesType {
+	if m.focused == util.ChatMessagesType {
 		borderColor = util.ActiveTabBorderColor
 	}
 
 	chatMessagesViewRender := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
-		Width(m.terminalWidth / 3 * 2).
-		MarginRight(1).
-		// this is where we want to render all the messages
-		Render
+		Width(m.terminalWidth - 2).
+		MarginRight(1)
 
 	settingsAndSessionViews := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -240,7 +245,13 @@ func (m model) View() string {
 		strToRender = m.error.Message
 	}
 
-	mainView := chatMessagesViewRender(strToRender)
+	secondaryScreen := ""
+	if m.viewMode == util.NormalMode {
+		secondaryScreen = settingsAndSessionViews
+		chatMessagesViewRender.Width(m.terminalWidth / 3 * 2)
+	}
+
+	mainView := chatMessagesViewRender.Render(strToRender)
 
 	windowViews = lipgloss.NewStyle().
 		Align(lipgloss.Right, lipgloss.Right).
@@ -248,7 +259,7 @@ func (m model) View() string {
 			lipgloss.JoinHorizontal(
 				lipgloss.Top,
 				mainView,
-				settingsAndSessionViews,
+				secondaryScreen,
 			),
 		)
 
