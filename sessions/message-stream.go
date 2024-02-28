@@ -160,7 +160,7 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 }
 
 // Converts the array of json messages into a single Message
-func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
+func constructJsonMessage(arrayOfProcessResult []ProcessResult) (MessageToSend, error) {
 	newMessage := MessageToSend{Role: "assistant", Content: ""}
 	for _, aMessage := range arrayOfProcessResult {
 		if len(aMessage.Result.Choices) > 0 {
@@ -169,10 +169,17 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) MessageToSend {
 				break
 			}
 
-			newMessage.Content += choice.Delta["content"].(string)
+			if content, ok := choice.Delta["content"].(string); ok {
+				newMessage.Content += content
+			} else {
+				// Handle the case where the type assertion fails, e.g., log an error or return
+				formattedError := fmt.Errorf("type assertion to string failed for choice.Delta[\"content\"]")
+				return MessageToSend{}, formattedError
+			}
+
 		}
 	}
-	return newMessage
+	return newMessage, nil
 }
 
 func processChunk(chunkData string, resultChan chan<- ProcessResult, id int) {

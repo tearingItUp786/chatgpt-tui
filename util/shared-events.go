@@ -50,7 +50,7 @@ func GetNewFocusMode(mode ViewMode, currentFocus FocusPane) FocusPane {
 		}
 	}
 
-	log.Println("Current focus not found in mode")
+	log.Println("Current focus not found in mode", currentFocus)
 	return currentFocus
 }
 

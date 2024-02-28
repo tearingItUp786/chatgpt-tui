@@ -159,24 +159,38 @@ func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
 	m.textInput, cmd = m.textInput.Update(msg)
 	if msg.String() == "enter" {
-		if m.textInput.Value() != "" {
-			inputValue := m.textInput.Value()
-			switch m.mode {
-			case modelMode:
-				m.settings.Model = inputValue
-			case frequencyMode:
-				m.settings.Frequency = 2
-			case maxTokensMode:
-				m.settings.MaxTokens = 3
-			}
-			_, err := settingsService.UpdateSettings(m.settings)
-			cmd = MakeSettingsUpdateMsg(m.settings)
-			if err != nil {
-				cmd = util.MakeErrorMsg(err.Error())
-			}
-
-			m.mode = viewMode
+		inputValue := m.textInput.Value()
+		if inputValue == "" {
+			return cmd
 		}
+
+		switch m.mode {
+		case modelMode:
+			m.settings.Model = inputValue
+
+		case frequencyMode:
+			newFreq, err := strconv.Atoi(inputValue)
+			if err != nil {
+				cmd = util.MakeErrorMsg("Invalid frequency")
+			}
+			m.settings.Frequency = newFreq
+
+		case maxTokensMode:
+			newTokens, err := strconv.Atoi(inputValue)
+			if err != nil {
+				cmd = util.MakeErrorMsg("Invalid Tokens")
+			}
+			m.settings.MaxTokens = newTokens
+		}
+
+		newSettings, err := settingsService.UpdateSettings(m.settings)
+		if err != nil {
+			return util.MakeErrorMsg(err.Error())
+		}
+
+		m.settings = newSettings
+		m.mode = viewMode
+		cmd = MakeSettingsUpdateMsg(m.settings)
 	}
 
 	return cmd

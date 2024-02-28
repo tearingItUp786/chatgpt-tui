@@ -89,12 +89,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	isChatMessagesFocused := m.focused == util.ChatMessagesType
 
 	// the settings model is actually an input into the session model
-	if m.viewMode == util.NormalMode {
-		m.sessionModel, cmd = m.sessionModel.Update(msg)
-		cmds = append(cmds, cmd)
-		m.settingsModel, cmd = m.settingsModel.Update(msg)
-		cmds = append(cmds, cmd)
-	}
+	m.sessionModel, cmd = m.sessionModel.Update(msg)
+	cmds = append(cmds, cmd)
+	m.settingsModel, cmd = m.settingsModel.Update(msg)
+	cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) { // each time we get a new message coming in from the model
 	// lets handle it and pass it to the lower model
@@ -114,16 +112,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(wrap.String(oldContent, m.terminalWidth/3*2))
 		return m, cmd
 
+	// these are the messages that come in as a stream from the chat gpt api
+	// we append the content to the viewport and scroll
 	case sessions.ProcessResult:
 		oldContent := m.sessionModel.GetMessagesAsString()
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
 		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
+		m.viewport.GotoBottom()
 
+		return m, waitForActivity(m.msgChan)
+
+	// we need to handle the final message from the chat gpt stream
+	// currentAnswer gets reset at this point so we use the final message
+	case sessions.FinalProcessMessage:
+		oldContent := m.sessionModel.GetMessagesAsString()
+		styledBufferMessage := sessions.RenderBotMessage(msg.FinalMessage, m.terminalWidth/3*2)
+		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
 		m.viewport.GotoBottom()
 
 		return m, waitForActivity(m.msgChan)
 
 	case util.ErrorEvent:
+		log.Println("Error: ", msg.Message)
 		m.error = msg
 
 	case tea.KeyMsg:
@@ -134,22 +144,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch keypress := msg.String(); keypress {
 		case "ctrl+o":
+			m.focused = util.PromptType
+			m.promptContainer = m.promptContainer.Copy().BorderForeground(util.ActiveTabBorderColor)
+			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
+			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
+
+			cmd = m.promptInput.Focus()
+			cmds = append(cmds, cmd)
+
 			switch m.viewMode {
 			case util.NormalMode:
 				m.viewMode = util.ZenMode
 			case util.ZenMode:
 				m.viewMode = util.NormalMode
 			}
-		}
 
-		switch msg.Type {
-
-		case tea.KeyTab:
+		// we used to use tea.KeyTab but for some reason cmd + v also did the same thing...
+		case "tab":
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused)
-			if m.viewMode == util.NormalMode {
-				m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
-				m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
-			}
+			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
+			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 
 			if m.focused == util.PromptType {
 				borderColor := util.ActiveTabBorderColor
@@ -163,6 +177,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.promptInput.Blur()
 			}
 			return m, cmd
+		}
+
+		switch msg.Type {
 
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
@@ -172,6 +189,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Start CallChatGpt on Enter key
 				m.error = util.ErrorEvent{}
 				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
+				log.Println("key enter")
 				content := m.sessionModel.GetMessagesAsString()
 				m.promptInput.SetValue("")
 				// TODO: add a loading indicator / icon when we are waiting for chat gpt to return with a response.
@@ -241,7 +259,6 @@ func (m model) View() string {
 
 	strToRender := m.viewport.View()
 	if m.error.Message != "" {
-		log.Println("error", m.error.Message)
 		strToRender = m.error.Message
 	}
 

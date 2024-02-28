@@ -33,5 +33,15 @@ func (ss *SettingsService) GetSettings() (Settings, error) {
 }
 
 func (ss *SettingsService) UpdateSettings(newSettings Settings) (Settings, error) {
-	return Settings{}, nil
+	_, err := ss.DB.Exec(
+		`UPDATE settings SET settings_model=$1, settings_max_tokens=$2, settings_frequency=$3 WHERE settings_id=$4`,
+		newSettings.Model,
+		newSettings.MaxTokens,
+		newSettings.Frequency,
+		newSettings.ID,
+	)
+	if err != nil {
+		return newSettings, err
+	}
+	return newSettings, nil
 }

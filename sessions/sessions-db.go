@@ -3,6 +3,7 @@ package sessions
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 )
 
 type Session struct {
@@ -117,6 +118,7 @@ func (ss *SessionService) UpdateSessionMessages(id int, messages []MessageToSend
 
 	if err != nil {
 		// TODO: handle better
+		log.Println("I panic here")
 		panic(err)
 	}
 	return nil

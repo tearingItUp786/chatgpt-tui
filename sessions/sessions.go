@@ -3,7 +3,6 @@ package sessions
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"sort"
 	"time"
 
@@ -59,6 +58,19 @@ type LoadDataFromDB struct {
 	allSessions            []Session
 	listTable              list.Model
 	currentActiveSessionID int
+}
+
+// Final Message is the concatenated string from the chat gpt stream
+type FinalProcessMessage struct {
+	FinalMessage string
+}
+
+func SendFinalProcessMessage(msg string) tea.Cmd {
+	return func() tea.Msg {
+		return FinalProcessMessage{
+			FinalMessage: msg,
+		}
+	}
 }
 
 type UpdateCurrentSession struct{}
@@ -123,6 +135,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case settings.UpdateSettingsEvent:
 		m.Settings = msg.Settings
+		return m, nil
 
 	case util.FocusEvent:
 		m.isFocused = msg.IsFocused
@@ -131,13 +144,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case ProcessResult:
 		// add the latest message to the array of messages
-		m.handleMsgProcessing(msg)
+		cmd = m.handleMsgProcessing(msg)
 		return m, cmd
 
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
-		// m.list.SetHeight(msg.Height - 18)
 
 	// TODO: clean this up and make it more neat
 	case tea.KeyMsg:
@@ -218,7 +230,6 @@ func (m Model) GetMessagesAsString() string {
 			messageToUse = RenderUserMessage(messageToUse, m.terminalWidth/3*2)
 		case message.Role == "assistant":
 			messageToUse = RenderBotMessage(messageToUse, m.terminalWidth/3*2)
-
 		}
 
 		if messages == "" {
@@ -232,8 +243,8 @@ func (m Model) GetMessagesAsString() string {
 	return messages
 }
 
-// updates the current view with the messages coming in
-func (m *Model) handleMsgProcessing(msg ProcessResult) {
+// MIGHT BE WORTH TO MOVE TO A SEP FILE
+func (m *Model) appendAndOrderProcessResults(msg ProcessResult) {
 	m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
 	m.CurrentAnswer = ""
 
@@ -243,36 +254,80 @@ func (m *Model) handleMsgProcessing(msg ProcessResult) {
 	sort.Slice(m.ArrayOfProcessResult, func(i, j int) bool {
 		return m.ArrayOfProcessResult[i].ID < m.ArrayOfProcessResult[j].ID
 	})
+}
+
+func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
+	choiceContent, ok := choice.Delta["content"]
+
+	if !ok {
+		return "", m.resetStateAndCreateError("choice content not found")
+	}
+	choiceString, ok := choiceContent.(string)
+
+	if !ok {
+		return "", m.resetStateAndCreateError("choice string no good")
+	}
+
+	return choiceString, nil
+}
+
+func (m *Model) handleFinalChoiceMessage(choice Choice) tea.Cmd {
+	// if the json for whatever reason is malformed, bail out
+	jsonMessages, err := constructJsonMessage(m.ArrayOfProcessResult)
+	if err != nil {
+		return m.resetStateAndCreateError(err.Error())
+	}
+
+	m.ArrayOfMessages = append(
+		m.ArrayOfMessages,
+		jsonMessages,
+	)
+
+	/*
+		Update the database session with the ArrayOfMessages
+		And then reset the model that we use for the view to the default state
+	*/
+	err = m.sessionService.UpdateSessionMessages(m.CurrentSessionID, m.ArrayOfMessages)
+	if err != nil {
+		return m.resetStateAndCreateError(err.Error())
+	}
+
+	oldMessage := m.CurrentAnswer
+	m.ArrayOfProcessResult = []ProcessResult{}
+	m.CurrentAnswer = ""
+	return SendFinalProcessMessage(oldMessage)
+}
+
+// updates the current view with the messages coming in
+func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
+	m.appendAndOrderProcessResults(msg)
 
 	for _, msg := range m.ArrayOfProcessResult {
 		if len(msg.Result.Choices) > 0 {
 			choice := msg.Result.Choices[0]
 			// Now you can safely use 'choice' since you've confirmed there's at least one element.
+			// this is when we're done with the stream
 			if choice.FinishReason == "stop" || msg.Final {
-				// empty out the array bro
-				m.ArrayOfMessages = append(
-					m.ArrayOfMessages,
-					constructJsonMessage(m.ArrayOfProcessResult),
-				)
+				return m.handleFinalChoiceMessage(choice)
+			}
 
-				m.sessionService.UpdateSessionMessages(m.CurrentSessionID, m.ArrayOfMessages)
-				m.ArrayOfProcessResult = []ProcessResult{}
-				break
+			// we need to keep appending content to our current answer in this case
+			choiceString, errCmd := m.assertChoiceContentString(choice)
+			if errCmd != nil {
+				return errCmd
 			}
-			choiceContent, ok := choice.Delta["content"]
 
-			if !ok {
-				// TODO: this should be an error
-				continue
-			}
-			choiceString, ok := choiceContent.(string)
-			if !ok {
-				// TODO: this should be an error
-				continue
-			}
 			m.CurrentAnswer = m.CurrentAnswer + choiceString
 		}
 	}
+
+	return nil
+}
+
+func (m *Model) resetStateAndCreateError(errMsg string) tea.Cmd {
+	m.ArrayOfProcessResult = []ProcessResult{}
+	m.CurrentAnswer = ""
+	return util.MakeErrorMsg(errMsg)
 }
 
 func (m *Model) handleCurrentEditID(msg tea.KeyMsg) tea.Cmd {
@@ -315,8 +370,6 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 			m.CurrentSessionName = session.SessionName
 			m.ArrayOfMessages = session.Messages
 			m.list.SetItems(ConstructListItems(m.AllSessions, m.CurrentSessionID))
-
-			log.Println("enter taran", session)
 
 			cmd = SendUpdateCurrentSessionMsg()
 		}
