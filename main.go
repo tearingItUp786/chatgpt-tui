@@ -55,7 +55,7 @@ func initialModal(db *sql.DB) model {
 		msgChan:          msgChan,
 		promptContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Bottom).
-			BorderStyle(lipgloss.NormalBorder()).
+			BorderStyle(lipgloss.ThickBorder()).
 			BorderForeground(util.ActiveTabBorderColor).
 			MaxHeight(4).
 			MarginTop(1),
@@ -246,7 +246,7 @@ func (m model) View() string {
 	}
 
 	chatMessagesViewRender := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.ThickBorder()).
 		BorderForeground(borderColor).
 		Width(m.terminalWidth - 2).
 		MarginRight(1)

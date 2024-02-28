@@ -18,7 +18,7 @@ func (m *Model) settingsContainer() lipgloss.Style {
 
 	container := lipgloss.NewStyle().
 		AlignVertical(lipgloss.Top).
-		Border(lipgloss.NormalBorder(), true).
+		Border(lipgloss.ThickBorder(), true).
 		BorderForeground(borderColor).
 		Width(width)
 

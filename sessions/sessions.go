@@ -196,10 +196,7 @@ func (m Model) View() string {
 
 func RenderUserMessage(msg string, width int) string {
 	return lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderLeft(true).
 		Foreground(lipgloss.Color(util.Pink100)).
-		Width(width - 2).
 		Render("💁 " + msg)
 }
 
@@ -213,11 +210,11 @@ func RenderBotMessage(msg string, width int) string {
 		BorderStyle(lipgloss.RoundedBorder()).
 		Foreground(lipgloss.Color("#FAFAFA")).
 		BorderLeft(true).
-		BorderLeftForeground(lipgloss.Color(util.Indigo)).
-		Width(width - 5).
+		BorderLeftForeground(lipgloss.Color(util.Pink300)).
+		Width(width-5).
 		Render(
-			"🤖 " + msg,
-		)
+			"🤖 "+msg,
+		) + "\n"
 }
 
 func (m Model) GetMessagesAsString() string {
@@ -344,6 +341,17 @@ func (m *Model) handleCurrentEditID(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
+func (m *Model) handleUpdateCurrentSession(session Session) tea.Cmd {
+	m.userService.UpdateUserCurrentActiveSession(1, session.ID)
+
+	m.CurrentSessionID = session.ID
+	m.CurrentSessionName = session.SessionName
+	m.ArrayOfMessages = session.Messages
+	m.list.SetItems(ConstructListItems(m.AllSessions, m.CurrentSessionID))
+
+	return SendUpdateCurrentSessionMsg()
+}
+
 func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
 
@@ -353,7 +361,9 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		currentTime := time.Now()
 		formattedTime := currentTime.Format(time.ANSIC)
 		defaultSessionName := fmt.Sprintf("%s", formattedTime)
-		m.sessionService.InsertNewSession(defaultSessionName, []MessageToSend{})
+		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []MessageToSend{})
+
+		cmd = m.handleUpdateCurrentSession(newSession)
 		m.updateSessionList()
 
 	case "enter":
@@ -364,17 +374,10 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 				util.MakeErrorMsg(err.Error())
 			}
 
-			m.userService.UpdateUserCurrentActiveSession(1, session.ID)
-
-			m.CurrentSessionID = session.ID
-			m.CurrentSessionName = session.SessionName
-			m.ArrayOfMessages = session.Messages
-			m.list.SetItems(ConstructListItems(m.AllSessions, m.CurrentSessionID))
-
-			cmd = SendUpdateCurrentSessionMsg()
+			cmd = m.handleUpdateCurrentSession(session)
 		}
 
-	case "r":
+	case "e":
 		ti := textinput.New()
 		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
 		m.textInput = ti

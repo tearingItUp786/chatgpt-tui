@@ -55,7 +55,7 @@ func (m Model) View() string {
 		borderColor = util.ActiveTabBorderColor
 	}
 	list := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), true).
+		Border(lipgloss.ThickBorder(), true).
 		BorderForeground(borderColor).
 		Height(8).
 		Width(m.terminalWidth/3 - 5)
