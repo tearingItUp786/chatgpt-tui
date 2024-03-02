@@ -29,6 +29,8 @@ type Model struct {
 	mode          int
 	settings      Settings
 	textInput     textinput.Model
+
+	list lipgloss.Style
 }
 
 var settingsService *SettingsService
@@ -50,16 +52,6 @@ func listItem(heading string, value string) string {
 }
 
 func (m Model) View() string {
-	borderColor := util.NormalTabBorderColor
-	if m.isFocused {
-		borderColor = util.ActiveTabBorderColor
-	}
-	list := lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder(), true).
-		BorderForeground(borderColor).
-		Height(8).
-		Width(m.terminalWidth/3 - 4)
-
 	listHeader := lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
@@ -70,7 +62,7 @@ func (m Model) View() string {
 	if m.mode != viewMode {
 		editForm = m.textInput.View()
 	}
-	return list.Render(
+	return m.list.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			listHeader("Settings"),
 			listItem("model", m.settings.Model),
@@ -86,9 +78,19 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case util.OurWindowResize:
+		width := m.terminalWidth - msg.Width - 5
+		m.list.Width(width)
+
 	case util.FocusEvent:
 		m.isFocused = msg.IsFocused
 		m.mode = viewMode
+
+		borderColor := util.NormalTabBorderColor
+		if m.isFocused {
+			borderColor = util.ActiveTabBorderColor
+		}
+		m.list.BorderForeground(borderColor)
 
 		return m, nil
 	case tea.WindowSizeMsg:
@@ -202,9 +204,16 @@ func New(db *sql.DB) Model {
 	if err != nil {
 		panic(err)
 	}
+
+	list := lipgloss.NewStyle().
+		Border(lipgloss.ThickBorder(), true).
+		BorderForeground(util.NormalTabBorderColor).
+		Height(8)
+
 	return Model{
 		terminalWidth: 20,
 		mode:          viewMode,
 		settings:      settings,
+		list:          list,
 	}
 }

@@ -81,6 +81,7 @@ func (m model) Init() tea.Cmd {
 		m.promptInput.Cursor.BlinkCmd(),
 		waitForActivity(m.msgChan),
 		m.sessionModel.Init(),
+		m.settingsModel.Init(),
 	)
 }
 
@@ -125,22 +126,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// these are the messages that come in as a stream from the chat gpt api
 	// we append the content to the viewport and scroll
 	case sessions.ProcessResult:
+		log.Println("main ProcessResult: ")
 		oldContent := m.sessionModel.GetMessagesAsString()
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
+
 		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
 		m.viewport.GotoBottom()
 
-		return m, waitForActivity(m.msgChan)
-
-	// we need to handle the final message from the chat gpt stream
-	// currentAnswer gets reset at this point so we use the final message
-	case sessions.FinalProcessMessage:
-		oldContent := m.sessionModel.GetMessagesAsString()
-		styledBufferMessage := sessions.RenderBotMessage(msg.FinalMessage, m.terminalWidth/3*2)
-		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
-		m.viewport.GotoBottom()
-
-		return m, waitForActivity(m.msgChan)
+		cmds = append(cmds, waitForActivity(m.msgChan))
 
 	case util.ErrorEvent:
 		log.Println("Error: ", msg.Message)
@@ -209,10 +202,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.error = util.ErrorEvent{}
 				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
 				log.Println("key enter")
-				content := m.sessionModel.GetMessagesAsString()
 				m.promptInput.SetValue("")
-				// TODO: add a loading indicator / icon when we are waiting for chat gpt to return with a response.
-				m.viewport.SetContent(wrap.String(content, m.terminalWidth/3*2))
 
 				return m, m.sessionModel.CallChatGpt(m.msgChan)
 			}
@@ -246,14 +236,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - prompContinerHeight
-			m.chatViewMessageContainer.Height(msg.Height - 10)
 			m.promptInput.Width = msg.Width - 3
 		}
-
+		yolo := m.chatViewMessageContainer.GetWidth()
+		m.settingsModel.Update(util.MakeWindowResizeMsg(yolo))
+		m.sessionModel.Update(util.MakeWindowResizeMsg(yolo))
 	}
 
-	m.promptInput, cmd = m.promptInput.Update(msg)
-	cmds = append(cmds, cmd)
+	if m.focused == util.PromptType {
+		m.promptInput, cmd = m.promptInput.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	if enableUpdateOfViewport {
 		m.viewport, cmd = m.viewport.Update(msg)

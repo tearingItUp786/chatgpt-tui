@@ -75,3 +75,11 @@ func MakeErrorMsg(v string) tea.Cmd {
 		return ErrorEvent{Message: v}
 	}
 }
+
+type OurWindowResize struct {
+	Width int
+}
+
+func MakeWindowResizeMsg(w int) tea.Msg {
+	return OurWindowResize{Width: w}
+}

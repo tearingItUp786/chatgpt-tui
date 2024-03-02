@@ -23,12 +23,13 @@ const (
 )
 
 type Model struct {
-	textInput      textinput.Model
-	list           list.Model
-	isFocused      bool
-	currentEditID  int
-	sessionService *SessionService
-	userService    *user.UserService
+	textInput         textinput.Model
+	list              list.Model
+	isFocused         bool
+	currentEditID     int
+	sessionService    *SessionService
+	userService       *user.UserService
+	settingsContainer lipgloss.Style
 
 	Settings             settings.Settings
 	CurrentSessionID     int
@@ -59,6 +60,10 @@ func New(db *sql.DB) Model {
 		userService:          us,
 		Settings:             defaultSettings,
 		ProcessingMode:       IDLE,
+		settingsContainer: lipgloss.NewStyle().
+			AlignVertical(lipgloss.Top).
+			Border(lipgloss.ThickBorder(), true).
+			BorderForeground(util.NormalTabBorderColor),
 	}
 }
 
@@ -151,8 +156,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.currentEditID = -1
 		return m, nil
 
+	case util.OurWindowResize:
+		width := m.terminalWidth - msg.Width - 5
+		m.settingsContainer = m.settingsContainer.Width(width)
+
 	case ProcessResult:
 		// add the latest message to the array of messages
+		log.Println("Processing message: ")
 		cmd = m.handleMsgProcessing(msg)
 		return m, cmd
 
@@ -194,7 +204,13 @@ func (m Model) View() string {
 		editForm = m.textInput.View()
 	}
 
-	return m.settingsContainer().Render(
+	borderColor := util.NormalTabBorderColor
+
+	if m.isFocused {
+		borderColor = util.ActiveTabBorderColor
+	}
+
+	return m.settingsContainer.BorderForeground(borderColor).Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			listHeader("Sessions"),
 			listView,
@@ -220,10 +236,10 @@ func RenderBotMessage(msg string, width int) string {
 		Foreground(lipgloss.Color("#FAFAFA")).
 		BorderLeft(true).
 		BorderLeftForeground(lipgloss.Color(util.Pink300)).
-		Width(width-5).
+		Width(width - 5).
 		Render(
-			"🤖 "+msg,
-		) + "\n"
+			"🤖 " + msg,
+		)
 }
 
 func (m Model) GetMessagesAsString() string {
@@ -251,13 +267,14 @@ func (m Model) GetMessagesAsString() string {
 
 // MIGHT BE WORTH TO MOVE TO A SEP FILE
 func (m *Model) appendAndOrderProcessResults(msg ProcessResult) {
+	// log.Println("Appending and ordering process results", msg)
 	m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
 	m.CurrentAnswer = ""
 
 	// we need to sort on ID here because go routines are done in different threads
 	// and the order in which our channel receives messages is not guaranteed.
 	// TODO: look into a better way to insert (can I Insert in order)
-	sort.Slice(m.ArrayOfProcessResult, func(i, j int) bool {
+	sort.SliceStable(m.ArrayOfProcessResult, func(i, j int) bool {
 		return m.ArrayOfProcessResult[i].ID < m.ArrayOfProcessResult[j].ID
 	})
 }
@@ -266,12 +283,14 @@ func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
 	choiceContent, ok := choice.Delta["content"]
 
 	if !ok {
-		log.Println("Choice taran", choice.FinishReason)
 		if choice.FinishReason == "stop" || choice.FinishReason == "length" {
-			finishCmd := func() tea.Msg {
-				return ProcessResult{Final: true}
+
+			areIdsAllThere := areIDsInOrderAndComplete(getArrayOfIDs(m.ArrayOfProcessResult))
+			var cmd tea.Cmd
+			if areIdsAllThere && m.ProcessingMode == PROCESSING {
+				cmd = m.handleFinalChoiceMessage()
 			}
-			return "", finishCmd
+			return "", cmd
 		}
 		return "", m.resetStateAndCreateError("choice content not found")
 	}
@@ -287,10 +306,6 @@ func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
 func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 	// if the json for whatever reason is malformed, bail out
 	jsonMessages, err := constructJsonMessage(m.ArrayOfProcessResult)
-	log.Println("Final choice message error", err)
-	if err != nil {
-		return m.resetStateAndCreateError(err.Error())
-	}
 
 	m.ArrayOfMessages = append(
 		m.ArrayOfMessages,
@@ -302,24 +317,49 @@ func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 		And then reset the model that we use for the view to the default state
 	*/
 	err = m.sessionService.UpdateSessionMessages(m.CurrentSessionID, m.ArrayOfMessages)
+	m.ProcessingMode = IDLE
+	m.CurrentAnswer = ""
+	m.ArrayOfProcessResult = []ProcessResult{}
+
 	if err != nil {
+		log.Println("Error updating session messages", err)
 		return m.resetStateAndCreateError(err.Error())
 	}
 
-	oldMessage := m.CurrentAnswer
-	m.ArrayOfProcessResult = []ProcessResult{}
-	m.CurrentAnswer = ""
-	m.ProcessingMode = IDLE
-	return SendFinalProcessMessage(oldMessage)
+	return nil
+}
+
+func areIDsInOrderAndComplete(ids []int) bool {
+	if len(ids) == 0 {
+		return false // Assuming the list shouldn't be empty
+	}
+
+	for i := 0; i < len(ids)-1; i++ {
+		if ids[i+1] != ids[i]+1 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func getArrayOfIDs(arr []ProcessResult) []int {
+	ids := []int{}
+	for _, msg := range arr {
+		ids = append(ids, msg.ID)
+	}
+	return ids
 }
 
 // updates the current view with the messages coming in
 func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
 	m.appendAndOrderProcessResults(msg)
+	areIdsAllThere := areIDsInOrderAndComplete(getArrayOfIDs(m.ArrayOfProcessResult))
 	m.ProcessingMode = PROCESSING
-	for _, msg := range m.ArrayOfProcessResult {
 
-		if msg.Final {
+	for _, msg := range m.ArrayOfProcessResult {
+		if msg.Final && areIdsAllThere {
+			log.Println("-----Final message found-----")
 			return m.handleFinalChoiceMessage()
 		}
 
@@ -331,12 +371,7 @@ func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
 			// we need to keep appending content to our current answer in this case
 			choiceString, cmdToRun := m.assertChoiceContentString(choice)
 			if cmdToRun != nil {
-				log.Println("command to run", choice)
-				if choice.FinishReason == "stop" || choice.FinishReason == "length" {
-					m.handleFinalChoiceMessage()
-				} else {
-					return cmdToRun
-				}
+				return cmdToRun
 			}
 
 			m.CurrentAnswer = m.CurrentAnswer + choiceString

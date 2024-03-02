@@ -8,8 +8,7 @@ import (
 	"github.com/tearingItUp786/golang-tui/util"
 )
 
-func (m *Model) settingsContainer() lipgloss.Style {
-	width := (m.terminalWidth / 3) - 4
+func (m *Model) _settingsContainer() lipgloss.Style {
 	borderColor := util.NormalTabBorderColor
 
 	if m.isFocused {
@@ -19,8 +18,7 @@ func (m *Model) settingsContainer() lipgloss.Style {
 	container := lipgloss.NewStyle().
 		AlignVertical(lipgloss.Top).
 		Border(lipgloss.ThickBorder(), true).
-		BorderForeground(borderColor).
-		Width(width)
+		BorderForeground(borderColor)
 
 	return container
 }

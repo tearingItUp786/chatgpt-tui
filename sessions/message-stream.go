@@ -134,7 +134,7 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 
 			// This should be a constant (checking to see if the stream is done)
 			if line == "data: [DONE]\n" {
-				// log.Println("Stream ended with [DONE] message.")
+				log.Println("Stream ended with [DONE] message.")
 				return ProcessResult{ID: processResultID, Err: nil, Final: true}
 			}
 
@@ -143,24 +143,30 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 				jsonStr := strings.TrimPrefix(line, "data:")
 				// Create a channel to receive the results
 				// Start the goroutine, passing the channel for communication
-				log.Println("wtf", processResultID)
 				resultChan <- processChunk(jsonStr, processResultID)
 				processResultID++ // Increment the ID for each processed chunk
 			}
 		}
 
-		return ProcessResult{Err: nil}
+		return ProcessResult{ID: 200, Err: nil}
 	}
 }
 
 // Converts the array of json messages into a single Message
 func constructJsonMessage(arrayOfProcessResult []ProcessResult) (MessageToSend, error) {
 	newMessage := MessageToSend{Role: "assistant", Content: ""}
+
 	for _, aMessage := range arrayOfProcessResult {
+		if aMessage.Final {
+			log.Println("Hit final in construct", aMessage.Result)
+			break
+		}
+
 		if len(aMessage.Result.Choices) > 0 {
 			choice := aMessage.Result.Choices[0]
 			// TODO: we need a helper for this
-			if choice.FinishReason == "stop" || choice.FinishReason == "length" || aMessage.Final {
+			if choice.FinishReason == "stop" || choice.FinishReason == "length" {
+				log.Println("Hit stop or length in construct")
 				break
 			}
 
@@ -168,6 +174,7 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) (MessageToSend, 
 				newMessage.Content += content
 			} else {
 				// Handle the case where the type assertion fails, e.g., log an error or return
+				log.Println("type assertion to string failed for choice.Delta[\"content\"]")
 				formattedError := fmt.Errorf("type assertion to string failed for choice.Delta[\"content\"]")
 				return MessageToSend{}, formattedError
 			}
@@ -181,11 +188,11 @@ func processChunk(chunkData string, id int) ProcessResult {
 	var chunk CompletionChunk
 	err := json.Unmarshal([]byte(chunkData), &chunk)
 	if err != nil {
-		log.Println("Error unmarshalling:", err)
+		log.Println("Error unmarshalling:", chunkData, err)
 		return ProcessResult{ID: id, Result: CompletionChunk{}, Err: err}
 	}
 
+	// log.Println("wtf", id, chunk.Choices)
 	// Process the chunk as needed
-	log.Println("test", chunk.Choices)
 	return ProcessResult{ID: id, Result: chunk, Err: nil}
 }
