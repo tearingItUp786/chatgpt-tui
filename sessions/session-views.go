@@ -9,7 +9,7 @@ import (
 )
 
 func (m *Model) settingsContainer() lipgloss.Style {
-	width := (m.terminalWidth / 3) - 5
+	width := (m.terminalWidth / 3) - 4
 	borderColor := util.NormalTabBorderColor
 
 	if m.isFocused {
@@ -52,7 +52,7 @@ func listItem(heading string, value string, isActive bool) string {
 	return headingEl(" "+heading, spanEl(value))
 }
 
-func (m Model) normaListView() string {
+func (m Model) normalListView() string {
 	sessionListItems := []string{}
 	for _, session := range m.AllSessions {
 		isCurrentSession := m.CurrentSessionID == session.ID
@@ -63,6 +63,7 @@ func (m Model) normaListView() string {
 	}
 
 	return lipgloss.NewStyle().
+		// TODO: figure out how to get height from the settings model
 		Height(m.terminalHeight - 18).
 		MaxHeight(m.terminalHeight - 18).
 		Render(strings.Join(sessionListItems, "\n"))

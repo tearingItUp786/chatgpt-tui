@@ -25,13 +25,14 @@ type model struct {
 	error            util.ErrorEvent
 	currentSessionID string
 
-	promptContainer lipgloss.Style
-	viewport        viewport.Model
-	promptInput     textinput.Model
-	settingsModel   settings.Model
-	sessionModel    sessions.Model
-	terminalWidth   int
-	terminalHeight  int
+	chatViewMessageContainer lipgloss.Style
+	promptContainer          lipgloss.Style
+	viewport                 viewport.Model
+	promptInput              textinput.Model
+	settingsModel            settings.Model
+	sessionModel             sessions.Model
+	terminalWidth            int
+	terminalHeight           int
 }
 
 func initialModal(db *sql.DB) model {
@@ -53,6 +54,11 @@ func initialModal(db *sql.DB) model {
 		currentSessionID: "",
 		sessionModel:     sm,
 		msgChan:          msgChan,
+		chatViewMessageContainer: lipgloss.NewStyle().
+			Border(lipgloss.ThickBorder()).
+			BorderForeground(util.NormalTabBorderColor).
+			MarginRight(1),
+
 		promptContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Bottom).
 			BorderStyle(lipgloss.ThickBorder()).
@@ -91,8 +97,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// the settings model is actually an input into the session model
 	m.sessionModel, cmd = m.sessionModel.Update(msg)
 	cmds = append(cmds, cmd)
-	m.settingsModel, cmd = m.settingsModel.Update(msg)
-	cmds = append(cmds, cmd)
+
+	if m.sessionModel.ProcessingMode == sessions.IDLE {
+		m.settingsModel, cmd = m.settingsModel.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	switch msg := msg.(type) { // each time we get a new message coming in from the model
 	// lets handle it and pass it to the lower model
@@ -101,6 +110,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if oldContent == "" {
 			oldContent = util.MotivationalMessage
 		}
+		m.chatViewMessageContainer.Width(m.terminalWidth / 3 * 2)
 		m.viewport.SetContent(wrap.String(oldContent, m.terminalWidth/3*2))
 		return m, cmd
 
@@ -155,8 +165,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.viewMode {
 			case util.NormalMode:
 				m.viewMode = util.ZenMode
+				m.chatViewMessageContainer.BorderForeground(util.NormalTabBorderColor).Width(m.terminalWidth - 2)
 			case util.ZenMode:
 				m.viewMode = util.NormalMode
+				m.chatViewMessageContainer.BorderForeground(util.NormalTabBorderColor).Width(m.terminalWidth / 3 * 2)
 			}
 
 		// we used to use tea.KeyTab but for some reason cmd + v also did the same thing...
@@ -164,19 +176,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused)
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
+			m.chatViewMessageContainer.BorderForeground(util.NormalTabBorderColor)
 
-			if m.focused == util.PromptType {
+			switch m.focused {
+
+			case util.PromptType:
 				borderColor := util.ActiveTabBorderColor
-				m.promptContainer = m.promptContainer.Copy().BorderForeground(borderColor)
+				m.promptContainer = m.promptContainer.BorderForeground(borderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
 				m.promptInput.Focus()
-			} else {
-				borderColor := util.NormalTabBorderColor
-				m.promptContainer = m.promptContainer.Copy().BorderForeground(borderColor)
-				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.NormalTabBorderColor))
+
+			case util.ChatMessagesType:
+				m.chatViewMessageContainer.BorderForeground(util.ActiveTabBorderColor)
+				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
+
+			default:
+				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
+				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Foreground(lipgloss.Color(util.NormalTabBorderColor))
 				m.promptInput.Blur()
 			}
-			return m, cmd
+
 		}
 
 		switch msg.Type {
@@ -185,7 +204,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case tea.KeyEnter:
-			if isPromptFocused {
+			if isPromptFocused && m.sessionModel.ProcessingMode == sessions.IDLE {
 				// Start CallChatGpt on Enter key
 				m.error = util.ErrorEvent{}
 				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
@@ -206,6 +225,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
 			Width(m.terminalWidth - 2)
 
+		m.chatViewMessageContainer.Width(m.terminalWidth / 3 * 2)
+		if m.viewMode == util.ZenMode {
+			m.chatViewMessageContainer.Width(m.terminalWidth - 2)
+		}
+
 		// TODO: get rid of this magic number
 		prompContinerHeight := m.promptContainer.GetHeight() + 5
 
@@ -222,6 +246,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - prompContinerHeight
+			m.chatViewMessageContainer.Height(msg.Height - 10)
 			m.promptInput.Width = msg.Width - 3
 		}
 
@@ -240,17 +265,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var windowViews string
 
-	borderColor := util.NormalTabBorderColor
-	if m.focused == util.ChatMessagesType {
-		borderColor = util.ActiveTabBorderColor
-	}
-
-	chatMessagesViewRender := lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder()).
-		BorderForeground(borderColor).
-		Width(m.terminalWidth - 2).
-		MarginRight(1)
-
 	settingsAndSessionViews := lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.settingsModel.View(),
@@ -265,10 +279,9 @@ func (m model) View() string {
 	secondaryScreen := ""
 	if m.viewMode == util.NormalMode {
 		secondaryScreen = settingsAndSessionViews
-		chatMessagesViewRender.Width(m.terminalWidth / 3 * 2)
 	}
 
-	mainView := chatMessagesViewRender.Render(strToRender)
+	mainView := m.chatViewMessageContainer.Render(strToRender)
 
 	windowViews = lipgloss.NewStyle().
 		Align(lipgloss.Right, lipgloss.Right).
@@ -280,8 +293,13 @@ func (m model) View() string {
 			),
 		)
 
+	lowerPromptView := "> Please wait ..."
+	if m.sessionModel.ProcessingMode == sessions.IDLE {
+		lowerPromptView = m.promptInput.View()
+	}
+
 	promptView := m.promptContainer.Render(
-		m.promptInput.View(),
+		lowerPromptView,
 	)
 
 	return lipgloss.NewStyle().Render(

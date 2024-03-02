@@ -89,21 +89,17 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 			bytes.NewBuffer(body),
 		)
 		if err != nil {
-			// Handle error
 			log.Println("Error creating request:", err)
 			resultChan <- ProcessResult{ID: processResultID, Err: err}
 		}
 
-		// Set the Content-Type header
 		req.Header.Set("Content-Type", "application/json")
-		// Set any other headers you need
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-		// Create a new HTTP client and send the request
+
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			// Handle error
-			log.Println("Error sending request:", err)
+			resultChan <- ProcessResult{ID: processResultID, Err: err}
 		}
 		defer resp.Body.Close()
 
@@ -112,13 +108,12 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 			// Read the response body
 			bodyBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
-				log.Printf("Error reading response body: %v\n", err)
 				return util.ErrorEvent{
 					Message: err.Error(),
 				}
 			}
 			bodyString := string(bodyBytes)
-			log.Printf("Error response (status code %d): %s\n", resp.StatusCode, bodyString)
+
 			return util.ErrorEvent{
 				Message: bodyString,
 			}
@@ -140,8 +135,7 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 			// This should be a constant (checking to see if the stream is done)
 			if line == "data: [DONE]\n" {
 				// log.Println("Stream ended with [DONE] message.")
-				resultChan <- ProcessResult{ID: processResultID, Err: nil, Final: true}
-				break
+				return ProcessResult{ID: processResultID, Err: nil, Final: true}
 			}
 
 			if strings.HasPrefix(line, "data:") {
@@ -149,12 +143,12 @@ func (m Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 				jsonStr := strings.TrimPrefix(line, "data:")
 				// Create a channel to receive the results
 				// Start the goroutine, passing the channel for communication
-				processChunk(jsonStr, resultChan, processResultID)
+				log.Println("wtf", processResultID)
+				resultChan <- processChunk(jsonStr, processResultID)
 				processResultID++ // Increment the ID for each processed chunk
 			}
 		}
 
-		// log.Println("Process Array: ")
 		return ProcessResult{Err: nil}
 	}
 }
@@ -165,7 +159,8 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) (MessageToSend, 
 	for _, aMessage := range arrayOfProcessResult {
 		if len(aMessage.Result.Choices) > 0 {
 			choice := aMessage.Result.Choices[0]
-			if choice.FinishReason == "stop" || aMessage.Final {
+			// TODO: we need a helper for this
+			if choice.FinishReason == "stop" || choice.FinishReason == "length" || aMessage.Final {
 				break
 			}
 
@@ -182,14 +177,15 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) (MessageToSend, 
 	return newMessage, nil
 }
 
-func processChunk(chunkData string, resultChan chan<- ProcessResult, id int) {
+func processChunk(chunkData string, id int) ProcessResult {
 	var chunk CompletionChunk
 	err := json.Unmarshal([]byte(chunkData), &chunk)
 	if err != nil {
 		log.Println("Error unmarshalling:", err)
-		resultChan <- ProcessResult{ID: id, Result: CompletionChunk{}, Err: err}
+		return ProcessResult{ID: id, Result: CompletionChunk{}, Err: err}
 	}
 
 	// Process the chunk as needed
-	resultChan <- ProcessResult{ID: id, Result: chunk, Err: nil}
+	log.Println("test", chunk.Choices)
+	return ProcessResult{ID: id, Result: chunk, Err: nil}
 }

@@ -3,6 +3,7 @@ package sessions
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"sort"
 	"time"
 
@@ -13,6 +14,12 @@ import (
 	"github.com/tearingItUp786/golang-tui/settings"
 	"github.com/tearingItUp786/golang-tui/user"
 	"github.com/tearingItUp786/golang-tui/util"
+)
+
+const (
+	IDLE       = "idle"
+	PROCESSING = "processing"
+	ERROR      = "error"
 )
 
 type Model struct {
@@ -32,6 +39,7 @@ type Model struct {
 	ArrayOfMessages      []MessageToSend
 	CurrentAnswer        string
 	AllSessions          []Session
+	ProcessingMode       string
 }
 
 func New(db *sql.DB) Model {
@@ -50,6 +58,7 @@ func New(db *sql.DB) Model {
 		sessionService:       ss,
 		userService:          us,
 		Settings:             defaultSettings,
+		ProcessingMode:       IDLE,
 	}
 }
 
@@ -174,7 +183,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	listView := m.normaListView()
+	listView := m.normalListView()
 
 	if m.isFocused {
 		listView = m.editListView()
@@ -257,6 +266,13 @@ func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
 	choiceContent, ok := choice.Delta["content"]
 
 	if !ok {
+		log.Println("Choice taran", choice.FinishReason)
+		if choice.FinishReason == "stop" || choice.FinishReason == "length" {
+			finishCmd := func() tea.Msg {
+				return ProcessResult{Final: true}
+			}
+			return "", finishCmd
+		}
 		return "", m.resetStateAndCreateError("choice content not found")
 	}
 	choiceString, ok := choiceContent.(string)
@@ -268,9 +284,10 @@ func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
 	return choiceString, nil
 }
 
-func (m *Model) handleFinalChoiceMessage(choice Choice) tea.Cmd {
+func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 	// if the json for whatever reason is malformed, bail out
 	jsonMessages, err := constructJsonMessage(m.ArrayOfProcessResult)
+	log.Println("Final choice message error", err)
 	if err != nil {
 		return m.resetStateAndCreateError(err.Error())
 	}
@@ -292,26 +309,34 @@ func (m *Model) handleFinalChoiceMessage(choice Choice) tea.Cmd {
 	oldMessage := m.CurrentAnswer
 	m.ArrayOfProcessResult = []ProcessResult{}
 	m.CurrentAnswer = ""
+	m.ProcessingMode = IDLE
 	return SendFinalProcessMessage(oldMessage)
 }
 
 // updates the current view with the messages coming in
 func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
 	m.appendAndOrderProcessResults(msg)
-
+	m.ProcessingMode = PROCESSING
 	for _, msg := range m.ArrayOfProcessResult {
+
+		if msg.Final {
+			return m.handleFinalChoiceMessage()
+		}
+
 		if len(msg.Result.Choices) > 0 {
-			choice := msg.Result.Choices[0]
 			// Now you can safely use 'choice' since you've confirmed there's at least one element.
 			// this is when we're done with the stream
-			if choice.FinishReason == "stop" || msg.Final {
-				return m.handleFinalChoiceMessage(choice)
-			}
+			choice := msg.Result.Choices[0]
 
 			// we need to keep appending content to our current answer in this case
-			choiceString, errCmd := m.assertChoiceContentString(choice)
-			if errCmd != nil {
-				return errCmd
+			choiceString, cmdToRun := m.assertChoiceContentString(choice)
+			if cmdToRun != nil {
+				log.Println("command to run", choice)
+				if choice.FinishReason == "stop" || choice.FinishReason == "length" {
+					m.handleFinalChoiceMessage()
+				} else {
+					return cmdToRun
+				}
 			}
 
 			m.CurrentAnswer = m.CurrentAnswer + choiceString
@@ -322,6 +347,7 @@ func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
 }
 
 func (m *Model) resetStateAndCreateError(errMsg string) tea.Cmd {
+	m.ProcessingMode = ERROR
 	m.ArrayOfProcessResult = []ProcessResult{}
 	m.CurrentAnswer = ""
 	return util.MakeErrorMsg(errMsg)
@@ -354,6 +380,11 @@ func (m *Model) handleUpdateCurrentSession(session Session) tea.Cmd {
 
 func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
+
+	// We don't want to do anything if we're processing
+	if m.ProcessingMode != IDLE {
+		return cmd
+	}
 
 	switch msg.String() {
 	case "ctrl+n":

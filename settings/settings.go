@@ -58,7 +58,7 @@ func (m Model) View() string {
 		Border(lipgloss.ThickBorder(), true).
 		BorderForeground(borderColor).
 		Height(8).
-		Width(m.terminalWidth/3 - 5)
+		Width(m.terminalWidth/3 - 4)
 
 	listHeader := lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).

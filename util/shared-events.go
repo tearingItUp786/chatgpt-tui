@@ -56,7 +56,7 @@ func GetNewFocusMode(mode ViewMode, currentFocus FocusPane) FocusPane {
 
 var MotivationalMessage = lipgloss.NewStyle().
 	PaddingLeft(1).
-	Render("There's something scary about a blank canvas...that's why I'm here 😼!")
+	Render("There's something scary about a blank canvas...that's why I'm here 😄!")
 
 type FocusEvent struct {
 	IsFocused bool
