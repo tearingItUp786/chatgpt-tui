@@ -130,7 +130,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		oldContent := m.sessionModel.GetMessagesAsString()
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
 
-		m.viewport.SetContent(wrap.String(oldContent+"\n"+styledBufferMessage, m.terminalWidth/3*2))
+		if styledBufferMessage != "" {
+			styledBufferMessage = "\n" + styledBufferMessage
+		}
+		m.viewport.SetContent(wrap.String(oldContent+styledBufferMessage, m.terminalWidth/3*2))
 		m.viewport.GotoBottom()
 
 		cmds = append(cmds, waitForActivity(m.msgChan))
@@ -221,7 +224,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// TODO: get rid of this magic number
-		prompContinerHeight := m.promptContainer.GetHeight() + 5
+		promptContainerHeight := m.promptContainer.GetHeight() + 5
 
 		if !m.ready {
 			// Since this program is using the full size of the viewport we
@@ -229,13 +232,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// we can initialize the viewport. The initial dimensions come in
 			// quickly, though asynchronously, which is why we wait for them
 			// here.
-			m.viewport = viewport.New(msg.Width, msg.Height-prompContinerHeight)
+			m.viewport = viewport.New(msg.Width, msg.Height-promptContainerHeight)
 			m.viewport.Style.MaxHeight(msg.Height)
 			m.ready = true
 			m.promptInput.Width = msg.Width - 3
 		} else {
 			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - prompContinerHeight
+			m.viewport.Height = msg.Height - promptContainerHeight
 			m.promptInput.Width = msg.Width - 3
 		}
 		yolo := m.chatViewMessageContainer.GetWidth()

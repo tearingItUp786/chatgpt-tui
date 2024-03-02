@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -262,6 +263,7 @@ func (m Model) GetMessagesAsString() string {
 		messages = messages + "\n" + messageToUse
 	}
 
+	messages = strings.TrimSuffix(messages, "\n")
 	return messages
 }
 
