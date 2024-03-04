@@ -207,6 +207,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				log.Println("key enter")
 				m.promptInput.SetValue("")
 
+				m.sessionModel.ProcessingMode = sessions.PROCESSING
 				return m, m.sessionModel.CallChatGpt(m.msgChan)
 			}
 		}
@@ -246,7 +247,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sessionModel.Update(util.MakeWindowResizeMsg(yolo))
 	}
 
-	if m.focused == util.PromptType {
+	if m.focused == util.PromptType && m.sessionModel.ProcessingMode == sessions.IDLE {
 		m.promptInput, cmd = m.promptInput.Update(msg)
 		cmds = append(cmds, cmd)
 	}
