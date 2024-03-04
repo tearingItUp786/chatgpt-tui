@@ -242,7 +242,29 @@ func RenderBotMessage(msg string, width int) string {
 		)
 }
 
+func (m Model) GetLatestBotMessage() string {
+	// the last bot in the array is actually the blank message (the stop command)
+	lastIndex := len(m.ArrayOfMessages) - 2
+	return m.ArrayOfMessages[lastIndex].Content
+}
+
 func (m Model) GetMessagesAsString() string {
+	var messages string
+	for _, message := range m.ArrayOfMessages {
+		messageToUse := message.Content
+
+		if messages == "" {
+			messages = messageToUse
+			continue
+		}
+
+		messages = messages + "\n" + messageToUse
+	}
+
+	return messages
+}
+
+func (m Model) GetMessagesAsPrettyString() string {
 	var messages string
 	for _, message := range m.ArrayOfMessages {
 		messageToUse := message.Content

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -107,7 +108,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) { // each time we get a new message coming in from the model
 	// lets handle it and pass it to the lower model
 	case sessions.LoadDataFromDB:
-		oldContent := m.sessionModel.GetMessagesAsString()
+		oldContent := m.sessionModel.GetMessagesAsPrettyString()
 		if oldContent == "" {
 			oldContent = util.MotivationalMessage
 		}
@@ -116,7 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case sessions.UpdateCurrentSession:
-		oldContent := m.sessionModel.GetMessagesAsString()
+		oldContent := m.sessionModel.GetMessagesAsPrettyString()
 		if oldContent == "" {
 			oldContent = util.MotivationalMessage
 		}
@@ -127,7 +128,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// we append the content to the viewport and scroll
 	case sessions.ProcessResult:
 		log.Println("main ProcessResult: ")
-		oldContent := m.sessionModel.GetMessagesAsString()
+		oldContent := m.sessionModel.GetMessagesAsPrettyString()
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
 
 		if styledBufferMessage != "" {
@@ -149,6 +150,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch keypress := msg.String(); keypress {
+		case "y":
+			if m.focused == util.ChatMessagesType {
+				log.Println("y pressed", m.sessionModel.GetLatestBotMessage())
+				clipboard.WriteAll(m.sessionModel.GetLatestBotMessage())
+			}
+
+		case "Y":
+			if m.focused == util.ChatMessagesType {
+				log.Println("Y pressed")
+				clipboard.WriteAll(m.sessionModel.GetMessagesAsString())
+			}
+
 		case "ctrl+o":
 			m.focused = util.PromptType
 			m.promptContainer = m.promptContainer.Copy().BorderForeground(util.ActiveTabBorderColor)
@@ -185,6 +198,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case util.ChatMessagesType:
 				m.chatViewMessageContainer.BorderForeground(util.ActiveTabBorderColor)
 				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
+				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.NormalTabBorderColor))
+				m.promptInput.Blur()
 
 			default:
 				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
