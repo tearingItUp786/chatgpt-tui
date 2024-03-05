@@ -61,13 +61,6 @@ release:
   prerelease: auto
   draft: false
 
-before:
-  hooks:
-    # You may remove this if you don't use go modules.
-    - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
-
 brews:
   - name: chatgpt-tui
     homepage: https://github.com/tearingItUp786/chatgpt-tui
