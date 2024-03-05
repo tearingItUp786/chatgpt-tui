@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
@@ -141,6 +142,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case util.ErrorEvent:
 		log.Println("Error: ", msg.Message)
+		m.sessionModel.ProcessingMode = sessions.IDLE
 		m.error = msg
 
 	case tea.KeyMsg:
@@ -338,6 +340,14 @@ func main() {
 		log.Fatal(err)
 	}
 	defer f.Close()
+
+	apiKey := os.Getenv("CHAT_GPT_API_KEY")
+	if "" == apiKey {
+		fmt.Println("CHAT_GPT_API_KEY not set; set it in your profile")
+		fmt.Printf("export CHAT_GPT_API_KEY=your_key in the config for :%v \n", os.Getenv("SHELL"))
+		fmt.Println("Exiting...")
+		os.Exit(1)
+	}
 
 	// run migrations for our database
 	db := util.InitDb()

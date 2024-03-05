@@ -76,7 +76,7 @@ func (m Model) constructJsonBody() ([]byte, error) {
 }
 
 func (m *Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
-	apiKey := os.Getenv("API_KEY")
+	apiKey := os.Getenv("CHAT_GPT_API_KEY")
 	processResultID := 0 // Initialize a counter for ProcessResult IDs
 
 	return func() tea.Msg {

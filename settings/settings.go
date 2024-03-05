@@ -35,39 +35,44 @@ type Model struct {
 
 var settingsService *SettingsService
 
+var listHeader = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderBottom(true).
+	MarginLeft(2)
+
+var listItemHeading = lipgloss.NewStyle().
+	PaddingLeft(2).
+	Foreground(lipgloss.Color(util.Pink100))
+
+var listItemSpan = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#fff"))
+
 func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func listItem(heading string, value string) string {
-	headingEl := lipgloss.NewStyle().
-		PaddingLeft(2).
-		Foreground(lipgloss.Color(util.Pink100)).
-		Render
-	spanEl := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#fff")).
-		Render
+func listItemRenderer(heading string, value string) string {
+	headingEl := listItemHeading.Render
+	spanEl := listItemSpan.Render
 
 	return headingEl(" "+heading, spanEl(value))
 }
 
 func (m Model) View() string {
-	listHeader := lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderBottom(true).
-		MarginLeft(2).
-		Render
-
 	editForm := ""
 	if m.mode != viewMode {
 		editForm = m.textInput.View()
 	}
 	return m.list.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
-			listHeader("Settings"),
-			listItem("model", m.settings.Model),
-			listItem("frequency", fmt.Sprint(m.settings.Frequency)),
-			listItem("max_tokens", fmt.Sprint((m.settings.MaxTokens))),
+			listHeader.Render("Settings"),
+			lipgloss.NewStyle().Height(5).Render(
+				lipgloss.JoinVertical(lipgloss.Left,
+					listItemRenderer("model", m.settings.Model),
+					listItemRenderer("frequency", fmt.Sprint(m.settings.Frequency)),
+					listItemRenderer("max_tokens", fmt.Sprint((m.settings.MaxTokens))),
+				),
+			),
 			editForm,
 		),
 	)
@@ -130,8 +135,10 @@ func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 			case "m":
 				m.mode = modelMode
 				m.textInput.CharLimit = 100
+				m.textInput.Placeholder = "Enter model"
 			case "f":
 				m.mode = frequencyMode
+				m.textInput.Placeholder = "Enter Frequency Number"
 				// the validate function will not allow us to type in any characters
 				// that don't pass validation. So here, we are ensuring that we do not allow
 				// the user to type in any non numeric characters. We can extend this further,
@@ -147,6 +154,7 @@ func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 					return nil
 				}
 			case "t":
+				m.textInput.Placeholder = "Enter Max Tokens"
 				m.mode = maxTokensMode
 			}
 
