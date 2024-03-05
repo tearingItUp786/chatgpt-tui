@@ -4,9 +4,10 @@
 
 Please make sure that you expose a `CHAT_GPT_API_KEY` inside of your environment; we require it to make api calls!
 
-Set up your (api key)[https://platform.openai.com/api-keys]
+Set up your [api key)(https://platform.openai.com/api-keys)
 
 ```bash
+export CHAT_GPT_API_KEY="some-key" # you would want to export this in your .zshrc
 brew tap tearingitup786/tearingitup786
 brew install chatgpt-tui
 chatgpt-tui
