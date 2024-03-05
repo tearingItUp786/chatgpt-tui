@@ -23,4 +23,8 @@ debug.log
 .env
 
 
-dist/
+.idea
+*.tar.xz
+dist
+vendor
+.release-env
