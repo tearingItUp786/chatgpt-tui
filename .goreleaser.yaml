@@ -17,7 +17,7 @@ before:
 
 builds:
   - env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
     goos:
       - linux
       - windows
@@ -29,7 +29,7 @@ release:
 brews:
   - name: chatgpt-tui
     homepage: https://github.com/tearingItUp786/chatgpt-tui
-    tap:
+    repository:
       owner: tearingItUp786
       name: homebrew-tearingitup786
     commit_author:
