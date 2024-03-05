@@ -1,7 +1,7 @@
 builds:
   - id: darwin-amd64
     main: ./
-    binary: golang
+    binary: chatgpt-tui
     goos:
       - darwin
     goarch:
@@ -19,7 +19,7 @@ builds:
       - -s -w -X main.version={{.Version}}
   - id: linux-armhf
     main: ./
-    binary: golang-cross
+    binary: chatgpt-tui
     goos:
       - linux
     goarch:
@@ -38,7 +38,7 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 archives:
-  - id: golang-cross
+  - id: chatgpt-tui
     builds:
       - darwin-amd64
       - linux-armhf
