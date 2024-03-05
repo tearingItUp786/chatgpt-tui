@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tearingItUp786/golang-tui/util"
+	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 func (m *Model) _settingsContainer() lipgloss.Style {

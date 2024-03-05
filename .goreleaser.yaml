@@ -23,6 +23,18 @@ builds:
       - windows
       - darwin
 
+release:
+  prerelease: auto
+
+brews:
+  - name: chatgpt-tui
+    homepage: https://github.com/tearingItUp786/chatgpt-tui
+    tap:
+      owner: tearingItUp786
+      name: homebrew-chatgpt-tui
+    commit_author:
+      name: tearingitup786
+
 archives:
   - format: tar.gz
     # this name template makes the OS and Arch compatible with the results of `uname`.

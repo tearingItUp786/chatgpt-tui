@@ -13,10 +13,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/joho/godotenv"
 	"github.com/muesli/reflow/wrap"
-	"github.com/tearingItUp786/golang-tui/migrations"
-	"github.com/tearingItUp786/golang-tui/sessions"
-	"github.com/tearingItUp786/golang-tui/settings"
-	"github.com/tearingItUp786/golang-tui/util"
+	"github.com/tearingItUp786/chatgpt-tui/migrations"
+	"github.com/tearingItUp786/chatgpt-tui/sessions"
+	"github.com/tearingItUp786/chatgpt-tui/settings"
+	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 type model struct {

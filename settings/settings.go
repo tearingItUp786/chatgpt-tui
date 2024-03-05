@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tearingItUp786/golang-tui/util"
+	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 const (

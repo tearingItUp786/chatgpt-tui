@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tearingItUp786/golang-tui/util"
+	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 type Choice struct {

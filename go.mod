@@ -1,4 +1,4 @@
-module github.com/tearingItUp786/golang-tui
+module github.com/tearingItUp786/chatgpt-tui
 
 go 1.19
 

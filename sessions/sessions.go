@@ -11,9 +11,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tearingItUp786/golang-tui/settings"
-	"github.com/tearingItUp786/golang-tui/user"
-	"github.com/tearingItUp786/golang-tui/util"
+	"github.com/tearingItUp786/chatgpt-tui/settings"
+	"github.com/tearingItUp786/chatgpt-tui/user"
+	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 const (
