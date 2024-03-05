@@ -13,6 +13,8 @@ brew install chatgpt-tui
 chatgpt-tui
 ```
 
+![tui demo](./tui-demo.gif)
+
 ## Global Keybindings
 
 - `Tab`: Change focus between panes. The currently focused pane will be highlighted with a pink border.
