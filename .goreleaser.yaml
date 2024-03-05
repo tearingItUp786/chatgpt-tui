@@ -1,7 +1,6 @@
 builds:
   - id: darwin-amd64
     main: ./
-    binary: chatgpt-tui
     goos:
       - darwin
     goarch:
