@@ -4,6 +4,14 @@
 
 Please make sure that you expose a `CHAT_GPT_API_KEY` inside of your environment; we require it to make api calls!
 
+## Installation
+
+```bash
+brew tap tearingitup786/tearingitup786
+brew install chatgpt-tui
+chatgpt-tui
+```
+
 ## Global Keybindings
 
 - `Tab`: Change focus between panes. The currently focused pane will be highlighted with a pink border.
