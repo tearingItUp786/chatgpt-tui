@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/user"
@@ -230,16 +232,24 @@ func RenderBotMessage(msg string, width int) string {
 		return ""
 	}
 
+	lol, _ := glamour.RenderWithEnvironmentConfig(msg)
+	output := strings.TrimSpace(lol)
 	return lipgloss.NewStyle().
-		Align(lipgloss.Left).
-		BorderStyle(lipgloss.RoundedBorder()).
-		Foreground(lipgloss.Color("#FAFAFA")).
 		BorderLeft(true).
+		BorderStyle(lipgloss.RoundedBorder()).
 		BorderLeftForeground(lipgloss.Color(util.Pink300)).
-		Width(width - 5).
-		Render(
-			"🤖 " + msg,
-		)
+		Render(output)
+
+	// return lipgloss.NewStyle().
+	// 	Align(lipgloss.Left).
+	// 	BorderStyle(lipgloss.RoundedBorder()).
+	// 	Foreground(lipgloss.Color("#FAFAFA")).
+	// 	BorderLeft(true).
+	// 	BorderLeftForeground(lipgloss.Color(util.Pink300)).
+	// 	Width(width - 5).
+	// 	Render(
+	// 		"🤖 " + msg,
+	// 	)
 }
 
 func (m Model) GetLatestBotMessage() (string, error) {

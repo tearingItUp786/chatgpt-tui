@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/joho/godotenv"
 	"github.com/muesli/reflow/wrap"
 	"github.com/tearingItUp786/chatgpt-tui/migrations"
