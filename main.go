@@ -154,13 +154,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch keypress := msg.String(); keypress {
 		case "y":
 			if m.focused == util.ChatMessagesType {
-				log.Println("y pressed", m.sessionModel.GetLatestBotMessage())
-				clipboard.WriteAll(m.sessionModel.GetLatestBotMessage())
+				latestBotMessage, err := m.sessionModel.GetLatestBotMessage()
+				if err == nil {
+					clipboard.WriteAll(latestBotMessage)
+				}
+
 			}
 
 		case "Y":
 			if m.focused == util.ChatMessagesType {
-				log.Println("Y pressed")
 				clipboard.WriteAll(m.sessionModel.GetMessagesAsString())
 			}
 

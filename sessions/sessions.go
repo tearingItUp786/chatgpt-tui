@@ -242,10 +242,17 @@ func RenderBotMessage(msg string, width int) string {
 		)
 }
 
-func (m Model) GetLatestBotMessage() string {
+func (m Model) GetLatestBotMessage() (string, error) {
 	// the last bot in the array is actually the blank message (the stop command)
 	lastIndex := len(m.ArrayOfMessages) - 2
-	return m.ArrayOfMessages[lastIndex].Content
+	// Check if lastIndex is within the bounds of the slice
+	if lastIndex >= 0 && lastIndex < len(m.ArrayOfMessages) {
+		return m.ArrayOfMessages[lastIndex].Content, nil
+	}
+	return "", fmt.Errorf(
+		"No messages found in array of messages. Length: %v",
+		len(m.ArrayOfMessages),
+	)
 }
 
 func (m Model) GetMessagesAsString() string {
