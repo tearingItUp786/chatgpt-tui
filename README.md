@@ -1,10 +1,10 @@
 # ChatGPT tui README
 
-## Getting started
+## Installation
 
 Please make sure that you expose a `CHAT_GPT_API_KEY` inside of your environment; we require it to make api calls!
 
-## Installation
+Set up your (api key)[https://platform.openai.com/api-keys]
 
 ```bash
 brew tap tearingitup786/tearingitup786
