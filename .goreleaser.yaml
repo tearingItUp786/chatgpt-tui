@@ -71,7 +71,7 @@ before:
 brews:
   - name: chatgpt-tui
     homepage: https://github.com/tearingItUp786/chatgpt-tui
-    repository:
+    tap:
       owner: tearingItUp786
       name: homebrew-tearingitup786
     commit_author:
