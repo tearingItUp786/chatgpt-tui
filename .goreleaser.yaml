@@ -1,7 +1,7 @@
 builds:
   - id: darwin-amd64
     main: ./
-    binary: golang-cross
+    binary: golang
     goos:
       - darwin
     goarch:
@@ -55,9 +55,6 @@ changelog:
       - "^test:"
 
 release:
-  github:
-    owner: goreleaser
-    name: golang-cross-example
   prerelease: auto
   draft: false
 
