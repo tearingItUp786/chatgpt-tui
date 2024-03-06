@@ -1,5 +1,12 @@
 # ChatGPT tui README
 
+My first ever terminal UI! Everything is stored locally on sqlite and written in Go!
+
+## Technologies
+- SQLite
+- [bubbletea](https://github.com/charmbracelet/bubbletea)
+- Go
+
 ## Installation
 
 Please make sure that you expose a `CHAT_GPT_API_KEY` inside of your environment; we require it to make api calls!
