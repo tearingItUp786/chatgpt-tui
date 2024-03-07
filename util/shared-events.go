@@ -1,8 +1,6 @@
 package util
 
 import (
-	"log"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -45,7 +43,7 @@ func GetNewFocusMode(mode ViewMode, currentFocus FocusPane) FocusPane {
 	case ZenMode:
 		focusModes = ZenFocusModes
 	default:
-		log.Println("Invalid mode")
+		Log("Invalid mode")
 		return currentFocus
 	}
 
@@ -57,7 +55,7 @@ func GetNewFocusMode(mode ViewMode, currentFocus FocusPane) FocusPane {
 		}
 	}
 
-	log.Println("Current focus not found in mode", currentFocus)
+	Log("Current focus not found in mode", currentFocus)
 	return currentFocus
 }
 

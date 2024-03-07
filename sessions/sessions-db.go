@@ -3,7 +3,8 @@ package sessions
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+
+	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 type Session struct {
@@ -118,7 +119,7 @@ func (ss *SessionService) UpdateSessionMessages(id int, messages []MessageToSend
 
 	if err != nil {
 		// TODO: handle better
-		log.Println("I panic here")
+		util.Log("I panic here")
 		panic(err)
 	}
 	return nil

@@ -89,7 +89,7 @@ func (m *Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 			bytes.NewBuffer(body),
 		)
 		if err != nil {
-			log.Println("Error creating request:", err)
+			util.Log("Error creating request:", err)
 			resultChan <- ProcessResult{ID: processResultID, Err: err}
 		}
 
@@ -134,7 +134,7 @@ func (m *Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 
 			// This should be a constant (checking to see if the stream is done)
 			if line == "data: [DONE]\n" {
-				log.Println("Stream ended with [DONE] message.")
+				util.Log("Stream ended with [DONE] message.")
 				return ProcessResult{ID: processResultID, Err: nil, Final: true}
 			}
 
@@ -158,7 +158,7 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) (MessageToSend, 
 
 	for _, aMessage := range arrayOfProcessResult {
 		if aMessage.Final {
-			log.Println("Hit final in construct", aMessage.Result)
+			util.Log("Hit final in construct", aMessage.Result)
 			break
 		}
 
@@ -166,7 +166,7 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) (MessageToSend, 
 			choice := aMessage.Result.Choices[0]
 			// TODO: we need a helper for this
 			if choice.FinishReason == "stop" || choice.FinishReason == "length" {
-				log.Println("Hit stop or length in construct")
+				util.Log("Hit stop or length in construct")
 				break
 			}
 
@@ -174,7 +174,7 @@ func constructJsonMessage(arrayOfProcessResult []ProcessResult) (MessageToSend, 
 				newMessage.Content += content
 			} else {
 				// Handle the case where the type assertion fails, e.g., log an error or return
-				log.Println("type assertion to string failed for choice.Delta[\"content\"]")
+				util.Log("type assertion to string failed for choice.Delta[\"content\"]")
 				formattedError := fmt.Errorf("type assertion to string failed for choice.Delta[\"content\"]")
 				return MessageToSend{}, formattedError
 			}

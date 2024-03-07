@@ -137,7 +137,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// these are the messages that come in as a stream from the chat gpt api
 	// we append the content to the viewport and scroll
 	case sessions.ProcessResult:
-		log.Println("main ProcessResult: ")
+		util.Log("main ProcessResult: ")
 		oldContent := m.sessionModel.GetMessagesAsPrettyString()
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
 
@@ -150,7 +150,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, waitForActivity(m.msgChan))
 
 	case util.ErrorEvent:
-		log.Println("Error: ", msg.Message)
+		util.Log("Error: ", msg.Message)
 		m.sessionModel.ProcessingMode = sessions.IDLE
 		m.error = msg
 

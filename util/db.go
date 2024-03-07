@@ -115,7 +115,7 @@ func MigrateFS(db *sql.DB, migrationsFS fs.FS, dir string) error {
 
 func checkErr(err error) {
 	if err != nil {
-		log.Println(err)
+		Log(err)
 		panic(err)
 	}
 }

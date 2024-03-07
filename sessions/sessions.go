@@ -3,7 +3,6 @@ package sessions
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -164,7 +163,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case ProcessResult:
 		// add the latest message to the array of messages
-		log.Println("Processing message: ")
+		util.Log("Processing message: ")
 		cmd = m.handleMsgProcessing(msg)
 		return m, cmd
 
@@ -361,7 +360,7 @@ func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 	m.ArrayOfProcessResult = []ProcessResult{}
 
 	if err != nil {
-		log.Println("Error updating session messages", err)
+		util.Log("Error updating session messages", err)
 		return m.resetStateAndCreateError(err.Error())
 	}
 
@@ -398,7 +397,7 @@ func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
 
 	for _, msg := range m.ArrayOfProcessResult {
 		if msg.Final && areIdsAllThere {
-			log.Println("-----Final message found-----")
+			util.Log("-----Final message found-----")
 			return m.handleFinalChoiceMessage()
 		}
 
