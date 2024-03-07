@@ -376,7 +376,7 @@ func main() {
 
 	// run migrations for our database
 	db := util.InitDb()
-	err := util.MigrateFS(db, migrations.FS, ".")
+	err = util.MigrateFS(db, migrations.FS, ".")
 	if err != nil {
 		log.Println("Error: ", err)
 		panic(err)
