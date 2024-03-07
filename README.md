@@ -3,6 +3,7 @@
 My first ever terminal UI! Everything is stored locally on sqlite and written in Go!
 
 ## Technologies
+
 - SQLite
 - [bubbletea](https://github.com/charmbracelet/bubbletea)
 - Go
@@ -24,8 +25,15 @@ chatgpt-tui
 
 ## Global Keybindings
 
-- `Tab`: Change focus between panes. The currently focused pane will be highlighted with a pink border.
+- `Tab`: \*Change focus between panes. The currently focused pane will be highlighted with a pink border.
+  - You can only change focus if Prompt Pane is not in `insert mode`
 - `Ctrl+o`: Toggles zen mode
+- `Ctrl+c`: Exit the program
+
+## Prompt Pane
+
+- `i`: Enters insert mode (you can now safely paste messages into the tui)
+- `esc`: Exit insert mode for the prompt
 
 ## Chat Messages Pane
 
@@ -45,3 +53,7 @@ chatgpt-tui
 - `Enter`: Switches to the session that is currently selected.
 
 Please refer to this guide as you navigate the TUI. Happy exploring!
+
+### Dev notes
+
+The SQL db is stored in you `your/home/directory/.chatgpt-tui`, as well as the debug log. To enable `debug` mode, `export DEBUG=1` before running the program.

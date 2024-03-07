@@ -7,6 +7,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type PrompInputMode int
+
+const (
+	PromptInsertMode PrompInputMode = iota
+	PromptNormalMode
+)
+
 type FocusPane int
 
 // fake enum to keep tab of the currently focused pane

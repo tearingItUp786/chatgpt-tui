@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -24,6 +25,7 @@ type model struct {
 	ready            bool
 	focused          util.FocusPane
 	viewMode         util.ViewMode
+	promptInputMode  util.PrompInputMode
 	msgChan          chan sessions.ProcessResult
 	error            util.ErrorEvent
 	currentSessionID string
@@ -42,7 +44,6 @@ func initialModal(db *sql.DB) model {
 	ti := textinput.New()
 	ti.Placeholder = "Ask ChatGPT a question!"
 	ti.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
-	ti.Focus()
 
 	si := settings.New(db)
 	sm := sessions.New(db)
@@ -52,6 +53,7 @@ func initialModal(db *sql.DB) model {
 	return model{
 		viewMode:         util.NormalMode,
 		focused:          util.PromptType,
+		promptInputMode:  util.PromptNormalMode,
 		promptInput:      ti,
 		settingsModel:    si,
 		currentSessionID: "",
@@ -107,6 +109,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
+	if m.focused == util.PromptType && m.promptInputMode == util.PromptInsertMode &&
+		m.sessionModel.ProcessingMode == sessions.IDLE {
+		m.promptInput, cmd = m.promptInput.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
 	switch msg := msg.(type) { // each time we get a new message coming in from the model
 	// lets handle it and pass it to the lower model
 	case sessions.LoadDataFromDB:
@@ -153,6 +161,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch keypress := msg.String(); keypress {
+		case "i":
+			if m.focused == util.PromptType && m.promptInputMode == util.PromptNormalMode {
+				m.promptInputMode = util.PromptInsertMode
+				m.promptInput.Focus()
+				cmds = append(cmds, m.promptInput.Cursor.BlinkCmd())
+			}
 		case "y":
 			if m.focused == util.ChatMessagesType {
 				latestBotMessage, err := m.sessionModel.GetLatestBotMessage()
@@ -173,7 +187,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 
-			cmd = m.promptInput.Focus()
 			cmds = append(cmds, cmd)
 
 			switch m.viewMode {
@@ -185,8 +198,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.chatViewMessageContainer.BorderForeground(util.NormalTabBorderColor).Width(m.terminalWidth / 3 * 2)
 			}
 
-		// we used to use tea.KeyTab but for some reason cmd + v also did the same thing...
-		case "tab":
+		}
+
+		switch msg.Type {
+
+		case tea.KeyTab:
+			if m.focused == util.PromptType && m.promptInputMode == util.PromptInsertMode {
+				break
+			}
+
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused)
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
@@ -195,28 +215,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.focused {
 
 			case util.PromptType:
-				borderColor := util.ActiveTabBorderColor
-				m.promptContainer = m.promptContainer.BorderForeground(borderColor)
+				m.promptInputMode = util.PromptNormalMode
+				m.promptContainer = m.promptContainer.BorderForeground(util.ActiveTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
-				m.promptInput.Focus()
 
 			case util.ChatMessagesType:
+				m.promptInputMode = util.PromptNormalMode
 				m.chatViewMessageContainer.BorderForeground(util.ActiveTabBorderColor)
 				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.NormalTabBorderColor))
 				m.promptInput.Blur()
 
 			default:
+				m.promptInputMode = util.PromptNormalMode
 				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Foreground(lipgloss.Color(util.NormalTabBorderColor))
 				m.promptInput.Blur()
 			}
 
-		}
+		case tea.KeyEscape:
+			if m.focused == util.PromptType {
+				m.promptInputMode = util.PromptNormalMode
+				m.promptInput.Blur()
+			}
 
-		switch msg.Type {
-
-		case tea.KeyCtrlC, tea.KeyEsc:
+		case tea.KeyCtrlC:
 			return m, tea.Quit
 
 		case tea.KeyEnter:
@@ -226,9 +249,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
 				log.Println("key enter")
 				m.promptInput.SetValue("")
+				m.promptInput.Focus()
 
+				m.promptInputMode = util.PromptInsertMode
 				m.sessionModel.ProcessingMode = sessions.PROCESSING
-				return m, m.sessionModel.CallChatGpt(m.msgChan)
+				return m, tea.Batch(m.sessionModel.CallChatGpt(m.msgChan), m.promptInput.Cursor.BlinkCmd())
 			}
 		}
 
@@ -265,11 +290,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		yolo := m.chatViewMessageContainer.GetWidth()
 		m.settingsModel.Update(util.MakeWindowResizeMsg(yolo))
 		m.sessionModel.Update(util.MakeWindowResizeMsg(yolo))
-	}
-
-	if m.focused == util.PromptType && m.sessionModel.ProcessingMode == sessions.IDLE {
-		m.promptInput, cmd = m.promptInput.Update(msg)
-		cmds = append(cmds, cmd)
 	}
 
 	if enableUpdateOfViewport {
@@ -338,11 +358,15 @@ func main() {
 	godotenv.Load(".env." + env)
 	godotenv.Load() // The Original .env
 
-	f, err := tea.LogToFile("debug.log", "debug")
-	if err != nil {
-		log.Fatal(err)
+	if len(os.Getenv("DEBUG")) > 0 {
+		appPath, err := util.GetAppDataPath()
+		f, err := tea.LogToFile(filepath.Join(appPath, "debug.log"), "debug")
+		if err != nil {
+			fmt.Println("fatal:", err)
+			os.Exit(1)
+		}
+		defer f.Close()
 	}
-	defer f.Close()
 
 	apiKey := os.Getenv("CHAT_GPT_API_KEY")
 	if "" == apiKey {
@@ -354,8 +378,9 @@ func main() {
 
 	// run migrations for our database
 	db := util.InitDb()
-	err = util.MigrateFS(db, migrations.FS, ".")
+	err := util.MigrateFS(db, migrations.FS, ".")
 	if err != nil {
+		log.Println("Error: ", err)
 		panic(err)
 	}
 	defer db.Close()
