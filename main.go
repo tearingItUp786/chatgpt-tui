@@ -358,15 +358,13 @@ func main() {
 	godotenv.Load(".env." + env)
 	godotenv.Load() // The Original .env
 
-	if len(os.Getenv("DEBUG")) > 0 {
-		appPath, err := util.GetAppDataPath()
-		f, err := tea.LogToFile(filepath.Join(appPath, "debug.log"), "debug")
-		if err != nil {
-			fmt.Println("fatal:", err)
-			os.Exit(1)
-		}
-		defer f.Close()
+	appPath, err := util.GetAppDataPath()
+	f, err := tea.LogToFile(filepath.Join(appPath, "debug.log"), "debug")
+	if err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
 	}
+	defer f.Close()
 
 	apiKey := os.Getenv("CHAT_GPT_API_KEY")
 	if "" == apiKey {
