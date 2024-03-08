@@ -30,6 +30,10 @@ release:
 		echo "\033[91m.release-env is required for release\033[0m";\
 		exit 1;\
 	fi
+	@echo "Contents of .release-env:"
+	@cat .release-env
+	@echo "Running release..."
+
 	docker run \
 		--rm \
 		-e CGO_ENABLED=1 \
