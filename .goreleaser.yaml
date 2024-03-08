@@ -46,3 +46,12 @@ brews:
       name: homebrew-tearingitup786
     commit_author:
       name: tearingitup786
+
+    # Setting this will prevent goreleaser to actually try to commit the updated
+    # formula - instead, the formula file will be stored on the dist folder only,
+    # leaving the responsibility of publishing it to the user.
+    # If set to auto, the release will not be uploaded to the homebrew tap
+    # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
+    #
+    # Templates: allowed
+    skip_upload: auto
