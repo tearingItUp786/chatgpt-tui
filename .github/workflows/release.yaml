@@ -57,7 +57,7 @@ jobs:
       - run: git fetch --prune --unshallow
       - name: setup dependencies
         uses: actions/setup-go@v2
-      - name: release dry run
+      - name: release candidate dry run
         run: |
           make release-candidate-dry-run
       - name: setup release environment
@@ -65,6 +65,6 @@ jobs:
           echo "GITHUB_TOKEN=${{ secrets.PUBLISHER_TOKEN }}" >> .release-env
         env:
           HOMEBREW_APP_NAME: ${{ env.HOMEBREW_APP_NAME }}
-      - name: release publish
+      - name: release candidate publish
         run: |
           make release-candidate
