@@ -31,7 +31,7 @@ jobs:
           make release-dry-run
       - name: setup release environment
         run: |-
-          echo 'HOMEBREW_APP_NAME=HOMEBREW_APP_NAME GITHUB_TOKEN=${{secrets.PUBLISHER_TOKEN}}' > .release-env
+          echo 'HOMEBREW_APP_NAME=${{env.HOMEBREW_APP_NAME}} GITHUB_TOKEN=${{secrets.PUBLISHER_TOKEN}}' > .release-env
       - name: release publish
         run: |
           make release
