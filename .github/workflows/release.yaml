@@ -4,7 +4,25 @@ on:
     tags:
       - v*
 jobs:
-  release:
+  check-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.tag-checker.outputs.proceed }}
+    steps:
+      - name: Check for RC in tag
+        id: tag-checker
+        run: |
+          if [[ "${GITHUB_REF##*/}" == *"-rc"* ]]; then
+            echo "RC tag detected: ${GITHUB_REF##*/}"
+            echo "proceed=candidate" >> $GITHUB_ENV
+            echo "::set-output name=proceed::candidate"
+          else
+            echo "proceed=stable" >> $GITHUB_ENV
+            echo "::set-output name=proceed::stable"
+          fi
+  release-stable:
+    needs: check-tag
+    if: needs.check-tag.outputs.proceed == 'stable'
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
@@ -14,22 +32,39 @@ jobs:
       - run: git fetch --prune --unshallow
       - name: setup dependencies
         uses: actions/setup-go@v2
-      - name: Determine Release Type
-        id: release_type
-        run: |
-          if [[ "${{ github.ref }}" == *"-rc"* ]]; then
-            echo "Setting up for a release candidate"
-            echo "HOMEBREW_APP_NAME=rc-chatgpt-tui" >> $GITHUB_ENV
-          else
-            echo "Setting up for a stable release"
-            echo "HOMEBREW_APP_NAME=chatgpt-tui" >> $GITHUB_ENV
-          fi
-        env:
-          GITHUB_REF: ${{ github.ref }}
       - name: release dry run
-        run: make release-dry-run
+        run: |
+          make release-dry-run
       - name: setup release environment
-        run: |-
-          echo 'GITHUB_TOKEN=${{secrets.PUBLISHER_TOKEN}}' > .release-env
+        run: |
+          echo "HOMEBREW_APP_NAME=${HOMEBREW_APP_NAME}" > .release-env
+          echo "GITHUB_TOKEN=${{ secrets.PUBLISHER_TOKEN }}" >> .release-env
+        env:
+          HOMEBREW_APP_NAME: ${{ env.HOMEBREW_APP_NAME }}
       - name: release publish
-        run: make release
+        run: |
+          make release
+
+  release-candidate:
+    needs: check-tag
+    if: needs.check-tag.outputs.proceed == 'candidate'
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - run: git fetch --prune --unshallow
+      - name: setup dependencies
+        uses: actions/setup-go@v2
+      - name: release candidate dry run
+        run: |
+          make release-candidate-dry-run
+      - name: setup release environment
+        run: |
+          echo "GITHUB_TOKEN=${{ secrets.PUBLISHER_TOKEN }}" >> .release-env
+        env:
+          HOMEBREW_APP_NAME: ${{ env.HOMEBREW_APP_NAME }}
+      - name: release candidate publish
+        run: |
+          make release-candidate
