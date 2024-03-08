@@ -54,8 +54,16 @@ func ConstructUserMessage(content string) MessageToSend {
 	}
 }
 
+func constructSystemMessage(content string) MessageToSend {
+	return MessageToSend{
+		Role:    "system",
+		Content: content,
+	}
+}
+
 func (m Model) constructJsonBody() ([]byte, error) {
 	messages := []MessageToSend{}
+	messages = append(messages, constructSystemMessage(m.config.SystemMessage))
 	for _, singleMessage := range m.ArrayOfMessages {
 		messages = append(messages, singleMessage)
 	}
@@ -85,7 +93,8 @@ func (m *Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 		// API endpoint to call -- should be an env variable
 		req, err := http.NewRequest(
 			"POST",
-			"https://api.openai.com/v1/chat/completions",
+			// get this url from the config
+			m.config.ChatGPTApiUrl,
 			bytes.NewBuffer(body),
 		)
 		if err != nil {
