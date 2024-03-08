@@ -1,5 +1,5 @@
 builds:
-  - id: darwin-amd64
+  - id: chatgpt-tui
     main: ./
     goos:
       - darwin
@@ -16,6 +16,9 @@ builds:
       - -mod=readonly
     ldflags:
       - -s -w -X main.version={{.Version}}
+    # Use 'binary' to set the final name of your binary.
+    # This is the name that will be used in archives et al.
+    binary: bin/chatgpt-tui
 archives:
   - id: chatgpt-tui
     builds:

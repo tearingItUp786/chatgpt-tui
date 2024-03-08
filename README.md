@@ -21,6 +21,13 @@ brew install chatgpt-tui
 chatgpt-tui
 ```
 
+To get access to the release candidates, install command:
+
+```bash
+brew install rc-chatgpt-tui
+rc-chatgpt-tui
+```
+
 ## Config
 
 We provide a `config.json` file within your directory for easy access to essential settings.
