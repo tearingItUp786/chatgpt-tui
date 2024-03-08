@@ -28,12 +28,10 @@ jobs:
           GITHUB_REF: ${{ github.ref }}
       - name: release dry run
         run: |
-          source .release-env
           make release-dry-run
       - name: setup release environment
         run: |-
-          echo 'GITHUB_TOKEN=${{secrets.PUBLISHER_TOKEN}}' > .release-env
+          echo 'HOMEBREW_APP_NAME=HOMEBREW_APP_NAME GITHUB_TOKEN=${{secrets.PUBLISHER_TOKEN}}' > .release-env
       - name: release publish
         run: |
-          source .release-env
           make release
