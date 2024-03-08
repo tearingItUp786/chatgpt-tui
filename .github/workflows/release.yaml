@@ -27,9 +27,13 @@ jobs:
         env:
           GITHUB_REF: ${{ github.ref }}
       - name: release dry run
-        run: make release-dry-run
+        run: |
+          source .release-env
+          make release-dry-run
       - name: setup release environment
         run: |-
           echo 'GITHUB_TOKEN=${{secrets.PUBLISHER_TOKEN}}' > .release-env
       - name: release publish
-        run: make release
+        run: |
+          source .release-env
+          make release
