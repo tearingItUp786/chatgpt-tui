@@ -17,7 +17,7 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 archives:
-  - id: chatgpt-tui
+  - id: rc-chatgpt-tui
     builds:
       - darwin-amd64
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
