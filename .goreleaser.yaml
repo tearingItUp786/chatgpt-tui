@@ -1,5 +1,5 @@
 builds:
-  - id: chatgpt-tui
+  - id: darwin-amd64
     main: ./
     goos:
       - darwin
