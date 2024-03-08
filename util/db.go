@@ -38,44 +38,6 @@ func GetAppDataPath() (string, error) {
 //go:embed chat.db
 var dbEmbed embed.FS
 
-func CheckIfFileExistsInAppPath(name string) {
-	appPath, err := GetAppDataPath()
-	if err != nil {
-		panic(err)
-	}
-
-	pathToPersistFile := filepath.Join(appPath, name)
-
-	if _, err := os.Stat(pathToPersistFile); os.IsNotExist(err) {
-		// The database does not exist, extract from embedded
-		dbFile, err := dbEmbed.Open(name)
-		if err != nil {
-			panic(err)
-		}
-		defer dbFile.Close()
-
-		// Ensure the directory exists
-		if err := os.MkdirAll(filepath.Dir(pathToPersistFile), 0755); err != nil {
-			panic(err)
-		}
-
-		// Create the persistent file
-		outFile, err := os.Create(pathToPersistFile)
-		if err != nil {
-			panic(err)
-		}
-		defer outFile.Close()
-
-		// Copy the embedded database to the persistent file
-		if _, err := io.Copy(outFile, dbFile); err != nil {
-			panic(err)
-		}
-	} else if err != nil {
-		// An error occurred checking for the file, unrelated to file existence
-		panic(err)
-	}
-}
-
 func InitDb() *sql.DB {
 	appPath, err := GetAppDataPath()
 	if err != nil {
