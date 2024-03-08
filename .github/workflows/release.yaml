@@ -6,14 +6,22 @@ on:
 jobs:
   check-tag:
     runs-on: ubuntu-latest
-    if: contains(github.ref, '-rc')
+    outputs:
+      proceed: ${{ steps.tag-checker.outputs.proceed }}
     steps:
       - name: Check for RC in tag
+        id: tag-checker
         run: |
-          echo "RC tag detected: ${GITHUB_REF##*/}"
-          echo "Cancelling the workflow"
-          exit 1
+          if [[ "${GITHUB_REF##*/}" == *"-rc"* ]]; then
+            echo "RC tag detected: ${GITHUB_REF##*/}"
+            echo "proceed=false" >> $GITHUB_ENV
+            echo "::set-output name=proceed::false"
+          else
+            echo "proceed=true" >> $GITHUB_ENV
+            echo "::set-output name=proceed::true"
+          fi
   release:
+    needs: check-tag
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
