@@ -1,4 +1,4 @@
-name: release
+name: rc-release
 on:
   push:
     tags:
@@ -6,11 +6,11 @@ on:
 jobs:
   check-tag:
     runs-on: ubuntu-latest
-    if: contains(github.ref, '-rc')
+    if: "!contains(github.ref, '-rc')"
     steps:
       - name: Check for RC in tag
         run: |
-          echo "RC tag detected: ${GITHUB_REF##*/}"
+          echo "No RC tag was detected: ${GITHUB_REF##*/}"
           echo "Cancelling the workflow"
           exit 1
   release:
@@ -25,13 +25,12 @@ jobs:
         uses: actions/setup-go@v2
       - name: release dry run
         run: |
-          make release-dry-run
+          make release-candidate-dry-run
       - name: setup release environment
         run: |
-          echo "HOMEBREW_APP_NAME=${HOMEBREW_APP_NAME}" > .release-env
           echo "GITHUB_TOKEN=${{ secrets.PUBLISHER_TOKEN }}" >> .release-env
         env:
           HOMEBREW_APP_NAME: ${{ env.HOMEBREW_APP_NAME }}
       - name: release publish
         run: |
-          make release
+          make release-candidate

@@ -39,7 +39,7 @@ release:
   draft: false
 
 brews:
-  - name: chatgpt-tui
+  - name: rc-chatgpt-tui
     tap:
       owner: tearingItUp786
       name: homebrew-tearingitup786
