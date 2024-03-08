@@ -21,6 +21,14 @@ brew install chatgpt-tui
 chatgpt-tui
 ```
 
+## Config
+
+We provide a `config.json` file within your directory for easy access to essential settings.
+On most Macs, the path is `~/.chatgpt-tui/config.json`.
+This file includes the URL used for network calls to the TUI,
+specified as `chatGPTAPiUrl: "https://api.openai.com/v1/chat/completions"`.
+Additionally, the `systemMessage` field is available for customizing system prompt messages.
+
 ![tui demo](./tui-demo.gif)
 
 ## Global Keybindings
