@@ -1,4 +1,4 @@
 {
-  "chatGPTAPiUrl": "https://api.openai.com/v1/chat/completions",
+  "chatGPTApiUrl": "https://api.openai.com/v1/chat/completions",
   "systemMessage": ""
 }
