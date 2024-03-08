@@ -29,6 +29,8 @@ This file includes the URL used for network calls to the TUI,
 specified as `chatGPTAPiUrl: "https://api.openai.com/v1/chat/completions"`.
 Additionally, the `systemMessage` field is available for customizing system prompt messages.
 
+## Demo
+
 ![tui demo](./tui-demo.gif)
 
 ## Global Keybindings
