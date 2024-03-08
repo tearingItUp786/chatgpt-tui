@@ -14,6 +14,18 @@ jobs:
       - run: git fetch --prune --unshallow
       - name: setup dependencies
         uses: actions/setup-go@v2
+      - name: Determine Release Type
+        id: release_type
+        run: |
+          if [[ "${{ github.ref }}" == *"-rc"* ]]; then
+            echo "Setting up for a release candidate"
+            echo "HOMEBREW_APP_NAME=rc-chatgpt-tui" >> $GITHUB_ENV
+          else
+            echo "Setting up for a stable release"
+            echo "HOMEBREW_APP_NAME=chatgpt-tui" >> $GITHUB_ENV
+          fi
+        env:
+          GITHUB_REF: ${{ github.ref }}
       - name: release dry run
         run: make release-dry-run
       - name: setup release environment

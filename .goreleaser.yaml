@@ -39,11 +39,11 @@ release:
   draft: false
 
 brews:
-  - name: chatgpt-tui
-    homepage: https://github.com/tearingItUp786/chatgpt-tui
+  - name: "{{ .Env.HOMEBREW_APP_NAME }}"
     tap:
       owner: tearingItUp786
       name: homebrew-tearingitup786
+    homepage: https://github.com/tearingItUp786/chatgpt-tui
     commit_author:
       name: tearingitup786
 
