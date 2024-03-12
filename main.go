@@ -200,6 +200,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.chatViewMessageContainer.BorderForeground(util.NormalTabBorderColor).Width(m.terminalWidth / 3 * 2)
 			}
 
+			chatContainerWidth := m.chatViewMessageContainer.GetWidth()
+			m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
+			cmds = append(cmds, cmd)
+			m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
+			cmds = append(cmds, cmd)
+
 		}
 
 		switch msg.Type {
@@ -266,11 +272,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
 			Width(m.terminalWidth - 2)
 
-		m.chatViewMessageContainer.Width(m.terminalWidth / 3 * 2)
+		widthToUse := m.terminalWidth / 3 * 2
+		util.Log("viewMode:", m.viewMode)
 		if m.viewMode == util.ZenMode {
-			m.chatViewMessageContainer.Width(m.terminalWidth - 2)
+			widthToUse = m.terminalWidth - 2
 		}
 
+		m.chatViewMessageContainer.Width(widthToUse)
 		// TODO: get rid of this magic number
 		promptContainerHeight := m.promptContainer.GetHeight() + 5
 
@@ -289,9 +297,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.Height = msg.Height - promptContainerHeight
 			m.promptInput.Width = msg.Width - 3
 		}
-		yolo := m.chatViewMessageContainer.GetWidth()
-		m.settingsModel.Update(util.MakeWindowResizeMsg(yolo))
-		m.sessionModel.Update(util.MakeWindowResizeMsg(yolo))
+
+		chatContainerWidth := m.chatViewMessageContainer.GetWidth()
+		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
+		cmds = append(cmds, cmd)
+		m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
+		cmds = append(cmds, cmd)
 	}
 
 	if enableUpdateOfViewport {

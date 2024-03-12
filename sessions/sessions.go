@@ -156,16 +156,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 		m.list = initEditListViewTable(m.AllSessions, m.CurrentSessionID)
 		m.currentEditID = -1
-		return m, cmd
 
 	case settings.UpdateSettingsEvent:
 		m.Settings = msg.Settings
-		return m, nil
 
 	case util.FocusEvent:
 		m.isFocused = msg.IsFocused
 		m.currentEditID = -1
-		return m, nil
 
 	case util.OurWindowResize:
 		width := m.terminalWidth - msg.Width - 5
@@ -175,7 +172,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		// add the latest message to the array of messages
 		util.Log("Processing message: ")
 		cmd = m.handleMsgProcessing(msg)
-		return m, cmd
 
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width

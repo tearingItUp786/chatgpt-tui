@@ -84,6 +84,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case util.OurWindowResize:
+		util.Log("our Window resized", msg.Width)
 		width := m.terminalWidth - msg.Width - 5
 		m.list.Width(width)
 
@@ -100,20 +101,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
-		return m, nil
+
 	case tea.KeyMsg:
 		// in order to do proper event bubbling, we don't actually want to handle
 		// any keyboard events, unless we're the focused pane.
-		if !m.isFocused {
-			return m, nil
-		}
-
-		if m.mode == viewMode {
-			cmd = m.handleViewMode(msg)
-			cmds = append(cmds, cmd)
-		} else {
-			cmd = m.handleEditMode(msg)
-			cmds = append(cmds, cmd)
+		if m.isFocused {
+			if m.mode == viewMode {
+				cmd = m.handleViewMode(msg)
+				cmds = append(cmds, cmd)
+			} else {
+				cmd = m.handleEditMode(msg)
+				cmds = append(cmds, cmd)
+			}
 		}
 
 	}
