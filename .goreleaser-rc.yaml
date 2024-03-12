@@ -18,9 +18,9 @@ builds:
       - -s -w -X main.version={{.Version}}
     # Use 'binary' to set the final name of your binary.
     # This is the name that will be used in archives et al.
-    binary: bin/chatgpt-tui
+    binary: bin/rc-chatgpt-tui
 archives:
-  - id: chatgpt-tui
+  - id: rc-chatgpt-tui
     builds:
       - darwin-amd64
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -42,7 +42,7 @@ release:
   draft: false
 
 brews:
-  - name: chatgpt-tui
+  - name: rc-chatgpt-tui
     tap:
       owner: tearingItUp786
       name: homebrew-tearingitup786
@@ -57,4 +57,4 @@ brews:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed
-    skip_upload: auto
+    skip_upload: false

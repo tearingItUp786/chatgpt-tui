@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/muesli/reflow/wrap"
+	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/migrations"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
@@ -40,13 +42,13 @@ type model struct {
 	terminalHeight           int
 }
 
-func initialModal(db *sql.DB) model {
+func initialModal(db *sql.DB, ctx context.Context) model {
 	ti := textinput.New()
 	ti.Placeholder = "Ask ChatGPT a question!"
 	ti.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
 
 	si := settings.New(db)
-	sm := sessions.New(db)
+	sm := sessions.New(db, ctx)
 
 	msgChan := make(chan sessions.ProcessResult)
 
@@ -374,6 +376,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// delete files if in dev mode
+	util.DeleteFilesIfDevMode()
+	// validate config
+	configToUse := config.CreateAndValidateConfig()
+
 	// run migrations for our database
 	db := util.InitDb()
 	err = util.MigrateFS(db, migrations.FS, ".")
@@ -383,8 +390,11 @@ func main() {
 	}
 	defer db.Close()
 
+	ctx := context.Background()
+	ctxWithConfig := config.WithConfig(ctx, &configToUse)
+
 	p := tea.NewProgram(
-		initialModal(db),
+		initialModal(db, ctxWithConfig),
 		tea.WithAltScreen(),
 		// tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
 	)

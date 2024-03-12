@@ -12,9 +12,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/user"
 	"github.com/tearingItUp786/chatgpt-tui/util"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -31,6 +33,7 @@ type Model struct {
 	sessionService    *SessionService
 	userService       *user.UserService
 	settingsContainer lipgloss.Style
+	config            config.Config
 
 	Settings             settings.Settings
 	CurrentSessionID     int
@@ -44,7 +47,7 @@ type Model struct {
 	ProcessingMode       string
 }
 
-func New(db *sql.DB) Model {
+func New(db *sql.DB, ctx context.Context) Model {
 	ss := NewSessionService(db)
 	us := user.NewUserService(db)
 
@@ -55,7 +58,14 @@ func New(db *sql.DB) Model {
 		Frequency: 0,
 	}
 
+	config, ok := config.FromContext(ctx)
+	if !ok {
+		fmt.Println("No config found")
+		panic("No config found in context")
+	}
+
 	return Model{
+		config:               *config,
 		ArrayOfProcessResult: []ProcessResult{},
 		sessionService:       ss,
 		userService:          us,

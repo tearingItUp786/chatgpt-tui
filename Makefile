@@ -30,6 +30,10 @@ release:
 		echo "\033[91m.release-env is required for release\033[0m";\
 		exit 1;\
 	fi
+	@echo "Contents of .release-env:"
+	@cat .release-env
+	@echo "Running release..."
+
 	docker run \
 		--rm \
 		-e CGO_ENABLED=1 \
@@ -40,3 +44,37 @@ release:
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean
+
+
+.PHONY: release-candidate-dry-run
+release-candidate-dry-run:
+	@docker run \
+		--rm \
+		-e CGO_ENABLED=1 \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v `pwd`:/go/src/$(PACKAGE_NAME) \
+		-v `pwd`/sysroot:/sysroot \
+		-w /go/src/$(PACKAGE_NAME) \
+		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
+		--clean --skip-validate --skip-publish --config=.goreleaser-rc.yaml
+
+.PHONY: release-candidate
+release-candidate:
+	@if [ ! -f ".release-env" ]; then \
+		echo "\033[91m.release-env is required for release\033[0m";\
+		exit 1;\
+	fi
+	@echo "Contents of .release-env:"
+	@cat .release-env
+	@echo "Running release..."
+
+	docker run \
+		--rm \
+		-e CGO_ENABLED=1 \
+		--env-file .release-env \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v `pwd`:/go/src/$(PACKAGE_NAME) \
+		-v `pwd`/sysroot:/sysroot \
+		-w /go/src/$(PACKAGE_NAME) \
+		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
+		release --clean --config=.goreleaser-rc.yaml
