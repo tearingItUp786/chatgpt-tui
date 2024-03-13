@@ -93,7 +93,7 @@ The SQL db is stored in you `your/home/directory/.chatgpt-tui`, as well as the d
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://twitter.com/tearingitup786"><img src="https://avatars.githubusercontent.com/u/16584942?v=4?s=100" width="100px;" alt="Taranveer (Taran) Bains"/><br /><sub><b>Taranveer (Taran) Bains</b></sub></a><br /><a href="#doc-tearingItUp786" title="Documentation">📖</a> <a href="#maintenance-tearingItUp786" title="Maintenance">🚧</a> <a href="#review-tearingItUp786" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://www.tjmiller.me"><img src="https://avatars.githubusercontent.com/u/5108034?v=4?s=100" width="100px;" alt="TJ Miller"/><br /><sub><b>TJ Miller</b></sub></a><br /><a href="#doc-sixlive" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.tjmiller.me"><img src="https://avatars.githubusercontent.com/u/5108034?v=4?s=100" width="100px;" alt="TJ Miller"/><br /><sub><b>TJ Miller</b></sub></a><br /><a href="#doc-sixlive" title="Documentation">📖</a> <a href="#code-sixlive" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
