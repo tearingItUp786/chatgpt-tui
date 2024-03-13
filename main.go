@@ -379,10 +379,10 @@ func main() {
 	}
 	defer f.Close()
 
-	apiKey := os.Getenv("CHAT_GPT_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if "" == apiKey {
-		fmt.Println("CHAT_GPT_API_KEY not set; set it in your profile")
-		fmt.Printf("export CHAT_GPT_API_KEY=your_key in the config for :%v \n", os.Getenv("SHELL"))
+		fmt.Println("OPENAI_API_KEY not set; set it in your profile")
+		fmt.Printf("export OPENAI_API_KEY=your_key in the config for :%v \n", os.Getenv("SHELL"))
 		fmt.Println("Exiting...")
 		os.Exit(1)
 	}
