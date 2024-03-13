@@ -83,81 +83,77 @@ func (m Model) constructJsonBody() ([]byte, error) {
 	return body, nil
 }
 
+func (m *Model) callChatGptAPI(apiKey string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequest("POST", m.config.ChatGPTApiUrl, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	client := &http.Client{}
+	return client.Do(req)
+}
+
+func (m *Model) processAPIResponse(
+	resp *http.Response,
+	resultChan chan ProcessResult,
+	processResultID *int,
+) {
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			resultChan <- ProcessResult{ID: *processResultID, Err: err}
+			return
+		}
+		resultChan <- ProcessResult{ID: *processResultID, Err: fmt.Errorf(string(bodyBytes))}
+		return
+	}
+
+	scanner := bufio.NewReader(resp.Body)
+	for {
+		line, err := scanner.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break // End of the stream
+			}
+			resultChan <- ProcessResult{ID: *processResultID, Err: err}
+			return
+		}
+
+		if line == "data: [DONE]\n" {
+			resultChan <- ProcessResult{ID: *processResultID, Err: nil, Final: true}
+			return
+		}
+
+		if strings.HasPrefix(line, "data:") {
+			jsonStr := strings.TrimPrefix(line, "data:")
+			resultChan <- processChunk(jsonStr, *processResultID)
+			*processResultID++ // Increment the ID for each processed chunk
+		}
+	}
+}
+
 func (m *Model) CallChatGpt(resultChan chan ProcessResult) tea.Cmd {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	processResultID := 0 // Initialize a counter for ProcessResult IDs
 
 	return func() tea.Msg {
 		body, err := m.constructJsonBody()
-
-		// API endpoint to call -- should be an env variable
-		req, err := http.NewRequest(
-			"POST",
-			// get this url from the config
-			m.config.ChatGPTApiUrl,
-			bytes.NewBuffer(body),
-		)
 		if err != nil {
-			util.Log("Error creating request:", err)
-			resultChan <- ProcessResult{ID: processResultID, Err: err}
+			return util.ErrorEvent{Message: err.Error()}
 		}
 
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-
-		client := &http.Client{}
-		resp, err := client.Do(req)
+		resp, err := m.callChatGptAPI(apiKey, body)
 		if err != nil {
-			resultChan <- ProcessResult{ID: processResultID, Err: err}
-		}
-		defer resp.Body.Close()
-
-		// any kind of error, just break out man
-		if resp.StatusCode >= 400 {
-			// Read the response body
-			bodyBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return util.ErrorEvent{
-					Message: err.Error(),
-				}
-			}
-			bodyString := string(bodyBytes)
-
-			return util.ErrorEvent{
-				Message: bodyString,
-			}
+			return util.ErrorEvent{Message: err.Error()}
 		}
 
-		scanner := bufio.NewReader(resp.Body)
-
-		for {
-			line, err := scanner.ReadString('\n')
-			if err != nil {
-				if err == io.EOF {
-					// log.Println("end of file")
-					break // End of the stream
-				}
-				// TODO: proper error handler when the stream breaks
-				log.Fatal(err) // Handle other errors
-			}
-
-			// This should be a constant (checking to see if the stream is done)
-			if line == "data: [DONE]\n" {
-				util.Log("Stream ended with [DONE] message.")
-				return ProcessResult{ID: processResultID, Err: nil, Final: true}
-			}
-
-			if strings.HasPrefix(line, "data:") {
-				// log.Printf("Process Array: %v", line)
-				jsonStr := strings.TrimPrefix(line, "data:")
-				// Create a channel to receive the results
-				// Start the goroutine, passing the channel for communication
-				resultChan <- processChunk(jsonStr, processResultID)
-				processResultID++ // Increment the ID for each processed chunk
-			}
-		}
-
-		return ProcessResult{ID: 200, Err: nil}
+		m.processAPIResponse(resp, resultChan, &processResultID)
+		return nil // Or return a specific message indicating completion or next steps
 	}
 }
 
