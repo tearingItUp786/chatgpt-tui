@@ -1,4 +1,23 @@
 {
   "projectName": "chatgpt-tui",
-  "projectOwner": "tearingitup786"
+  "projectOwner": "tearingItUp786",
+  "files": [
+    "README.md"
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular",
+  "contributorsPerLine": 7,
+  "contributors": [
+    {
+      "login": "tearingItUp786",
+      "name": "Taranveer (Taran) Bains",
+      "avatar_url": "https://avatars.githubusercontent.com/u/16584942?v=4",
+      "profile": "https://twitter.com/tearingitup786",
+      "contributions": [
+        "doc",
+        "maintenance",
+        "review"
+      ]
+    }
+  ]
 }
