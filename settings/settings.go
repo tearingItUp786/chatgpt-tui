@@ -167,7 +167,13 @@ func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
 	m.textInput, cmd = m.textInput.Update(msg)
-	if msg.String() == "enter" {
+
+	switch msg.Type {
+	case tea.KeyEsc:
+		m.mode = viewMode
+		return cmd
+
+	case tea.KeyEnter:
 		inputValue := m.textInput.Value()
 		if inputValue == "" {
 			return cmd
