@@ -93,6 +93,6 @@ func initEditListViewTable(sessions []Session, currentSessionId int) list.Model 
 }
 
 func (m *Model) editListView() string {
-	m.list.SetHeight(m.terminalHeight - 18)
-	return lipgloss.NewStyle().MaxHeight(m.terminalHeight - 18).PaddingLeft(2).Render(m.list.View())
+	m.list.SetHeight(m.terminalHeight - 28)
+	return lipgloss.NewStyle().MaxHeight(m.terminalHeight - 28).PaddingLeft(2).Render(m.list.View())
 }

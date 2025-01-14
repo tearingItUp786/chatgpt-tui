@@ -1,4 +1,5 @@
 {
   "chatGPTApiUrl": "https://api.openai.com/v1/chat/completions",
-  "systemMessage": ""
+  "systemMessage": "",
+	"defaultModel": "llama3.2:latest"
 }

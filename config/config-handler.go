@@ -33,6 +33,7 @@ func FromContext(ctx context.Context) (*Config, bool) {
 type Config struct {
 	ChatGPTApiUrl string `json:"chatGPTAPiUrl"`
 	SystemMessage string `json:"systemMessage"`
+	DefaultModel  string `json:"defaultModel"`
 }
 
 //go:embed config.json

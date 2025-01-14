@@ -1,14 +1,20 @@
 package settings
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"strconv"
+	"strings"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/chatgpt-tui/clients"
+	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
@@ -27,13 +33,47 @@ type Model struct {
 	terminalWidth int
 	isFocused     bool
 	mode          int
-	settings      Settings
 	textInput     textinput.Model
 
+	modelPicker list.Model
+	choice      string
+	quitting    bool
+
 	list lipgloss.Style
+
+	config       *config.Config
+	openAiClient *clients.OpenAiClient
+	settings     util.Settings
 }
 
 var settingsService *SettingsService
+
+type item string
+
+func (i item) FilterValue() string { return "" }
+
+type itemDelegate struct{}
+
+func (d itemDelegate) Height() int                             { return 1 }
+func (d itemDelegate) Spacing() int                            { return 0 }
+func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	i, ok := listItem.(item)
+	if !ok {
+		return
+	}
+
+	str := fmt.Sprintf("%d. %s", index+1, i)
+
+	fn := listItemSpan.Render
+	if index == m.Index() {
+		fn = func(s ...string) string {
+			return listItemSpanSelected.Render("> " + strings.Join(s, " "))
+		}
+	}
+
+	fmt.Fprint(w, fn(str))
+}
 
 var listHeader = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
@@ -47,7 +87,10 @@ var listItemHeading = lipgloss.NewStyle().
 var listItemSpan = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("#fff"))
 
-func (m Model) Init() tea.Cmd {
+var listItemSpanSelected = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#fffaaa"))
+
+func (m *Model) Init() tea.Cmd {
 	return nil
 }
 
@@ -60,9 +103,19 @@ func listItemRenderer(heading string, value string) string {
 
 func (m Model) View() string {
 	editForm := ""
-	if m.mode != viewMode {
+	if m.mode == modelMode {
+		editForm = m.modelPicker.View()
+		return m.list.Render(
+			lipgloss.JoinVertical(lipgloss.Left,
+				listHeader.Render("Settings"),
+				editForm,
+			),
+		)
+	}
+	if m.mode != viewMode && m.mode != modelMode {
 		editForm = m.textInput.View()
 	}
+
 	return m.list.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			listHeader.Render("Settings"),
@@ -109,14 +162,33 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if m.mode == viewMode {
 				cmd = m.handleViewMode(msg)
 				cmds = append(cmds, cmd)
+			} else if m.mode == modelMode {
+				cmd = m.handleModelMode(msg)
+				cmds = append(cmds, cmd)
 			} else {
 				cmd = m.handleEditMode(msg)
 				cmds = append(cmds, cmd)
 			}
 		}
-
 	}
+
 	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) handleModelMode(msg tea.KeyMsg) tea.Cmd {
+	var cmd tea.Cmd
+	var settingsChanged UpdateSettingsEvent
+	if keypress := msg.String(); keypress == "enter" {
+		i, ok := m.modelPicker.SelectedItem().(item)
+		if ok {
+			m.choice = string(i)
+			m.settings.Model = m.choice
+			m.mode = viewMode
+			settingsChanged.Settings = m.settings
+		}
+	}
+	m.modelPicker, cmd = m.modelPicker.Update(msg)
+	return tea.Batch(cmd, func() tea.Msg { return settingsChanged })
 }
 
 func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
@@ -133,8 +205,9 @@ func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 			switch key {
 			case "m":
 				m.mode = modelMode
-				m.textInput.CharLimit = 100
-				m.textInput.Placeholder = "Enter model"
+				modelsResponse := m.openAiClient.RequestModelsList()
+				m.updateModelsList(modelsResponse)
+
 			case "f":
 				m.mode = frequencyMode
 				m.textInput.Placeholder = "Enter Frequency Number"
@@ -211,22 +284,53 @@ func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func New(db *sql.DB) Model {
+func initModelPicker(items []list.Item) list.Model {
+	modelPicker := list.New(items, itemDelegate{}, 10, 8)
+	modelPicker.SetStatusBarItemName("model detected", "models detected")
+	modelPicker.SetShowTitle(false)
+	modelPicker.SetShowHelp(false)
+	modelPicker.SetFilteringEnabled(false)
+
+	return modelPicker
+}
+
+func (m *Model) updateModelsList(models clients.ProcessModelsResponse) {
+	var modelsList []list.Item
+	for _, model := range models.Result.Data {
+		modelsList = append(modelsList, item(model.Id))
+	}
+
+	m.modelPicker = initModelPicker(modelsList)
+}
+
+func New(db *sql.DB, ctx context.Context) Model {
 	settingsService = NewSettingsService(db)
 	settings, err := settingsService.GetSettings()
 	if err != nil {
 		panic(err)
 	}
 
-	list := lipgloss.NewStyle().
+	config, ok := config.FromContext(ctx)
+	if !ok {
+		fmt.Println("No config found")
+		panic("No config found in context")
+	}
+
+	listStyle := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder(), true).
 		BorderForeground(util.NormalTabBorderColor).
-		Height(8)
+		Height(12)
+
+	modelPicker := initModelPicker([]list.Item{item(settings.Model)})
+	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 
 	return Model{
 		terminalWidth: 20,
 		mode:          viewMode,
 		settings:      settings,
-		list:          list,
+		list:          listStyle,
+		modelPicker:   modelPicker,
+		config:        config,
+		openAiClient:  openAiClient,
 	}
 }

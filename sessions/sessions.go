@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/user"
@@ -35,13 +36,14 @@ type Model struct {
 	settingsContainer lipgloss.Style
 	config            config.Config
 
-	Settings             settings.Settings
+	OpenAiClient         *clients.OpenAiClient
+	Settings             util.Settings
 	CurrentSessionID     int
 	CurrentSessionName   string
 	terminalWidth        int
 	terminalHeight       int
-	ArrayOfProcessResult []ProcessResult
-	ArrayOfMessages      []MessageToSend
+	ArrayOfProcessResult []clients.ProcessApiCompletionResponse
+	ArrayOfMessages      []clients.MessageToSend
 	CurrentAnswer        string
 	AllSessions          []Session
 	ProcessingMode       string
@@ -52,7 +54,7 @@ func New(db *sql.DB, ctx context.Context) Model {
 	us := user.NewUserService(db)
 
 	// default --> get some default settings
-	defaultSettings := settings.Settings{
+	defaultSettings := util.Settings{
 		Model:     "gpt-3.5-turbo",
 		MaxTokens: 300,
 		Frequency: 0,
@@ -64,12 +66,19 @@ func New(db *sql.DB, ctx context.Context) Model {
 		panic("No config found in context")
 	}
 
+	if len(config.DefaultModel) > 0 {
+		defaultSettings.Model = config.DefaultModel
+	}
+
+	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
+
 	return Model{
 		config:               *config,
-		ArrayOfProcessResult: []ProcessResult{},
+		ArrayOfProcessResult: []clients.ProcessApiCompletionResponse{},
 		sessionService:       ss,
 		userService:          us,
 		Settings:             defaultSettings,
+		OpenAiClient:         openAiClient,
 		ProcessingMode:       IDLE,
 		settingsContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Top).
@@ -168,7 +177,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		width := m.terminalWidth - msg.Width - 5
 		m.settingsContainer = m.settingsContainer.Width(width)
 
-	case ProcessResult:
+	case clients.ProcessApiCompletionResponse:
 		// add the latest message to the array of messages
 		util.Log("Processing message: ")
 		cmd = m.handleMsgProcessing(msg)
@@ -224,6 +233,10 @@ func (m Model) View() string {
 			editForm,
 		),
 	)
+}
+
+func (m Model) GetCompletion(resp chan clients.ProcessApiCompletionResponse) tea.Cmd {
+	return m.OpenAiClient.RequestCompletion(m.ArrayOfMessages, m.Settings, resp)
 }
 
 func RenderUserMessage(msg string, width int) string {
@@ -310,7 +323,7 @@ func (m Model) GetMessagesAsPrettyString() string {
 }
 
 // MIGHT BE WORTH TO MOVE TO A SEP FILE
-func (m *Model) appendAndOrderProcessResults(msg ProcessResult) {
+func (m *Model) appendAndOrderProcessResults(msg clients.ProcessApiCompletionResponse) {
 	// log.Println("Appending and ordering process results", msg)
 	m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
 	m.CurrentAnswer = ""
@@ -323,7 +336,7 @@ func (m *Model) appendAndOrderProcessResults(msg ProcessResult) {
 	})
 }
 
-func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
+func (m *Model) assertChoiceContentString(choice clients.Choice) (string, tea.Cmd) {
 	choiceContent, ok := choice.Delta["content"]
 
 	if !ok {
@@ -347,6 +360,37 @@ func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
 	return choiceString, nil
 }
 
+func constructJsonMessage(arrayOfProcessResult []clients.ProcessApiCompletionResponse) (clients.MessageToSend, error) {
+	newMessage := clients.MessageToSend{Role: "assistant", Content: ""}
+
+	for _, aMessage := range arrayOfProcessResult {
+		if aMessage.Final {
+			util.Log("Hit final in construct", aMessage.Result)
+			break
+		}
+
+		if len(aMessage.Result.Choices) > 0 {
+			choice := aMessage.Result.Choices[0]
+			// TODO: we need a helper for this
+			if choice.FinishReason == "stop" || choice.FinishReason == "length" {
+				util.Log("Hit stop or length in construct")
+				break
+			}
+
+			if content, ok := choice.Delta["content"].(string); ok {
+				newMessage.Content += content
+			} else {
+				// Handle the case where the type assertion fails, e.g., log an error or return
+				util.Log("type assertion to string failed for choice.Delta[\"content\"]")
+				formattedError := fmt.Errorf("type assertion to string failed for choice.Delta[\"content\"]")
+				return clients.MessageToSend{}, formattedError
+			}
+
+		}
+	}
+	return newMessage, nil
+}
+
 func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 	// if the json for whatever reason is malformed, bail out
 	jsonMessages, err := constructJsonMessage(m.ArrayOfProcessResult)
@@ -363,7 +407,7 @@ func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 	err = m.sessionService.UpdateSessionMessages(m.CurrentSessionID, m.ArrayOfMessages)
 	m.ProcessingMode = IDLE
 	m.CurrentAnswer = ""
-	m.ArrayOfProcessResult = []ProcessResult{}
+	m.ArrayOfProcessResult = []clients.ProcessApiCompletionResponse{}
 
 	if err != nil {
 		util.Log("Error updating session messages", err)
@@ -387,7 +431,7 @@ func areIDsInOrderAndComplete(ids []int) bool {
 	return true
 }
 
-func getArrayOfIDs(arr []ProcessResult) []int {
+func getArrayOfIDs(arr []clients.ProcessApiCompletionResponse) []int {
 	ids := []int{}
 	for _, msg := range arr {
 		ids = append(ids, msg.ID)
@@ -396,7 +440,7 @@ func getArrayOfIDs(arr []ProcessResult) []int {
 }
 
 // updates the current view with the messages coming in
-func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
+func (m *Model) handleMsgProcessing(msg clients.ProcessApiCompletionResponse) tea.Cmd {
 	m.appendAndOrderProcessResults(msg)
 	areIdsAllThere := areIDsInOrderAndComplete(getArrayOfIDs(m.ArrayOfProcessResult))
 	m.ProcessingMode = PROCESSING
@@ -427,7 +471,7 @@ func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
 
 func (m *Model) resetStateAndCreateError(errMsg string) tea.Cmd {
 	m.ProcessingMode = ERROR
-	m.ArrayOfProcessResult = []ProcessResult{}
+	m.ArrayOfProcessResult = []clients.ProcessApiCompletionResponse{}
 	m.CurrentAnswer = ""
 	return util.MakeErrorMsg(errMsg)
 }
@@ -471,7 +515,7 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		currentTime := time.Now()
 		formattedTime := currentTime.Format(time.ANSIC)
 		defaultSessionName := fmt.Sprintf("%s", formattedTime)
-		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []MessageToSend{})
+		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []clients.MessageToSend{})
 
 		cmd = m.handleUpdateCurrentSession(newSession)
 		m.updateSessionList()
