@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/clients"
+	"github.com/tearingItUp786/chatgpt-tui/components"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/user"
@@ -28,7 +29,7 @@ const (
 
 type Model struct {
 	textInput         textinput.Model
-	list              list.Model
+	sessionsList      components.SessionsList
 	isFocused         bool
 	currentEditID     int
 	sessionService    *SessionService
@@ -90,7 +91,6 @@ func New(db *sql.DB, ctx context.Context) Model {
 type LoadDataFromDB struct {
 	session                Session
 	allSessions            []Session
-	listTable              list.Model
 	currentActiveSessionID int
 }
 
@@ -163,7 +163,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.ArrayOfMessages = msg.session.Messages
 		m.AllSessions = msg.allSessions
 
-		m.list = initEditListViewTable(m.AllSessions, m.CurrentSessionID)
+		listItems := constructSessionsListItems(m.AllSessions, m.currentEditID)
+		m.sessionsList = components.NewSessionsList(listItems)
 		m.currentEditID = -1
 
 	case settings.UpdateSettingsEvent:
@@ -201,7 +202,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	if m.isFocused && m.currentEditID == -1 && !dKeyPressed {
-		m.list, cmd = m.list.Update(msg)
+		m.sessionsList, cmd = m.sessionsList.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
@@ -212,7 +213,7 @@ func (m Model) View() string {
 	listView := m.normalListView()
 
 	if m.isFocused {
-		listView = m.editListView()
+		listView = m.sessionsList.EditListView(m.terminalHeight)
 	}
 
 	editForm := ""
@@ -483,7 +484,7 @@ func (m *Model) handleCurrentEditID(msg tea.KeyMsg) tea.Cmd {
 	if msg.String() == "enter" {
 		if m.textInput.Value() != "" {
 			m.sessionService.UpdateSessionName(m.currentEditID, m.textInput.Value())
-			m.updateSessionList()
+			m.updateSessionsList()
 			m.currentEditID = -1
 		}
 	}
@@ -496,7 +497,9 @@ func (m *Model) handleUpdateCurrentSession(session Session) tea.Cmd {
 	m.CurrentSessionID = session.ID
 	m.CurrentSessionName = session.SessionName
 	m.ArrayOfMessages = session.Messages
-	m.list.SetItems(ConstructListItems(m.AllSessions, m.CurrentSessionID))
+	listItems := constructSessionsListItems(m.AllSessions, m.CurrentSessionID)
+
+	m.sessionsList.SetItems(listItems)
 
 	return SendUpdateCurrentSessionMsg()
 }
@@ -518,12 +521,12 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []clients.MessageToSend{})
 
 		cmd = m.handleUpdateCurrentSession(newSession)
-		m.updateSessionList()
+		m.updateSessionsList()
 
 	case "enter":
-		i, ok := m.list.SelectedItem().(item)
+		i, ok := m.sessionsList.GetSelectedItem()
 		if ok {
-			session, err := m.sessionService.GetSession(i.id)
+			session, err := m.sessionService.GetSession(i.Id)
 			if err != nil {
 				util.MakeErrorMsg(err.Error())
 			}
@@ -535,21 +538,21 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		ti := textinput.New()
 		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
 		m.textInput = ti
-		i, ok := m.list.SelectedItem().(item)
+		i, ok := m.sessionsList.GetSelectedItem()
 		if ok {
-			m.currentEditID = i.id
+			m.currentEditID = i.Id
 			m.textInput.Placeholder = "New Session Name"
 		}
 		m.textInput.Focus()
 		m.textInput.CharLimit = 100
 
 	case "d":
-		i, ok := m.list.SelectedItem().(item)
+		i, ok := m.sessionsList.GetSelectedItem()
 		if ok {
 			// delete this one if it's not the active one
-			if i.id != m.CurrentSessionID {
-				m.sessionService.DeleteSession(i.id)
-				m.updateSessionList()
+			if i.Id != m.CurrentSessionID {
+				m.sessionService.DeleteSession(i.Id)
+				m.updateSessionsList()
 			}
 		}
 
@@ -558,17 +561,23 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (m *Model) updateSessionList() {
-	m.AllSessions, _ = m.sessionService.GetAllSessions()
+func constructSessionsListItems(sessions []Session, currentSessionId int) []list.Item {
 	items := []list.Item{}
 
-	for _, session := range m.AllSessions {
-		anItem := item{
-			id:       session.ID,
-			text:     session.SessionName,
-			isActive: session.ID == m.CurrentSessionID,
+	for _, session := range sessions {
+		anItem := components.SessionListItem{
+			Id:       session.ID,
+			Text:     session.SessionName,
+			IsActive: session.ID == currentSessionId,
 		}
 		items = append(items, anItem)
 	}
-	m.list.SetItems(items)
+
+	return items
+}
+
+func (m *Model) updateSessionsList() {
+	m.AllSessions, _ = m.sessionService.GetAllSessions()
+	items := constructSessionsListItems(m.AllSessions, m.CurrentSessionID)
+	m.sessionsList.SetItems(items)
 }

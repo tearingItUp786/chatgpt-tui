@@ -4,16 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io"
 	"log"
 	"strconv"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/clients"
+	"github.com/tearingItUp786/chatgpt-tui/components"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
@@ -35,9 +34,7 @@ type Model struct {
 	mode          int
 	textInput     textinput.Model
 
-	modelPicker list.Model
-	choice      string
-	quitting    bool
+	modelPicker components.ModelsList
 
 	list lipgloss.Style
 
@@ -47,33 +44,6 @@ type Model struct {
 }
 
 var settingsService *SettingsService
-
-type item string
-
-func (i item) FilterValue() string { return "" }
-
-type itemDelegate struct{}
-
-func (d itemDelegate) Height() int                             { return 1 }
-func (d itemDelegate) Spacing() int                            { return 0 }
-func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(item)
-	if !ok {
-		return
-	}
-
-	str := fmt.Sprintf("%d. %s", index+1, i)
-
-	fn := listItemSpan.Render
-	if index == m.Index() {
-		fn = func(s ...string) string {
-			return listItemSpanSelected.Render("> " + strings.Join(s, " "))
-		}
-	}
-
-	fmt.Fprint(w, fn(str))
-}
 
 var listHeader = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
@@ -179,10 +149,9 @@ func (m *Model) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
 	var settingsChanged UpdateSettingsEvent
 	if keypress := msg.String(); keypress == "enter" {
-		i, ok := m.modelPicker.SelectedItem().(item)
+		i, ok := m.modelPicker.GetSelectedItem()
 		if ok {
-			m.choice = string(i)
-			m.settings.Model = m.choice
+			m.settings.Model = string(i)
 			m.mode = viewMode
 			settingsChanged.Settings = m.settings
 		}
@@ -284,23 +253,13 @@ func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func initModelPicker(items []list.Item) list.Model {
-	modelPicker := list.New(items, itemDelegate{}, 10, 8)
-	modelPicker.SetStatusBarItemName("model detected", "models detected")
-	modelPicker.SetShowTitle(false)
-	modelPicker.SetShowHelp(false)
-	modelPicker.SetFilteringEnabled(false)
-
-	return modelPicker
-}
-
 func (m *Model) updateModelsList(models clients.ProcessModelsResponse) {
 	var modelsList []list.Item
 	for _, model := range models.Result.Data {
-		modelsList = append(modelsList, item(model.Id))
+		modelsList = append(modelsList, components.ModelsListItem(model.Id))
 	}
 
-	m.modelPicker = initModelPicker(modelsList)
+	m.modelPicker.SetItems(modelsList)
 }
 
 func New(db *sql.DB, ctx context.Context) Model {
@@ -321,7 +280,7 @@ func New(db *sql.DB, ctx context.Context) Model {
 		BorderForeground(util.NormalTabBorderColor).
 		Height(12)
 
-	modelPicker := initModelPicker([]list.Item{item(settings.Model)})
+	modelPicker := components.NewModelsList([]list.Item{components.ModelsListItem(settings.Model)})
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 
 	return Model{
