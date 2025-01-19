@@ -8,20 +8,18 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/joho/godotenv"
-	"github.com/muesli/reflow/wrap"
 	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/migrations"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/chatgpt-tui/views"
 )
 
 type model struct {
@@ -29,18 +27,16 @@ type model struct {
 	focused          util.FocusPane
 	viewMode         util.ViewMode
 	promptInputMode  util.PrompInputMode
-	msgChan          chan clients.ProcessApiCompletionResponse
 	error            util.ErrorEvent
 	currentSessionID string
 
-	chatViewMessageContainer lipgloss.Style
-	promptContainer          lipgloss.Style
-	viewport                 viewport.Model
-	promptInput              textinput.Model
-	settingsModel            settings.Model
-	sessionModel             sessions.Model
-	terminalWidth            int
-	terminalHeight           int
+	promptContainer lipgloss.Style
+	chatPane        views.ChatPane
+	promptInput     textinput.Model
+	settingsModel   settings.Model
+	sessionModel    sessions.Model
+	terminalWidth   int
+	terminalHeight  int
 }
 
 func initialModal(db *sql.DB, ctx context.Context) model {
@@ -51,9 +47,8 @@ func initialModal(db *sql.DB, ctx context.Context) model {
 	si := settings.New(db, ctx)
 	sm := sessions.New(db, ctx)
 
-	msgChan := make(chan clients.ProcessApiCompletionResponse)
-
 	return model{
+		ready:            false,
 		viewMode:         util.NormalMode,
 		focused:          util.PromptType,
 		promptInputMode:  util.PromptNormalMode,
@@ -61,12 +56,6 @@ func initialModal(db *sql.DB, ctx context.Context) model {
 		settingsModel:    si,
 		currentSessionID: "",
 		sessionModel:     sm,
-		msgChan:          msgChan,
-		chatViewMessageContainer: lipgloss.NewStyle().
-			Border(lipgloss.ThickBorder()).
-			BorderForeground(util.NormalTabBorderColor).
-			MarginRight(1),
-
 		promptContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Bottom).
 			BorderStyle(lipgloss.ThickBorder()).
@@ -76,35 +65,28 @@ func initialModal(db *sql.DB, ctx context.Context) model {
 	}
 }
 
-// A command that waits for the activity on a channel.
-func waitForActivity(sub chan clients.ProcessApiCompletionResponse) tea.Cmd {
-	return func() tea.Msg {
-		someMessage := <-sub
-		return someMessage
-	}
-}
-
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.promptInput.Cursor.BlinkCmd(),
-		waitForActivity(m.msgChan),
 		m.sessionModel.Init(),
+		m.chatPane.Init(),
 		m.settingsModel.Init(),
 	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
-		cmd                    tea.Cmd
-		cmds                   []tea.Cmd
-		enableUpdateOfViewport = true
+		cmd  tea.Cmd
+		cmds []tea.Cmd
 	)
 
 	isPromptFocused := m.focused == util.PromptType
-	isChatMessagesFocused := m.focused == util.ChatMessagesType
 
 	// the settings model is actually an input into the session model
 	m.sessionModel, cmd = m.sessionModel.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.chatPane, cmd = m.chatPane.Update(msg)
 	cmds = append(cmds, cmd)
 
 	if m.sessionModel.ProcessingMode == sessions.IDLE {
@@ -118,40 +100,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
-	switch msg := msg.(type) { // each time we get a new message coming in from the model
-	// lets handle it and pass it to the lower model
-	case sessions.LoadDataFromDB:
-		oldContent := m.sessionModel.GetMessagesAsPrettyString()
-		if oldContent == "" {
-			oldContent = util.MotivationalMessage
-		}
-		m.chatViewMessageContainer.Width(m.terminalWidth / 3 * 2)
-		m.viewport.SetContent(wrap.String(oldContent, m.terminalWidth/3*2))
-		return m, cmd
-
-	case sessions.UpdateCurrentSession:
-		oldContent := m.sessionModel.GetMessagesAsPrettyString()
-		if oldContent == "" {
-			oldContent = util.MotivationalMessage
-		}
-		m.viewport.SetContent(wrap.String(oldContent, m.terminalWidth/3*2))
-		return m, cmd
-
-	// these are the messages that come in as a stream from the chat gpt api
-	// we append the content to the viewport and scroll
-	case clients.ProcessApiCompletionResponse:
-		util.Log("main ProcessResult: ")
-		oldContent := m.sessionModel.GetMessagesAsPrettyString()
-		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
-
-		if styledBufferMessage != "" {
-			styledBufferMessage = "\n" + styledBufferMessage
-		}
-		m.viewport.SetContent(wrap.String(oldContent+styledBufferMessage, m.terminalWidth/3*2))
-		m.viewport.GotoBottom()
-
-		cmds = append(cmds, waitForActivity(m.msgChan))
-
+	switch msg := msg.(type) {
 	case util.ErrorEvent:
 		util.Log("Error: ", msg.Message)
 		m.sessionModel.ProcessingMode = sessions.IDLE
@@ -159,29 +108,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 
-		if !isChatMessagesFocused {
-			enableUpdateOfViewport = false
-		}
-
 		switch keypress := msg.String(); keypress {
 		case "i":
 			if m.focused == util.PromptType && m.promptInputMode == util.PromptNormalMode {
 				m.promptInputMode = util.PromptInsertMode
 				m.promptInput.Focus()
 				cmds = append(cmds, m.promptInput.Cursor.BlinkCmd())
-			}
-		case "y":
-			if m.focused == util.ChatMessagesType {
-				latestBotMessage, err := m.sessionModel.GetLatestBotMessage()
-				if err == nil {
-					clipboard.WriteAll(latestBotMessage)
-				}
-
-			}
-
-		case "Y":
-			if m.focused == util.ChatMessagesType {
-				clipboard.WriteAll(m.sessionModel.GetMessagesAsString())
 			}
 
 		case "ctrl+o":
@@ -195,13 +127,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.viewMode {
 			case util.NormalMode:
 				m.viewMode = util.ZenMode
-				m.chatViewMessageContainer.BorderForeground(util.NormalTabBorderColor).Width(m.terminalWidth - 2)
+				m.chatPane.SwitchToZenMode()
 			case util.ZenMode:
 				m.viewMode = util.NormalMode
-				m.chatViewMessageContainer.BorderForeground(util.NormalTabBorderColor).Width(m.terminalWidth / 3 * 2)
+				m.chatPane.SwitchToNormalMode()
 			}
 
-			chatContainerWidth := m.chatViewMessageContainer.GetWidth()
+			chatContainerWidth := m.chatPane.GetWidth()
 			m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
 			cmds = append(cmds, cmd)
 			m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
@@ -219,7 +151,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused)
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
-			m.chatViewMessageContainer.BorderForeground(util.NormalTabBorderColor)
 
 			switch m.focused {
 
@@ -227,10 +158,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.promptInputMode = util.PromptNormalMode
 				m.promptContainer = m.promptContainer.BorderForeground(util.ActiveTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
+				m.chatPane = m.chatPane.SetFocus(false)
 
 			case util.ChatMessagesType:
 				m.promptInputMode = util.PromptNormalMode
-				m.chatViewMessageContainer.BorderForeground(util.ActiveTabBorderColor)
+				m.chatPane = m.chatPane.SetFocus(true)
 				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.NormalTabBorderColor))
 				m.promptInput.Blur()
@@ -240,6 +172,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Foreground(lipgloss.Color(util.NormalTabBorderColor))
 				m.promptInput.Blur()
+				m.chatPane = m.chatPane.SetFocus(false)
 			}
 
 		case tea.KeyEscape:
@@ -263,7 +196,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.promptInputMode = util.PromptInsertMode
 				m.sessionModel.ProcessingMode = sessions.PROCESSING
 				return m, tea.Batch(
-					m.sessionModel.GetCompletion(m.msgChan),
+					m.chatPane.DisplayCompletion(m.sessionModel),
 					m.promptInput.Cursor.BlinkCmd())
 			}
 		}
@@ -275,43 +208,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
 			Width(m.terminalWidth - 2)
 
-		widthToUse := m.terminalWidth / 3 * 2
 		util.Log("viewMode:", m.viewMode)
 		if m.viewMode == util.ZenMode {
-			widthToUse = m.terminalWidth - 2
+			m.chatPane.SetPaneWitdth(m.terminalWidth - 2)
 		}
 
-		m.chatViewMessageContainer.Width(widthToUse)
-		// TODO: get rid of this magic number
-		promptContainerHeight := m.promptContainer.GetHeight() + 5
-
 		if !m.ready {
-			// Since this program is using the full size of the viewport we
-			// need to wait until we've received the window dimensions before
-			// we can initialize the viewport. The initial dimensions come in
-			// quickly, though asynchronously, which is why we wait for them
-			// here.
-			m.viewport = viewport.New(msg.Width, msg.Height-promptContainerHeight)
-			m.viewport.Style.MaxHeight(msg.Height)
+			m.chatPane = views.NewChatPane(msg.Width, msg.Height)
 			m.ready = true
 			m.promptInput.Width = msg.Width - 3
 		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - promptContainerHeight
+			log.Println("MAIN: chat pane ready")
 			m.promptInput.Width = msg.Width - 3
 		}
 
-		chatContainerWidth := m.chatViewMessageContainer.GetWidth()
+		chatContainerWidth := m.chatPane.GetWidth()
 		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
 		cmds = append(cmds, cmd)
 		m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
 		cmds = append(cmds, cmd)
 	}
 
-	if enableUpdateOfViewport {
-		m.viewport, cmd = m.viewport.Update(msg)
-		cmds = append(cmds, cmd)
-	}
+	m.chatPane, cmd = m.chatPane.Update(msg)
+	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
 
@@ -324,17 +243,15 @@ func (m model) View() string {
 		m.sessionModel.View(),
 	)
 
-	strToRender := m.viewport.View()
+	mainView := m.chatPane.View()
 	if m.error.Message != "" {
-		strToRender = m.error.Message
+		mainView = m.chatPane.DisplayError(m.error.Message)
 	}
 
 	secondaryScreen := ""
 	if m.viewMode == util.NormalMode {
 		secondaryScreen = settingsAndSessionViews
 	}
-
-	mainView := m.chatViewMessageContainer.Render(strToRender)
 
 	windowViews = lipgloss.NewStyle().
 		Align(lipgloss.Right, lipgloss.Right).

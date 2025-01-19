@@ -88,3 +88,15 @@ type OurWindowResize struct {
 func MakeWindowResizeMsg(w int) tea.Msg {
 	return OurWindowResize{Width: w}
 }
+
+type CopyLastMsg struct{}
+
+func SendCopyLastMsg() tea.Msg {
+	return CopyLastMsg{}
+}
+
+type CopyAllMsgs struct{}
+
+func SendCopyAllMsgs() tea.Msg {
+	return CopyAllMsgs{}
+}

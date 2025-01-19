@@ -3,14 +3,14 @@ package sessions
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"sort"
-	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/components"
@@ -44,7 +44,7 @@ type Model struct {
 	terminalWidth        int
 	terminalHeight       int
 	ArrayOfProcessResult []clients.ProcessApiCompletionResponse
-	ArrayOfMessages      []clients.MessageToSend
+	ArrayOfMessages      []util.MessageToSend
 	CurrentAnswer        string
 	AllSessions          []Session
 	ProcessingMode       string
@@ -89,7 +89,8 @@ func New(db *sql.DB, ctx context.Context) Model {
 }
 
 type LoadDataFromDB struct {
-	session                Session
+	Session Session
+
 	allSessions            []Session
 	currentActiveSessionID int
 }
@@ -107,11 +108,29 @@ func SendFinalProcessMessage(msg string) tea.Cmd {
 	}
 }
 
-type UpdateCurrentSession struct{}
+type UpdateCurrentSession struct {
+	Session Session
+}
 
-func SendUpdateCurrentSessionMsg() tea.Cmd {
+func SendUpdateCurrentSessionMsg(session Session) tea.Cmd {
 	return func() tea.Msg {
-		return UpdateCurrentSession{}
+		return UpdateCurrentSession{
+			Session: session,
+		}
+	}
+}
+
+type ResponseChunkProcessed struct {
+	PreviousMsgArray []util.MessageToSend
+	ChunkMessage     string
+}
+
+func SendResponseChunkProcessedMsg(msg string, previousMsgs []util.MessageToSend) tea.Cmd {
+	return func() tea.Msg {
+		return ResponseChunkProcessed{
+			PreviousMsgArray: previousMsgs,
+			ChunkMessage:     msg,
+		}
 	}
 }
 
@@ -144,7 +163,7 @@ func (m Model) Init() tea.Cmd {
 		}
 
 		return LoadDataFromDB{
-			session:                mostRecentSession,
+			Session:                mostRecentSession,
 			allSessions:            allSessions,
 			currentActiveSessionID: user.CurrentActiveSessionID,
 		}
@@ -157,10 +176,19 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	dKeyPressed := false
 	switch msg := msg.(type) {
 
+	case util.CopyLastMsg:
+		latestBotMessage, err := m.GetLatestBotMessage()
+		if err == nil {
+			clipboard.WriteAll(latestBotMessage)
+		}
+
+	case util.CopyAllMsgs:
+		clipboard.WriteAll(m.GetMessagesAsString())
+
 	case LoadDataFromDB:
 		m.CurrentSessionID = msg.currentActiveSessionID
-		m.CurrentSessionName = msg.session.SessionName
-		m.ArrayOfMessages = msg.session.Messages
+		m.CurrentSessionName = msg.Session.SessionName
+		m.ArrayOfMessages = msg.Session.Messages
 		m.AllSessions = msg.allSessions
 
 		listItems := constructSessionsListItems(m.AllSessions, m.currentEditID)
@@ -180,8 +208,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case clients.ProcessApiCompletionResponse:
 		// add the latest message to the array of messages
-		util.Log("Processing message: ")
-		cmd = m.handleMsgProcessing(msg)
+		m.handleMsgProcessing(msg)
+		cmds = append(cmds, SendResponseChunkProcessedMsg(m.CurrentAnswer, m.ArrayOfMessages))
 
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
@@ -240,37 +268,6 @@ func (m Model) GetCompletion(resp chan clients.ProcessApiCompletionResponse) tea
 	return m.OpenAiClient.RequestCompletion(m.ArrayOfMessages, m.Settings, resp)
 }
 
-func RenderUserMessage(msg string, width int) string {
-	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color(util.Pink100)).
-		Render("💁 " + msg)
-}
-
-func RenderBotMessage(msg string, width int) string {
-	if msg == "" {
-		return ""
-	}
-
-	lol, _ := glamour.RenderWithEnvironmentConfig(msg)
-	output := strings.TrimSpace(lol)
-	return lipgloss.NewStyle().
-		BorderLeft(true).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderLeftForeground(lipgloss.Color(util.Pink300)).
-		Render(output)
-
-	// return lipgloss.NewStyle().
-	// 	Align(lipgloss.Left).
-	// 	BorderStyle(lipgloss.RoundedBorder()).
-	// 	Foreground(lipgloss.Color("#FAFAFA")).
-	// 	BorderLeft(true).
-	// 	BorderLeftForeground(lipgloss.Color(util.Pink300)).
-	// 	Width(width - 5).
-	// 	Render(
-	// 		"🤖 " + msg,
-	// 	)
-}
-
 func (m Model) GetLatestBotMessage() (string, error) {
 	// the last bot in the array is actually the blank message (the stop command)
 	lastIndex := len(m.ArrayOfMessages) - 2
@@ -300,32 +297,8 @@ func (m Model) GetMessagesAsString() string {
 	return messages
 }
 
-func (m Model) GetMessagesAsPrettyString() string {
-	var messages string
-	for _, message := range m.ArrayOfMessages {
-		messageToUse := message.Content
-
-		switch {
-		case message.Role == "user":
-			messageToUse = RenderUserMessage(messageToUse, m.terminalWidth/3*2)
-		case message.Role == "assistant":
-			messageToUse = RenderBotMessage(messageToUse, m.terminalWidth/3*2)
-		}
-
-		if messages == "" {
-			messages = messageToUse
-			continue
-		}
-
-		messages = messages + "\n" + messageToUse
-	}
-
-	return messages
-}
-
 // MIGHT BE WORTH TO MOVE TO A SEP FILE
 func (m *Model) appendAndOrderProcessResults(msg clients.ProcessApiCompletionResponse) {
-	// log.Println("Appending and ordering process results", msg)
 	m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
 	m.CurrentAnswer = ""
 
@@ -361,8 +334,8 @@ func (m *Model) assertChoiceContentString(choice clients.Choice) (string, tea.Cm
 	return choiceString, nil
 }
 
-func constructJsonMessage(arrayOfProcessResult []clients.ProcessApiCompletionResponse) (clients.MessageToSend, error) {
-	newMessage := clients.MessageToSend{Role: "assistant", Content: ""}
+func constructJsonMessage(arrayOfProcessResult []clients.ProcessApiCompletionResponse) (util.MessageToSend, error) {
+	newMessage := util.MessageToSend{Role: "assistant", Content: ""}
 
 	for _, aMessage := range arrayOfProcessResult {
 		if aMessage.Final {
@@ -384,7 +357,7 @@ func constructJsonMessage(arrayOfProcessResult []clients.ProcessApiCompletionRes
 				// Handle the case where the type assertion fails, e.g., log an error or return
 				util.Log("type assertion to string failed for choice.Delta[\"content\"]")
 				formattedError := fmt.Errorf("type assertion to string failed for choice.Delta[\"content\"]")
-				return clients.MessageToSend{}, formattedError
+				return util.MessageToSend{}, formattedError
 			}
 
 		}
@@ -501,7 +474,7 @@ func (m *Model) handleUpdateCurrentSession(session Session) tea.Cmd {
 
 	m.sessionsList.SetItems(listItems)
 
-	return SendUpdateCurrentSessionMsg()
+	return SendUpdateCurrentSessionMsg(session)
 }
 
 func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
@@ -518,7 +491,7 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		currentTime := time.Now()
 		formattedTime := currentTime.Format(time.ANSIC)
 		defaultSessionName := fmt.Sprintf("%s", formattedTime)
-		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []clients.MessageToSend{})
+		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []util.MessageToSend{})
 
 		cmd = m.handleUpdateCurrentSession(newSession)
 		m.updateSessionsList()
