@@ -151,6 +151,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused)
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
+			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatMessagesType))
 
 			switch m.focused {
 
@@ -158,11 +159,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.promptInputMode = util.PromptNormalMode
 				m.promptContainer = m.promptContainer.BorderForeground(util.ActiveTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
-				m.chatPane = m.chatPane.SetFocus(false)
 
 			case util.ChatMessagesType:
 				m.promptInputMode = util.PromptNormalMode
-				m.chatPane = m.chatPane.SetFocus(true)
 				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.NormalTabBorderColor))
 				m.promptInput.Blur()
@@ -172,7 +171,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
 				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Foreground(lipgloss.Color(util.NormalTabBorderColor))
 				m.promptInput.Blur()
-				m.chatPane = m.chatPane.SetFocus(false)
 			}
 
 		case tea.KeyEscape:
@@ -208,24 +206,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
 			Width(m.terminalWidth - 2)
 
+		chatPaneHeight := m.terminalHeight - (m.promptContainer.GetHeight() + 5)
+		chatPaneWidth := m.terminalWidth / 3 * 2
+
 		util.Log("viewMode:", m.viewMode)
 		if m.viewMode == util.ZenMode {
 			m.chatPane.SetPaneWitdth(m.terminalWidth - 2)
 		}
 
 		if !m.ready {
-			m.chatPane = views.NewChatPane(msg.Width, msg.Height)
+			m.chatPane = views.NewChatPane(chatPaneWidth, chatPaneHeight)
 			m.ready = true
 			m.promptInput.Width = msg.Width - 3
 		} else {
-			log.Println("MAIN: chat pane ready")
+			m.chatPane.SetPaneWitdth(chatPaneWidth)
+			m.chatPane.SetPaneHeight(chatPaneHeight)
 			m.promptInput.Width = msg.Width - 3
 		}
 
-		chatContainerWidth := m.chatPane.GetWidth()
-		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
+		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
 		cmds = append(cmds, cmd)
-		m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
+		m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
 		cmds = append(cmds, cmd)
 	}
 

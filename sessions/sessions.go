@@ -3,7 +3,6 @@ package sessions
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"sort"
 	"time"
 

@@ -30,15 +30,13 @@ var chatContainerStyle = lipgloss.NewStyle().
 	MarginRight(1)
 
 func NewChatPane(w, h int) ChatPane {
-	chatContainerStyle = chatContainerStyle.Copy().Width(w / 3 * 2).Height(h / 2)
-	chatView := viewport.New(w/3*2, h/2)
+	chatContainerStyle = chatContainerStyle.Copy().Width(w).Height(h)
+	chatView := viewport.New(w, h)
 	chatView.SetContent(util.MotivationalMessage)
 	msgChan := make(chan clients.ProcessApiCompletionResponse)
 	return ChatPane{
 		chatContainer:          chatContainerStyle,
 		chatView:               chatView,
-		terminalWidth:          w,
-		terminalHeight:         h,
 		chatViewReady:          false,
 		chatContent:            util.MotivationalMessage,
 		isChatContainerFocused: false,
@@ -67,6 +65,16 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 	)
 
 	switch msg := msg.(type) {
+	case util.FocusEvent:
+		p.isChatContainerFocused = msg.IsFocused
+
+		if p.isChatContainerFocused {
+			p.chatContainer.BorderForeground(util.ActiveTabBorderColor)
+		} else {
+			p.chatContainer.BorderForeground(util.NormalTabBorderColor)
+		}
+		return p, nil
+
 	case sessions.LoadDataFromDB:
 		if !p.isChatPaneReady {
 			p.chatView = viewport.New(p.terminalWidth/3*2, p.terminalHeight/2)
@@ -178,17 +186,6 @@ func (p ChatPane) SetPaneWitdth(w int) {
 
 func (p ChatPane) SetPaneHeight(h int) {
 	p.chatContainer.Height(h)
-}
-
-func (p ChatPane) SetFocus(isFocused bool) ChatPane {
-	p.isChatContainerFocused = isFocused
-	if isFocused {
-		p.chatContainer.BorderForeground(util.ActiveTabBorderColor)
-	} else {
-		p.chatContainer.BorderForeground(util.NormalTabBorderColor)
-	}
-
-	return p
 }
 
 func (p ChatPane) GetWidth() int {
