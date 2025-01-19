@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 type ModelsList struct {
@@ -17,10 +18,12 @@ type ModelsList struct {
 }
 
 var listItemSpan = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#fff"))
+	PaddingLeft(2).
+	Foreground(lipgloss.Color(util.White))
 
 var listItemSpanSelected = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#fffaaa"))
+	PaddingLeft(2).
+	Foreground(lipgloss.Color(util.Pink200))
 
 type ModelsListItem string
 

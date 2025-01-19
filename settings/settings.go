@@ -146,17 +146,38 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m *Model) handleModelMode(msg tea.KeyMsg) tea.Cmd {
-	var cmd tea.Cmd
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
 	var settingsChanged UpdateSettingsEvent
-	if keypress := msg.String(); keypress == "enter" {
+	switch msg.Type {
+	case tea.KeyEsc:
+		m.mode = viewMode
+		return cmd
+
+	case tea.KeyEnter:
 		i, ok := m.modelPicker.GetSelectedItem()
 		if ok {
 			m.settings.Model = string(i)
 			m.mode = viewMode
 			settingsChanged.Settings = m.settings
+
+			newSettings, err := settingsService.UpdateSettings(m.settings)
+			if err != nil {
+				return util.MakeErrorMsg(err.Error())
+			}
+
+			m.settings = newSettings
+			m.mode = viewMode
+			cmd = MakeSettingsUpdateMsg(m.settings)
+			cmds = append(cmds, cmd)
 		}
 	}
+
 	m.modelPicker, cmd = m.modelPicker.Update(msg)
+	cmds = append(cmds, cmd)
 	return tea.Batch(cmd, func() tea.Msg { return settingsChanged })
 }
 
@@ -217,14 +238,12 @@ func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 
 	case tea.KeyEnter:
 		inputValue := m.textInput.Value()
+
 		if inputValue == "" {
 			return cmd
 		}
 
 		switch m.mode {
-		case modelMode:
-			m.settings.Model = inputValue
-
 		case frequencyMode:
 			newFreq, err := strconv.Atoi(inputValue)
 			if err != nil {
