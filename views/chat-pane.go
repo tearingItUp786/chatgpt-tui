@@ -76,42 +76,21 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 		return p, nil
 
 	case sessions.LoadDataFromDB:
-		if !p.isChatPaneReady {
-			p.chatView = viewport.New(p.terminalWidth/3*2, p.terminalHeight/2)
-			p.isChatPaneReady = true
-		}
-
-		oldContent := util.GetMessagesAsPrettyString(msg.Session.Messages, p.terminalWidth, p.terminalHeight)
-		if oldContent == "" {
-			oldContent = util.MotivationalMessage
-		}
-		p.chatContainer.Width(p.terminalWidth / 3 * 2)
-		p.chatView.SetContent(wrap.String(oldContent, p.terminalWidth/3*2))
-		p.chatView.GotoBottom()
-		return p, cmd
+		return p.initializePane(msg.Session)
 
 	case sessions.UpdateCurrentSession:
-		if !p.isChatPaneReady {
-			p.chatView = viewport.New(p.terminalWidth/3*2, p.terminalHeight/2)
-			p.isChatPaneReady = true
-		}
-
-		oldContent := util.GetMessagesAsPrettyString(msg.Session.Messages, p.terminalWidth, p.terminalHeight)
-		if oldContent == "" {
-			oldContent = util.MotivationalMessage
-		}
-		p.chatView.SetContent(wrap.String(oldContent, p.terminalWidth/3*2))
-		p.chatView.GotoBottom()
-		return p, cmd
+		return p.initializePane(msg.Session)
 
 	case sessions.ResponseChunkProcessed:
-		oldContent := util.GetMessagesAsPrettyString(msg.PreviousMsgArray, p.terminalWidth, p.terminalHeight)
-		styledBufferMessage := util.RenderBotMessage(msg.ChunkMessage, p.terminalWidth/3*2)
+		paneWidth, _ := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
+
+		oldContent := util.GetMessagesAsPrettyString(msg.PreviousMsgArray, paneWidth)
+		styledBufferMessage := util.RenderBotMessage(msg.ChunkMessage, paneWidth)
 
 		if styledBufferMessage != "" {
 			styledBufferMessage = "\n" + styledBufferMessage
 		}
-		p.chatView.SetContent(wrap.String(oldContent+styledBufferMessage, p.terminalWidth/3*2))
+		p.chatView.SetContent(wrap.String(oldContent+styledBufferMessage, paneWidth))
 		p.chatView.GotoBottom()
 
 		cmds = append(cmds, waitForActivity(p.msgChan))
@@ -119,6 +98,9 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
+		_, paneHeight := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
+		p.chatContainer = p.chatContainer.Height(paneHeight)
+		p.chatView.Height = p.chatContainer.GetHeight()
 
 	case tea.KeyMsg:
 		if !p.isChatContainerFocused {
@@ -169,15 +151,17 @@ func (p ChatPane) DisplayError(error string) string {
 }
 
 func (p ChatPane) SwitchToZenMode() {
+	paneWidth, _ := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, true)
 	p.chatContainer.
 		BorderForeground(util.NormalTabBorderColor).
-		Width(p.terminalWidth - 2)
+		Width(paneWidth)
 }
 
 func (p ChatPane) SwitchToNormalMode() {
+	paneWidth, _ := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
 	p.chatContainer.
 		BorderForeground(util.NormalTabBorderColor).
-		Width(p.terminalWidth / 3 * 2)
+		Width(paneWidth)
 }
 
 func (p ChatPane) SetPaneWitdth(w int) {
@@ -190,4 +174,20 @@ func (p ChatPane) SetPaneHeight(h int) {
 
 func (p ChatPane) GetWidth() int {
 	return p.chatContainer.GetWidth()
+}
+
+func (p ChatPane) initializePane(session sessions.Session) (ChatPane, tea.Cmd) {
+	paneWidth, paneHeight := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
+	if !p.isChatPaneReady {
+		p.chatView = viewport.New(paneWidth, paneHeight)
+		p.isChatPaneReady = true
+	}
+
+	oldContent := util.GetMessagesAsPrettyString(session.Messages, paneWidth)
+	if oldContent == "" {
+		oldContent = util.MotivationalMessage
+	}
+	p.chatView.SetContent(wrap.String(oldContent, paneWidth))
+	p.chatView.GotoBottom()
+	return p, nil
 }

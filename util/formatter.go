@@ -7,16 +7,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func GetMessagesAsPrettyString(msgsToRender []MessageToSend, tw, th int) string {
+func GetMessagesAsPrettyString(msgsToRender []MessageToSend, w int) string {
 	var messages string
 	for _, message := range msgsToRender {
 		messageToUse := message.Content
 
 		switch {
 		case message.Role == "user":
-			messageToUse = RenderUserMessage(messageToUse, tw/3*2)
+			messageToUse = RenderUserMessage(messageToUse, w)
 		case message.Role == "assistant":
-			messageToUse = RenderBotMessage(messageToUse, tw/3*2)
+			messageToUse = RenderBotMessage(messageToUse, w)
 		}
 
 		if messages == "" {

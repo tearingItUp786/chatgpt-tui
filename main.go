@@ -194,6 +194,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.promptInputMode = util.PromptInsertMode
 				m.sessionModel.ProcessingMode = sessions.PROCESSING
 				return m, tea.Batch(
+					// use current session for requests to OpenAI API
 					m.chatPane.DisplayCompletion(m.sessionModel),
 					m.promptInput.Cursor.BlinkCmd())
 			}
@@ -203,25 +204,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
 
-		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
-			Width(m.terminalWidth - 2)
+		promptPaneWidth, _ := util.CalcPromptPaneSize(m.terminalWidth, m.terminalHeight)
+		chatPaneWidth, chatPaneHeight := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, false)
 
-		chatPaneHeight := m.terminalHeight - (m.promptContainer.GetHeight() + 5)
-		chatPaneWidth := m.terminalWidth / 3 * 2
+		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
+			Width(promptPaneWidth)
 
 		util.Log("viewMode:", m.viewMode)
 		if m.viewMode == util.ZenMode {
-			m.chatPane.SetPaneWitdth(m.terminalWidth - 2)
+			chatPaneWidthZen, _ := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, true)
+			m.chatPane.SetPaneWitdth(chatPaneWidthZen)
 		}
 
 		if !m.ready {
 			m.chatPane = views.NewChatPane(chatPaneWidth, chatPaneHeight)
 			m.ready = true
-			m.promptInput.Width = msg.Width - 3
+			m.promptInput.Width = promptPaneWidth
 		} else {
 			m.chatPane.SetPaneWitdth(chatPaneWidth)
 			m.chatPane.SetPaneHeight(chatPaneHeight)
-			m.promptInput.Width = msg.Width - 3
+			m.promptInput.Width = promptPaneWidth
 		}
 
 		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
