@@ -82,7 +82,7 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 		return p.initializePane(msg.Session)
 
 	case sessions.ResponseChunkProcessed:
-		paneWidth, _ := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
+		paneWidth := p.chatContainer.GetWidth()
 
 		oldContent := util.GetMessagesAsPrettyString(msg.PreviousMsgArray, paneWidth)
 		styledBufferMessage := util.RenderBotMessage(msg.ChunkMessage, paneWidth)

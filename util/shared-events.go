@@ -34,12 +34,16 @@ var (
 	ZenFocusModes    = []FocusPane{PromptType, ChatMessagesType}
 )
 
-func GetNewFocusMode(mode ViewMode, currentFocus FocusPane) FocusPane {
+func GetNewFocusMode(mode ViewMode, currentFocus FocusPane, tw int) FocusPane {
 	var focusModes []FocusPane
 
 	switch mode {
 	case NormalMode:
 		focusModes = NormalFocusModes
+
+		if tw < WidthMinScalingLimit {
+			focusModes = ZenFocusModes
+		}
 	case ZenMode:
 		focusModes = ZenFocusModes
 	default:

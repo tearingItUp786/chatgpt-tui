@@ -148,7 +148,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 
-			m.focused = util.GetNewFocusMode(m.viewMode, m.focused)
+			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatMessagesType))
