@@ -202,7 +202,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.currentEditID = -1
 
 	case util.OurWindowResize:
-		width := m.terminalWidth - msg.Width - 5
+		width, _ := util.CalcSettingsPaneSize(m.terminalWidth, m.terminalHeight)
 		m.settingsContainer = m.settingsContainer.Width(width)
 
 	case clients.ProcessApiCompletionResponse:
