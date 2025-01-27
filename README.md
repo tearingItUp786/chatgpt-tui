@@ -42,8 +42,11 @@ rc-chatgpt-tui
 We provide a `config.json` file within your directory for easy access to essential settings.
 On most Macs, the path is `~/.chatgpt-tui/config.json`.
 This file includes the URL used for network calls to the TUI,
-specified as `chatGPTApiUrl: "https://api.openai.com/v1/chat/completions"`.
-Additionally, the `systemMessage` field is available for customizing system prompt messages.
+specified as `chatGPTApiUrl: "https://api.openai.com"`.
+The url can be anything that follows OpenAI API standard ( [ollama](https://ollama.com/), [lmstudio](https://lmstudio.ai/), etc)
+Additional fields:
+ - `systemMessage` field is available for customizing system prompt messages.
+ - `defaultModel` field sets the default model (recommended to set when not using ChatGPT)
 
 ## Demo
 
@@ -68,7 +71,7 @@ Additionally, the `systemMessage` field is available for customizing system prom
 
 ## Settings Pane
 
-- `m`: Opens an input dialog to change the model.
+- `m`: Opens a model picker to change the model. (use `j` to go up and `k` to go down the list)
 - `f`: Opens an input dialog to change the frequency of updates.
 - `t`: Opens an input dialog to set the maximum number of tokens per message.
 

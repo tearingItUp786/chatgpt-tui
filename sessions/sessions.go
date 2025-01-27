@@ -12,6 +12,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/chatgpt-tui/clients"
+	"github.com/tearingItUp786/chatgpt-tui/components"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/user"
@@ -27,7 +29,7 @@ const (
 
 type Model struct {
 	textInput         textinput.Model
-	list              list.Model
+	sessionsList      components.SessionsList
 	isFocused         bool
 	currentEditID     int
 	sessionService    *SessionService
@@ -35,13 +37,14 @@ type Model struct {
 	settingsContainer lipgloss.Style
 	config            config.Config
 
-	Settings             settings.Settings
+	OpenAiClient         *clients.OpenAiClient
+	Settings             util.Settings
 	CurrentSessionID     int
 	CurrentSessionName   string
 	terminalWidth        int
 	terminalHeight       int
-	ArrayOfProcessResult []ProcessResult
-	ArrayOfMessages      []MessageToSend
+	ArrayOfProcessResult []clients.ProcessApiCompletionResponse
+	ArrayOfMessages      []clients.MessageToSend
 	CurrentAnswer        string
 	AllSessions          []Session
 	ProcessingMode       string
@@ -52,7 +55,7 @@ func New(db *sql.DB, ctx context.Context) Model {
 	us := user.NewUserService(db)
 
 	// default --> get some default settings
-	defaultSettings := settings.Settings{
+	defaultSettings := util.Settings{
 		Model:     "gpt-3.5-turbo",
 		MaxTokens: 300,
 		Frequency: 0,
@@ -64,12 +67,19 @@ func New(db *sql.DB, ctx context.Context) Model {
 		panic("No config found in context")
 	}
 
+	if len(config.DefaultModel) > 0 {
+		defaultSettings.Model = config.DefaultModel
+	}
+
+	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
+
 	return Model{
 		config:               *config,
-		ArrayOfProcessResult: []ProcessResult{},
+		ArrayOfProcessResult: []clients.ProcessApiCompletionResponse{},
 		sessionService:       ss,
 		userService:          us,
 		Settings:             defaultSettings,
+		OpenAiClient:         openAiClient,
 		ProcessingMode:       IDLE,
 		settingsContainer: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Top).
@@ -81,7 +91,6 @@ func New(db *sql.DB, ctx context.Context) Model {
 type LoadDataFromDB struct {
 	session                Session
 	allSessions            []Session
-	listTable              list.Model
 	currentActiveSessionID int
 }
 
@@ -154,7 +163,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.ArrayOfMessages = msg.session.Messages
 		m.AllSessions = msg.allSessions
 
-		m.list = initEditListViewTable(m.AllSessions, m.CurrentSessionID)
+		listItems := constructSessionsListItems(m.AllSessions, m.currentEditID)
+		m.sessionsList = components.NewSessionsList(listItems)
 		m.currentEditID = -1
 
 	case settings.UpdateSettingsEvent:
@@ -168,7 +178,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		width := m.terminalWidth - msg.Width - 5
 		m.settingsContainer = m.settingsContainer.Width(width)
 
-	case ProcessResult:
+	case clients.ProcessApiCompletionResponse:
 		// add the latest message to the array of messages
 		util.Log("Processing message: ")
 		cmd = m.handleMsgProcessing(msg)
@@ -192,7 +202,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	if m.isFocused && m.currentEditID == -1 && !dKeyPressed {
-		m.list, cmd = m.list.Update(msg)
+		m.sessionsList, cmd = m.sessionsList.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
@@ -203,7 +213,7 @@ func (m Model) View() string {
 	listView := m.normalListView()
 
 	if m.isFocused {
-		listView = m.editListView()
+		listView = m.sessionsList.EditListView(m.terminalHeight)
 	}
 
 	editForm := ""
@@ -224,6 +234,10 @@ func (m Model) View() string {
 			editForm,
 		),
 	)
+}
+
+func (m Model) GetCompletion(resp chan clients.ProcessApiCompletionResponse) tea.Cmd {
+	return m.OpenAiClient.RequestCompletion(m.ArrayOfMessages, m.Settings, resp)
 }
 
 func RenderUserMessage(msg string, width int) string {
@@ -310,7 +324,7 @@ func (m Model) GetMessagesAsPrettyString() string {
 }
 
 // MIGHT BE WORTH TO MOVE TO A SEP FILE
-func (m *Model) appendAndOrderProcessResults(msg ProcessResult) {
+func (m *Model) appendAndOrderProcessResults(msg clients.ProcessApiCompletionResponse) {
 	// log.Println("Appending and ordering process results", msg)
 	m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
 	m.CurrentAnswer = ""
@@ -323,7 +337,7 @@ func (m *Model) appendAndOrderProcessResults(msg ProcessResult) {
 	})
 }
 
-func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
+func (m *Model) assertChoiceContentString(choice clients.Choice) (string, tea.Cmd) {
 	choiceContent, ok := choice.Delta["content"]
 
 	if !ok {
@@ -347,6 +361,37 @@ func (m *Model) assertChoiceContentString(choice Choice) (string, tea.Cmd) {
 	return choiceString, nil
 }
 
+func constructJsonMessage(arrayOfProcessResult []clients.ProcessApiCompletionResponse) (clients.MessageToSend, error) {
+	newMessage := clients.MessageToSend{Role: "assistant", Content: ""}
+
+	for _, aMessage := range arrayOfProcessResult {
+		if aMessage.Final {
+			util.Log("Hit final in construct", aMessage.Result)
+			break
+		}
+
+		if len(aMessage.Result.Choices) > 0 {
+			choice := aMessage.Result.Choices[0]
+			// TODO: we need a helper for this
+			if choice.FinishReason == "stop" || choice.FinishReason == "length" {
+				util.Log("Hit stop or length in construct")
+				break
+			}
+
+			if content, ok := choice.Delta["content"].(string); ok {
+				newMessage.Content += content
+			} else {
+				// Handle the case where the type assertion fails, e.g., log an error or return
+				util.Log("type assertion to string failed for choice.Delta[\"content\"]")
+				formattedError := fmt.Errorf("type assertion to string failed for choice.Delta[\"content\"]")
+				return clients.MessageToSend{}, formattedError
+			}
+
+		}
+	}
+	return newMessage, nil
+}
+
 func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 	// if the json for whatever reason is malformed, bail out
 	jsonMessages, err := constructJsonMessage(m.ArrayOfProcessResult)
@@ -363,7 +408,7 @@ func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 	err = m.sessionService.UpdateSessionMessages(m.CurrentSessionID, m.ArrayOfMessages)
 	m.ProcessingMode = IDLE
 	m.CurrentAnswer = ""
-	m.ArrayOfProcessResult = []ProcessResult{}
+	m.ArrayOfProcessResult = []clients.ProcessApiCompletionResponse{}
 
 	if err != nil {
 		util.Log("Error updating session messages", err)
@@ -387,7 +432,7 @@ func areIDsInOrderAndComplete(ids []int) bool {
 	return true
 }
 
-func getArrayOfIDs(arr []ProcessResult) []int {
+func getArrayOfIDs(arr []clients.ProcessApiCompletionResponse) []int {
 	ids := []int{}
 	for _, msg := range arr {
 		ids = append(ids, msg.ID)
@@ -396,7 +441,7 @@ func getArrayOfIDs(arr []ProcessResult) []int {
 }
 
 // updates the current view with the messages coming in
-func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
+func (m *Model) handleMsgProcessing(msg clients.ProcessApiCompletionResponse) tea.Cmd {
 	m.appendAndOrderProcessResults(msg)
 	areIdsAllThere := areIDsInOrderAndComplete(getArrayOfIDs(m.ArrayOfProcessResult))
 	m.ProcessingMode = PROCESSING
@@ -427,7 +472,7 @@ func (m *Model) handleMsgProcessing(msg ProcessResult) tea.Cmd {
 
 func (m *Model) resetStateAndCreateError(errMsg string) tea.Cmd {
 	m.ProcessingMode = ERROR
-	m.ArrayOfProcessResult = []ProcessResult{}
+	m.ArrayOfProcessResult = []clients.ProcessApiCompletionResponse{}
 	m.CurrentAnswer = ""
 	return util.MakeErrorMsg(errMsg)
 }
@@ -439,7 +484,7 @@ func (m *Model) handleCurrentEditID(msg tea.KeyMsg) tea.Cmd {
 	if msg.String() == "enter" {
 		if m.textInput.Value() != "" {
 			m.sessionService.UpdateSessionName(m.currentEditID, m.textInput.Value())
-			m.updateSessionList()
+			m.updateSessionsList()
 			m.currentEditID = -1
 		}
 	}
@@ -452,7 +497,9 @@ func (m *Model) handleUpdateCurrentSession(session Session) tea.Cmd {
 	m.CurrentSessionID = session.ID
 	m.CurrentSessionName = session.SessionName
 	m.ArrayOfMessages = session.Messages
-	m.list.SetItems(ConstructListItems(m.AllSessions, m.CurrentSessionID))
+	listItems := constructSessionsListItems(m.AllSessions, m.CurrentSessionID)
+
+	m.sessionsList.SetItems(listItems)
 
 	return SendUpdateCurrentSessionMsg()
 }
@@ -471,15 +518,15 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		currentTime := time.Now()
 		formattedTime := currentTime.Format(time.ANSIC)
 		defaultSessionName := fmt.Sprintf("%s", formattedTime)
-		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []MessageToSend{})
+		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []clients.MessageToSend{})
 
 		cmd = m.handleUpdateCurrentSession(newSession)
-		m.updateSessionList()
+		m.updateSessionsList()
 
 	case "enter":
-		i, ok := m.list.SelectedItem().(item)
+		i, ok := m.sessionsList.GetSelectedItem()
 		if ok {
-			session, err := m.sessionService.GetSession(i.id)
+			session, err := m.sessionService.GetSession(i.Id)
 			if err != nil {
 				util.MakeErrorMsg(err.Error())
 			}
@@ -491,21 +538,21 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		ti := textinput.New()
 		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
 		m.textInput = ti
-		i, ok := m.list.SelectedItem().(item)
+		i, ok := m.sessionsList.GetSelectedItem()
 		if ok {
-			m.currentEditID = i.id
+			m.currentEditID = i.Id
 			m.textInput.Placeholder = "New Session Name"
 		}
 		m.textInput.Focus()
 		m.textInput.CharLimit = 100
 
 	case "d":
-		i, ok := m.list.SelectedItem().(item)
+		i, ok := m.sessionsList.GetSelectedItem()
 		if ok {
 			// delete this one if it's not the active one
-			if i.id != m.CurrentSessionID {
-				m.sessionService.DeleteSession(i.id)
-				m.updateSessionList()
+			if i.Id != m.CurrentSessionID {
+				m.sessionService.DeleteSession(i.Id)
+				m.updateSessionsList()
 			}
 		}
 
@@ -514,17 +561,23 @@ func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (m *Model) updateSessionList() {
-	m.AllSessions, _ = m.sessionService.GetAllSessions()
+func constructSessionsListItems(sessions []Session, currentSessionId int) []list.Item {
 	items := []list.Item{}
 
-	for _, session := range m.AllSessions {
-		anItem := item{
-			id:       session.ID,
-			text:     session.SessionName,
-			isActive: session.ID == m.CurrentSessionID,
+	for _, session := range sessions {
+		anItem := components.SessionListItem{
+			Id:       session.ID,
+			Text:     session.SessionName,
+			IsActive: session.ID == currentSessionId,
 		}
 		items = append(items, anItem)
 	}
-	m.list.SetItems(items)
+
+	return items
+}
+
+func (m *Model) updateSessionsList() {
+	m.AllSessions, _ = m.sessionService.GetAllSessions()
+	items := constructSessionsListItems(m.AllSessions, m.CurrentSessionID)
+	m.sessionsList.SetItems(items)
 }

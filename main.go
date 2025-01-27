@@ -16,6 +16,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/muesli/reflow/wrap"
+	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/migrations"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
@@ -28,7 +29,7 @@ type model struct {
 	focused          util.FocusPane
 	viewMode         util.ViewMode
 	promptInputMode  util.PrompInputMode
-	msgChan          chan sessions.ProcessResult
+	msgChan          chan clients.ProcessApiCompletionResponse
 	error            util.ErrorEvent
 	currentSessionID string
 
@@ -47,10 +48,10 @@ func initialModal(db *sql.DB, ctx context.Context) model {
 	ti.Placeholder = "Ask ChatGPT a question!"
 	ti.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
 
-	si := settings.New(db)
+	si := settings.New(db, ctx)
 	sm := sessions.New(db, ctx)
 
-	msgChan := make(chan sessions.ProcessResult)
+	msgChan := make(chan clients.ProcessApiCompletionResponse)
 
 	return model{
 		viewMode:         util.NormalMode,
@@ -76,7 +77,7 @@ func initialModal(db *sql.DB, ctx context.Context) model {
 }
 
 // A command that waits for the activity on a channel.
-func waitForActivity(sub chan sessions.ProcessResult) tea.Cmd {
+func waitForActivity(sub chan clients.ProcessApiCompletionResponse) tea.Cmd {
 	return func() tea.Msg {
 		someMessage := <-sub
 		return someMessage
@@ -138,7 +139,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// these are the messages that come in as a stream from the chat gpt api
 	// we append the content to the viewport and scroll
-	case sessions.ProcessResult:
+	case clients.ProcessApiCompletionResponse:
 		util.Log("main ProcessResult: ")
 		oldContent := m.sessionModel.GetMessagesAsPrettyString()
 		styledBufferMessage := sessions.RenderBotMessage(m.sessionModel.CurrentAnswer, m.terminalWidth/3*2)
@@ -254,14 +255,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if isPromptFocused && m.sessionModel.ProcessingMode == sessions.IDLE {
 				// Start CallChatGpt on Enter key
 				m.error = util.ErrorEvent{}
-				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, sessions.ConstructUserMessage(m.promptInput.Value()))
+				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, clients.ConstructUserMessage(m.promptInput.Value()))
 				log.Println("key enter")
 				m.promptInput.SetValue("")
 				m.promptInput.Focus()
 
 				m.promptInputMode = util.PromptInsertMode
 				m.sessionModel.ProcessingMode = sessions.PROCESSING
-				return m, tea.Batch(m.sessionModel.CallChatGpt(m.msgChan), m.promptInput.Cursor.BlinkCmd())
+				return m, tea.Batch(
+					m.sessionModel.GetCompletion(m.msgChan),
+					m.promptInput.Cursor.BlinkCmd())
 			}
 		}
 

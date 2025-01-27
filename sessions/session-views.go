@@ -62,7 +62,7 @@ func (m Model) normalListView() string {
 
 	return lipgloss.NewStyle().
 		// TODO: figure out how to get height from the settings model
-		Height(m.terminalHeight - 18).
-		MaxHeight(m.terminalHeight - 18).
+		Height(m.terminalHeight - 22).
+		MaxHeight(m.terminalHeight - 22).
 		Render(strings.Join(sessionListItems, "\n"))
 }
