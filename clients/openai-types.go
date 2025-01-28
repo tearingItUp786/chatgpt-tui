@@ -44,8 +44,3 @@ type ProcessModelsResponse struct {
 	Err    error
 	Final  bool
 }
-
-type MessageToSend struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}

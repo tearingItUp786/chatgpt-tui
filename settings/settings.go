@@ -29,10 +29,11 @@ const (
 // in the sql database. After a successful save, we are going to
 // go back to view mode.
 type Model struct {
-	terminalWidth int
-	isFocused     bool
-	mode          int
-	textInput     textinput.Model
+	terminalWidth  int
+	terminalHeight int
+	isFocused      bool
+	mode           int
+	textInput      textinput.Model
 
 	modelPicker components.ModelsList
 
@@ -48,10 +49,10 @@ var settingsService *SettingsService
 var listHeader = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderBottom(true).
-	MarginLeft(2)
+	MarginLeft(util.ListMarginLeft)
 
 var listItemHeading = lipgloss.NewStyle().
-	PaddingLeft(2).
+	PaddingLeft(util.ListPaddingLeft).
 	Foreground(lipgloss.Color(util.Pink100))
 
 var listItemSpan = lipgloss.NewStyle().
@@ -89,7 +90,7 @@ func (m Model) View() string {
 	return m.list.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			listHeader.Render("Settings"),
-			lipgloss.NewStyle().Height(5).Render(
+			lipgloss.NewStyle().Height(util.SettingsPaneListHeight).Render(
 				lipgloss.JoinVertical(lipgloss.Left,
 					listItemRenderer("model", m.settings.Model),
 					listItemRenderer("frequency", fmt.Sprint(m.settings.Frequency)),
@@ -108,7 +109,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case util.OurWindowResize:
 		util.Log("our Window resized", msg.Width)
-		width := m.terminalWidth - msg.Width - 5
+		width, _ := util.CalcSettingsListSize(m.terminalWidth, m.terminalHeight)
 		m.list.Width(width)
 
 	case util.FocusEvent:
@@ -124,6 +125,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
+		m.terminalHeight = msg.Height
 
 	case tea.KeyMsg:
 		// in order to do proper event bubbling, we don't actually want to handle
@@ -297,13 +299,13 @@ func New(db *sql.DB, ctx context.Context) Model {
 	listStyle := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder(), true).
 		BorderForeground(util.NormalTabBorderColor).
-		Height(12)
+		Height(util.SettingsPaneHeight)
 
 	modelPicker := components.NewModelsList([]list.Item{components.ModelsListItem(settings.Model)})
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 
 	return Model{
-		terminalWidth: 20,
+		terminalWidth: util.DefaultSettingsPaneWidth,
 		mode:          viewMode,
 		settings:      settings,
 		list:          listStyle,

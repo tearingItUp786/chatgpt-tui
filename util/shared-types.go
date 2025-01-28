@@ -6,3 +6,8 @@ type Settings struct {
 	MaxTokens int
 	Frequency int
 }
+
+type MessageToSend struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
