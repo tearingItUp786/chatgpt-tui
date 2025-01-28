@@ -284,16 +284,16 @@ func (m *Model) updateModelsList(models clients.ProcessModelsResponse) {
 }
 
 func New(db *sql.DB, ctx context.Context) Model {
-	settingsService = NewSettingsService(db)
-	settings, err := settingsService.GetSettings()
-	if err != nil {
-		panic(err)
-	}
-
 	config, ok := config.FromContext(ctx)
 	if !ok {
 		fmt.Println("No config found")
 		panic("No config found in context")
+	}
+
+	settingsService = NewSettingsService(db)
+	settings, err := settingsService.GetSettings(ctx, *config)
+	if err != nil {
+		panic(err)
 	}
 
 	listStyle := lipgloss.NewStyle().
