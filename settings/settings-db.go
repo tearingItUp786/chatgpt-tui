@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
@@ -31,10 +32,15 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) (
 			return util.Settings{}, err
 		}
 
-		// TODO replace with request to v1/models
+		openAiClient := clients.NewOpenAiClient(cfg.ChatGPTApiUrl, cfg.SystemMessage)
+		modelsResponse := openAiClient.RequestModelsList()
+		if modelsResponse.Err != nil {
+			panic(modelsResponse.Err)
+		}
+
 		settings = util.Settings{
-			Model:     "gpt-3.5-turbo",
-			MaxTokens: 300,
+			Model:     modelsResponse.Result.Data[0].Id,
+			MaxTokens: 3000,
 			Frequency: 0,
 		}
 
