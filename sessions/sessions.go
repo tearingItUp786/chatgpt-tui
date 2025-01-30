@@ -53,21 +53,16 @@ func New(db *sql.DB, ctx context.Context) Model {
 	ss := NewSessionService(db)
 	us := user.NewUserService(db)
 
-	// default --> get some default settings
-	defaultSettings := util.Settings{
-		Model:     "gpt-3.5-turbo",
-		MaxTokens: 300,
-		Frequency: 0,
-	}
-
 	config, ok := config.FromContext(ctx)
 	if !ok {
 		fmt.Println("No config found")
 		panic("No config found in context")
 	}
 
-	if len(config.DefaultModel) > 0 {
-		defaultSettings.Model = config.DefaultModel
+	settingsService := settings.NewSettingsService(db)
+	settings, err := settingsService.GetSettings(ctx, *config)
+	if err != nil {
+		panic(err)
 	}
 
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
@@ -77,7 +72,7 @@ func New(db *sql.DB, ctx context.Context) Model {
 		ArrayOfProcessResult: []clients.ProcessApiCompletionResponse{},
 		sessionService:       ss,
 		userService:          us,
-		Settings:             defaultSettings,
+		Settings:             settings,
 		OpenAiClient:         openAiClient,
 		ProcessingMode:       IDLE,
 		settingsContainer: lipgloss.NewStyle().
