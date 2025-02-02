@@ -121,10 +121,6 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 	return p, tea.Batch(cmds...)
 }
 
-func (p PromptPane) SetPaneWidth(w int) {
-	p.container.Width(w)
-}
-
 func (p PromptPane) IsTypingInProcess() bool {
 	return p.isFocused && p.inputMode == util.PromptInsertMode
 }

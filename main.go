@@ -102,7 +102,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "ctrl+o":
 			m.focused = util.PromptType
-			// m.promptContainer = m.promptContainer.Copy().BorderForeground(util.ActiveTabBorderColor)
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 
@@ -132,6 +131,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
+
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatMessagesType))
@@ -146,7 +146,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
 
-		promptPaneWidth, _ := util.CalcPromptPaneSize(m.terminalWidth, m.terminalHeight)
 		chatPaneWidth, chatPaneHeight := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, false)
 
 		util.Log("viewMode:", m.viewMode)
@@ -158,11 +157,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.ready {
 			m.chatPane = views.NewChatPane(chatPaneWidth, chatPaneHeight)
 			m.ready = true
-			m.promptPane.SetPaneWidth(promptPaneWidth)
 		} else {
 			m.chatPane.SetPaneWitdth(chatPaneWidth)
 			m.chatPane.SetPaneHeight(chatPaneHeight)
-			m.promptPane.SetPaneWidth(promptPaneWidth)
 		}
 
 		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
