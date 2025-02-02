@@ -202,7 +202,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case clients.ProcessApiCompletionResponse:
 		// add the latest message to the array of messages
-		m.handleMsgProcessing(msg)
+		cmds = append(cmds, m.handleMsgProcessing(msg))
 		cmds = append(cmds, SendResponseChunkProcessedMsg(m.CurrentAnswer, m.ArrayOfMessages))
 
 	case tea.WindowSizeMsg:
@@ -382,7 +382,7 @@ func (m *Model) handleFinalChoiceMessage() tea.Cmd {
 		return m.resetStateAndCreateError(err.Error())
 	}
 
-	return nil
+	return util.SendProcessingStateChangedMsg(false)
 }
 
 func areIDsInOrderAndComplete(ids []int) bool {
@@ -416,7 +416,7 @@ func (m *Model) handleMsgProcessing(msg clients.ProcessApiCompletionResponse) te
 	for _, msg := range m.ArrayOfProcessResult {
 		if msg.Final && areIdsAllThere {
 			util.Log("-----Final message found-----")
-			return m.handleFinalChoiceMessage()
+			return tea.Batch(m.handleFinalChoiceMessage(), util.SendProcessingStateChangedMsg(false))
 		}
 
 		if len(msg.Result.Choices) > 0 {

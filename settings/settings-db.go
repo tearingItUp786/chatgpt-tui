@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math/rand/v2"
+	"slices"
 
 	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/config"
@@ -27,19 +29,22 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) (
 	)
 	err := row.Scan(&settings.ID, &settings.Model, &settings.MaxTokens, &settings.Frequency)
 
+	openAiClient := clients.NewOpenAiClient(cfg.ChatGPTApiUrl, cfg.SystemMessage)
+	modelsResponse := openAiClient.RequestModelsList()
+	if modelsResponse.Err != nil {
+		panic(modelsResponse.Err)
+	}
+
+	filteredModels := util.GetFilteredModelList(cfg.ChatGPTApiUrl, modelsResponse.Result.GetModelNames())
+	isModelAvailable := slices.Contains(filteredModels, settings.Model)
+
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return util.Settings{}, err
 		}
 
-		openAiClient := clients.NewOpenAiClient(cfg.ChatGPTApiUrl, cfg.SystemMessage)
-		modelsResponse := openAiClient.RequestModelsList()
-		if modelsResponse.Err != nil {
-			panic(modelsResponse.Err)
-		}
-
 		settings = util.Settings{
-			Model:     modelsResponse.Result.Data[0].Id,
+			Model:     filteredModels[0],
 			MaxTokens: 3000,
 			Frequency: 0,
 		}
@@ -48,6 +53,12 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) (
 		if len(cfg.DefaultModel) > 0 {
 			settings.Model = cfg.DefaultModel
 		}
+	}
+
+	if !isModelAvailable && len(filteredModels) > 0 {
+		modelIdx := rand.IntN(len(filteredModels) - 1)
+		settings.Model = filteredModels[modelIdx]
+		ss.UpdateSettings(settings)
 	}
 
 	return settings, nil

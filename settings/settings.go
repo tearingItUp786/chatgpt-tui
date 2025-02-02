@@ -276,8 +276,9 @@ func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 
 func (m *Model) updateModelsList(models clients.ProcessModelsResponse) {
 	var modelsList []list.Item
-	for _, model := range models.Result.Data {
-		modelsList = append(modelsList, components.ModelsListItem(model.Id))
+	filteredModels := util.GetFilteredModelList(m.config.ChatGPTApiUrl, models.Result.GetModelNames())
+	for _, model := range filteredModels {
+		modelsList = append(modelsList, components.ModelsListItem(model))
 	}
 
 	m.modelPicker.SetItems(modelsList)
