@@ -67,6 +67,26 @@ var MotivationalMessage = lipgloss.NewStyle().
 	PaddingLeft(1).
 	Render("There's something scary about a blank canvas...that's why I'm here 😄!")
 
+type ProcessingStateChanged struct {
+	IsProcessing bool
+}
+
+func SendProcessingStateChangedMsg(isProcessing bool) tea.Cmd {
+	return func() tea.Msg {
+		return ProcessingStateChanged{IsProcessing: isProcessing}
+	}
+}
+
+type PromptReady struct {
+	Prompt string
+}
+
+func SendPromptReadyMsg(prompt string) tea.Cmd {
+	return func() tea.Msg {
+		return PromptReady{Prompt: prompt}
+	}
+}
+
 type FocusEvent struct {
 	IsFocused bool
 }

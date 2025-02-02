@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -30,19 +29,16 @@ type model struct {
 	error            util.ErrorEvent
 	currentSessionID string
 
-	promptContainer lipgloss.Style
-	chatPane        views.ChatPane
-	promptInput     textinput.Model
-	settingsModel   settings.Model
-	sessionModel    sessions.Model
-	terminalWidth   int
-	terminalHeight  int
+	chatPane       views.ChatPane
+	promptPane     views.PromptPane
+	settingsModel  settings.Model
+	sessionModel   sessions.Model
+	terminalWidth  int
+	terminalHeight int
 }
 
 func initialModal(db *sql.DB, ctx context.Context) model {
-	ti := textinput.New()
-	ti.Placeholder = "Ask ChatGPT a question!"
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
+	promptPane := views.NewPromptPane()
 
 	si := settings.New(db, ctx)
 	sm := sessions.New(db, ctx)
@@ -51,23 +47,16 @@ func initialModal(db *sql.DB, ctx context.Context) model {
 		ready:            false,
 		viewMode:         util.NormalMode,
 		focused:          util.PromptType,
-		promptInputMode:  util.PromptNormalMode,
-		promptInput:      ti,
 		settingsModel:    si,
 		currentSessionID: "",
 		sessionModel:     sm,
-		promptContainer: lipgloss.NewStyle().
-			AlignVertical(lipgloss.Bottom).
-			BorderStyle(lipgloss.ThickBorder()).
-			BorderForeground(util.ActiveTabBorderColor).
-			MaxHeight(4).
-			MarginTop(1),
+		promptPane:       promptPane,
 	}
 }
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
-		m.promptInput.Cursor.BlinkCmd(),
+		m.promptPane.Init(),
 		m.sessionModel.Init(),
 		m.chatPane.Init(),
 		m.settingsModel.Init(),
@@ -79,8 +68,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
-
-	isPromptFocused := m.focused == util.PromptType
 
 	// the settings model is actually an input into the session model
 	m.sessionModel, cmd = m.sessionModel.Update(msg)
@@ -94,31 +81,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
-	if m.focused == util.PromptType && m.promptInputMode == util.PromptInsertMode &&
-		m.sessionModel.ProcessingMode == sessions.IDLE {
-		m.promptInput, cmd = m.promptInput.Update(msg)
-		cmds = append(cmds, cmd)
-	}
-
 	switch msg := msg.(type) {
 	case util.ErrorEvent:
 		util.Log("Error: ", msg.Message)
 		m.sessionModel.ProcessingMode = sessions.IDLE
 		m.error = msg
+		cmds = append(cmds, util.SendProcessingStateChangedMsg(false))
+
+	case util.PromptReady:
+		m.error = util.ErrorEvent{}
+		m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, clients.ConstructUserMessage(msg.Prompt))
+		m.sessionModel.ProcessingMode = sessions.PROCESSING
+
+		return m, tea.Batch(
+			util.SendProcessingStateChangedMsg(true),
+			// use current session for requests to OpenAI API
+			m.chatPane.DisplayCompletion(m.sessionModel))
 
 	case tea.KeyMsg:
-
 		switch keypress := msg.String(); keypress {
-		case "i":
-			if m.focused == util.PromptType && m.promptInputMode == util.PromptNormalMode {
-				m.promptInputMode = util.PromptInsertMode
-				m.promptInput.Focus()
-				cmds = append(cmds, m.promptInput.Cursor.BlinkCmd())
-			}
 
 		case "ctrl+o":
 			m.focused = util.PromptType
-			m.promptContainer = m.promptContainer.Copy().BorderForeground(util.ActiveTabBorderColor)
+			// m.promptContainer = m.promptContainer.Copy().BorderForeground(util.ActiveTabBorderColor)
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 
@@ -138,13 +123,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 			m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
 			cmds = append(cmds, cmd)
-
 		}
 
 		switch msg.Type {
 
 		case tea.KeyTab:
-			if m.focused == util.PromptType && m.promptInputMode == util.PromptInsertMode {
+			if m.promptPane.IsTypingInProcess() {
 				break
 			}
 
@@ -152,52 +136,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatMessagesType))
-
-			switch m.focused {
-
-			case util.PromptType:
-				m.promptInputMode = util.PromptNormalMode
-				m.promptContainer = m.promptContainer.BorderForeground(util.ActiveTabBorderColor)
-				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
-
-			case util.ChatMessagesType:
-				m.promptInputMode = util.PromptNormalMode
-				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
-				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Copy().Foreground(lipgloss.Color(util.NormalTabBorderColor))
-				m.promptInput.Blur()
-
-			default:
-				m.promptInputMode = util.PromptNormalMode
-				m.promptContainer = m.promptContainer.BorderForeground(util.NormalTabBorderColor)
-				m.promptInput.PromptStyle = m.promptInput.PromptStyle.Foreground(lipgloss.Color(util.NormalTabBorderColor))
-				m.promptInput.Blur()
-			}
-
-		case tea.KeyEscape:
-			if m.focused == util.PromptType {
-				m.promptInputMode = util.PromptNormalMode
-				m.promptInput.Blur()
-			}
+			m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptType))
 
 		case tea.KeyCtrlC:
 			return m, tea.Quit
 
-		case tea.KeyEnter:
-			if isPromptFocused && m.sessionModel.ProcessingMode == sessions.IDLE {
-				// Start CallChatGpt on Enter key
-				m.error = util.ErrorEvent{}
-				m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, clients.ConstructUserMessage(m.promptInput.Value()))
-				log.Println("key enter")
-				m.promptInput.SetValue("")
-				m.promptInput.Focus()
-
-				m.promptInputMode = util.PromptInsertMode
-				m.sessionModel.ProcessingMode = sessions.PROCESSING
-				return m, tea.Batch(
-					// use current session for requests to OpenAI API
-					m.chatPane.DisplayCompletion(m.sessionModel),
-					m.promptInput.Cursor.BlinkCmd())
-			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -206,9 +149,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		promptPaneWidth, _ := util.CalcPromptPaneSize(m.terminalWidth, m.terminalHeight)
 		chatPaneWidth, chatPaneHeight := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, false)
-
-		m.promptContainer = m.promptContainer.Copy().MaxWidth(m.terminalWidth).
-			Width(promptPaneWidth)
 
 		util.Log("viewMode:", m.viewMode)
 		if m.viewMode == util.ZenMode {
@@ -219,20 +159,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.ready {
 			m.chatPane = views.NewChatPane(chatPaneWidth, chatPaneHeight)
 			m.ready = true
-			m.promptInput.Width = promptPaneWidth
+			m.promptPane.SetPaneWidth(promptPaneWidth)
 		} else {
 			m.chatPane.SetPaneWitdth(chatPaneWidth)
 			m.chatPane.SetPaneHeight(chatPaneHeight)
-			m.promptInput.Width = promptPaneWidth
+			m.promptPane.SetPaneWidth(promptPaneWidth)
 		}
 
 		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
 		cmds = append(cmds, cmd)
 		m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
 		cmds = append(cmds, cmd)
+		m.promptPane, cmd = m.promptPane.Update(util.MakeWindowResizeMsg(msg.Width))
+		cmds = append(cmds, cmd)
 	}
 
 	m.chatPane, cmd = m.chatPane.Update(msg)
+	cmds = append(cmds, cmd)
+	m.promptPane, cmd = m.promptPane.Update(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
@@ -266,14 +210,7 @@ func (m model) View() string {
 			),
 		)
 
-	lowerPromptView := "> Please wait ..."
-	if m.sessionModel.ProcessingMode == sessions.IDLE {
-		lowerPromptView = m.promptInput.View()
-	}
-
-	promptView := m.promptContainer.Render(
-		lowerPromptView,
-	)
+	promptView := m.promptPane.View()
 
 	return lipgloss.NewStyle().Render(
 		windowViews,
