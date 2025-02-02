@@ -222,3 +222,12 @@ func processChunk(chunkData string, id int) ProcessApiCompletionResponse {
 
 	return ProcessApiCompletionResponse{ID: id, Result: chunk, Err: nil}
 }
+
+func (m ModelsListResponse) GetModelNames() []string {
+	var modelNames []string
+	for _, model := range m.Data {
+		modelNames = append(modelNames, model.Id)
+	}
+
+	return modelNames
+}

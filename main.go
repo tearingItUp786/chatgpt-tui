@@ -25,7 +25,6 @@ type model struct {
 	ready            bool
 	focused          util.FocusPane
 	viewMode         util.ViewMode
-	promptInputMode  util.PrompInputMode
 	error            util.ErrorEvent
 	currentSessionID string
 
