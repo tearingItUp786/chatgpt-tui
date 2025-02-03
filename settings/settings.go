@@ -191,7 +191,7 @@ func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 
 		if key == "m" || key == "f" || key == "t" {
 			ti := textinput.New()
-			ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
+			ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.Padding)
 			m.textInput = ti
 
 			switch key {

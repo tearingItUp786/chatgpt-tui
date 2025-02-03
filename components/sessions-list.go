@@ -93,6 +93,7 @@ func NewSessionsList(items []list.Item) SessionsList {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
+	l.DisableQuitKeybindings()
 	l.Styles.Title = titleStyle
 
 	return SessionsList{
@@ -100,7 +101,11 @@ func NewSessionsList(items []list.Item) SessionsList {
 	}
 }
 
-func (l *SessionsList) EditListView(terminalHeight int) string {
-	l.list.SetHeight(terminalHeight - 22)
-	return lipgloss.NewStyle().MaxHeight(terminalHeight - 22).PaddingLeft(2).Render(l.list.View())
+func (l *SessionsList) EditListView(paneHeight int) string {
+	l.list.SetHeight(paneHeight)
+	return lipgloss.
+		NewStyle().
+		MaxHeight(paneHeight).
+		PaddingLeft(util.Padding).
+		Render(l.list.View())
 }

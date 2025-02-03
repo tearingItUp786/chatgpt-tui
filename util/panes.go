@@ -3,6 +3,7 @@ package util
 // Defaults
 const (
 	DefaultSettingsPaneWidth = 20
+	DefaultSessionsPaneWidth = 20
 )
 
 // Panes
@@ -44,7 +45,7 @@ func CalcChatPaneSize(tw, th int, isZenMode bool) (w, h int) {
 	return paneWidth, paneHeight
 }
 
-func CalcSidePaneSize(tw, th int) (w, h int) {
+func CalcSettingsPaneSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
@@ -59,5 +60,27 @@ func CalcSettingsListSize(tw, th int) (w, h int) {
 	}
 	chatPaneWidth, _ := CalcChatPaneSize(tw, th, false)
 	settingsPaneWidth := tw - chatPaneWidth - SettingsPanePadding
-	return settingsPaneWidth, SettingsPaneHeight
+	return settingsPaneWidth, SettingsPaneListHeight
+}
+
+func CalcSessionsPaneSize(tw, th int) (w, h int) {
+	if tw < WidthMinScalingLimit {
+		return 0, 0
+	}
+	_, settingsPaneHeight := CalcSettingsPaneSize(tw, th)
+	chatPaneWidth, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	sessionsPaneHeight := chatPaneHeight - settingsPaneHeight - SettingsPanePadding
+	sessionsPaneWidth := tw - chatPaneWidth - SettingsPanePadding
+	return sessionsPaneWidth, sessionsPaneHeight
+}
+
+func CalcSessionsListSize(tw, th int) (w, h int) {
+	if tw < WidthMinScalingLimit {
+		return 0, 0
+	}
+	_, settingsPaneHeight := CalcSettingsPaneSize(tw, th)
+	chatPaneWidth, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	sessionsPaneListHeight := chatPaneHeight - settingsPaneHeight - SettingsPanePadding
+	sessionsPaneListWidth := tw - chatPaneWidth - SettingsPanePadding
+	return sessionsPaneListWidth, sessionsPaneListHeight
 }

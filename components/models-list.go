@@ -76,6 +76,7 @@ func NewModelsList(items []list.Item) ModelsList {
 	newList.SetShowTitle(false)
 	newList.SetShowHelp(false)
 	newList.SetFilteringEnabled(false)
+	newList.DisableQuitKeybindings()
 
 	return ModelsList{
 		list: newList,

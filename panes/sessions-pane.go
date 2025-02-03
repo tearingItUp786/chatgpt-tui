@@ -17,6 +17,8 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
+const EditModeDisabled = -1
+
 type SessionsPane struct {
 	sessionsListData []sessions.Session
 	sessionsList     components.SessionsList
@@ -67,24 +69,26 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		p.currentSessionID = msg.CurrentActiveSessionID
 		listItems := constructSessionsListItems(msg.AllSessions, msg.CurrentActiveSessionID)
 		p.sessionsList = components.NewSessionsList(listItems)
-		p.currentEditID = -1
+		p.currentEditID = EditModeDisabled
 
 	case util.FocusEvent:
 		p.isFocused = msg.IsFocused
-		p.currentEditID = -1
+		p.currentEditID = EditModeDisabled
 
 	case util.OurWindowResize:
-		width, _ := util.CalcSidePaneSize(p.terminalWidth, p.terminalHeight)
-		p.container = p.container.Width(width)
+		width, height := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
+		p.container = p.container.Width(width).Height(height)
 
 	case tea.WindowSizeMsg:
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
+		width, height := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
+		p.container = p.container.Width(width).Height(height)
 
 	case tea.KeyMsg:
 		if p.isFocused {
 			dKeyPressed = msg.String() == "d"
-			if p.currentEditID != -1 {
+			if p.currentEditID != EditModeDisabled {
 				cmd = p.handleCurrentEditID(msg)
 				cmds = append(cmds, cmd)
 			} else {
@@ -94,7 +98,7 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		}
 	}
 
-	if p.isFocused && p.currentEditID == -1 && !dKeyPressed {
+	if p.isFocused && p.currentEditID == EditModeDisabled && !dKeyPressed {
 		p.sessionsList, cmd = p.sessionsList.Update(msg)
 		cmds = append(cmds, cmd)
 	}
@@ -106,11 +110,12 @@ func (p SessionsPane) View() string {
 	listView := p.normalListView()
 
 	if p.isFocused {
-		listView = p.sessionsList.EditListView(p.terminalHeight)
+		_, paneHeight := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
+		listView = p.sessionsList.EditListView(paneHeight)
 	}
 
 	editForm := ""
-	if p.currentEditID != -1 {
+	if p.currentEditID != EditModeDisabled {
 		editForm = p.textInput.View()
 	}
 
@@ -156,7 +161,7 @@ func (p *SessionsPane) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 
 	case "e":
 		ti := textinput.New()
-		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
+		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.Padding)
 		p.textInput = ti
 		i, ok := p.sessionsList.GetSelectedItem()
 		if ok {
@@ -187,7 +192,6 @@ func (p *SessionsPane) handleUpdateCurrentSession(session sessions.Session) tea.
 	p.currentSessionName = session.SessionName
 
 	listItems := constructSessionsListItems(p.sessionsListData, p.currentSessionID)
-
 	p.sessionsList.SetItems(listItems)
 
 	return sessions.SendUpdateCurrentSessionMsg(session)
@@ -201,9 +205,14 @@ func (p *SessionsPane) handleCurrentEditID(msg tea.KeyMsg) tea.Cmd {
 		if p.textInput.Value() != "" {
 			p.sessionService.UpdateSessionName(p.currentEditID, p.textInput.Value())
 			p.updateSessionsList()
-			p.currentEditID = -1
+			p.currentEditID = EditModeDisabled
 		}
 	}
+
+	if msg.String() == "esc" {
+		p.currentEditID = EditModeDisabled
+	}
+
 	return cmd
 }
 
@@ -232,7 +241,7 @@ func listHeader(str ...string) string {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
-		MarginLeft(2).
+		MarginLeft(util.ListMarginLeft).
 		Render(str...)
 }
 
@@ -245,7 +254,7 @@ func listItem(heading string, value string, isActive bool) string {
 		headingColor = colorValue
 	}
 	headingEl := lipgloss.NewStyle().
-		PaddingLeft(2).
+		PaddingLeft(util.Padding).
 		Foreground(lipgloss.Color(headingColor)).
 		Render
 	spanEl := lipgloss.NewStyle().
@@ -265,9 +274,10 @@ func (p SessionsPane) normalListView() string {
 		)
 	}
 
+	_, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
+
 	return lipgloss.NewStyle().
-		// TODO: figure out how to get height from the settings model
-		Height(p.terminalHeight - 22).
-		MaxHeight(p.terminalHeight - 22).
+		Height(h).
+		MaxHeight(h).
 		Render(strings.Join(sessionListItems, "\n"))
 }
