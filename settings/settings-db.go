@@ -29,6 +29,9 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) (
 	)
 	err := row.Scan(&settings.ID, &settings.Model, &settings.MaxTokens, &settings.Frequency)
 
+	if util.GetInferenceProvider(cfg.ChatGPTApiUrl) != util.Local {
+		// TODO cache models list for external providers
+	}
 	openAiClient := clients.NewOpenAiClient(cfg.ChatGPTApiUrl, cfg.SystemMessage)
 	modelsResponse := openAiClient.RequestModelsList()
 	if modelsResponse.Err != nil {

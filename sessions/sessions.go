@@ -4,15 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/atotto/clipboard"
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/clients"
-	"github.com/tearingItUp786/chatgpt-tui/components"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/user"
@@ -27,21 +22,14 @@ const (
 )
 
 type Model struct {
-	textInput         textinput.Model
-	sessionsList      components.SessionsList
-	isFocused         bool
-	currentEditID     int
-	sessionService    *SessionService
-	userService       *user.UserService
-	settingsContainer lipgloss.Style
-	config            config.Config
+	sessionService *SessionService
+	userService    *user.UserService
+	config         config.Config
 
 	OpenAiClient         *clients.OpenAiClient
 	Settings             util.Settings
 	CurrentSessionID     int
 	CurrentSessionName   string
-	terminalWidth        int
-	terminalHeight       int
 	ArrayOfProcessResult []clients.ProcessApiCompletionResponse
 	ArrayOfMessages      []util.MessageToSend
 	CurrentAnswer        string
@@ -75,56 +63,6 @@ func New(db *sql.DB, ctx context.Context) Model {
 		Settings:             settings,
 		OpenAiClient:         openAiClient,
 		ProcessingMode:       IDLE,
-		settingsContainer: lipgloss.NewStyle().
-			AlignVertical(lipgloss.Top).
-			Border(lipgloss.ThickBorder(), true).
-			BorderForeground(util.NormalTabBorderColor),
-	}
-}
-
-type LoadDataFromDB struct {
-	Session Session
-
-	allSessions            []Session
-	currentActiveSessionID int
-}
-
-// Final Message is the concatenated string from the chat gpt stream
-type FinalProcessMessage struct {
-	FinalMessage string
-}
-
-func SendFinalProcessMessage(msg string) tea.Cmd {
-	return func() tea.Msg {
-		return FinalProcessMessage{
-			FinalMessage: msg,
-		}
-	}
-}
-
-type UpdateCurrentSession struct {
-	Session Session
-}
-
-func SendUpdateCurrentSessionMsg(session Session) tea.Cmd {
-	return func() tea.Msg {
-		return UpdateCurrentSession{
-			Session: session,
-		}
-	}
-}
-
-type ResponseChunkProcessed struct {
-	PreviousMsgArray []util.MessageToSend
-	ChunkMessage     string
-}
-
-func SendResponseChunkProcessedMsg(msg string, previousMsgs []util.MessageToSend) tea.Cmd {
-	return func() tea.Msg {
-		return ResponseChunkProcessed{
-			PreviousMsgArray: previousMsgs,
-			ChunkMessage:     msg,
-		}
 	}
 }
 
@@ -158,16 +96,15 @@ func (m Model) Init() tea.Cmd {
 
 		return LoadDataFromDB{
 			Session:                mostRecentSession,
-			allSessions:            allSessions,
-			currentActiveSessionID: user.CurrentActiveSessionID,
+			AllSessions:            allSessions,
+			CurrentActiveSessionID: user.CurrentActiveSessionID,
 		}
 	}
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmds []tea.Cmd
-	var cmd tea.Cmd
-	dKeyPressed := false
+
 	switch msg := msg.(type) {
 
 	case util.CopyLastMsg:
@@ -179,83 +116,27 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case util.CopyAllMsgs:
 		clipboard.WriteAll(m.GetMessagesAsString())
 
-	case LoadDataFromDB:
-		m.CurrentSessionID = msg.currentActiveSessionID
+	case UpdateCurrentSession:
+		m.CurrentSessionID = msg.Session.ID
 		m.CurrentSessionName = msg.Session.SessionName
 		m.ArrayOfMessages = msg.Session.Messages
-		m.AllSessions = msg.allSessions
 
-		listItems := constructSessionsListItems(m.AllSessions, m.currentEditID)
-		m.sessionsList = components.NewSessionsList(listItems)
-		m.currentEditID = -1
+	case LoadDataFromDB:
+		m.CurrentSessionID = msg.CurrentActiveSessionID
+		m.CurrentSessionName = msg.Session.SessionName
+		m.ArrayOfMessages = msg.Session.Messages
+		m.AllSessions = msg.AllSessions
 
 	case settings.UpdateSettingsEvent:
 		m.Settings = msg.Settings
-
-	case util.FocusEvent:
-		m.isFocused = msg.IsFocused
-		m.currentEditID = -1
-
-	case util.OurWindowResize:
-		width, _ := util.CalcSettingsPaneSize(m.terminalWidth, m.terminalHeight)
-		m.settingsContainer = m.settingsContainer.Width(width)
 
 	case clients.ProcessApiCompletionResponse:
 		// add the latest message to the array of messages
 		cmds = append(cmds, m.handleMsgProcessing(msg))
 		cmds = append(cmds, SendResponseChunkProcessedMsg(m.CurrentAnswer, m.ArrayOfMessages))
-
-	case tea.WindowSizeMsg:
-		m.terminalWidth = msg.Width
-		m.terminalHeight = msg.Height
-
-	// TODO: clean this up and make it more neat
-	case tea.KeyMsg:
-		if m.isFocused {
-			dKeyPressed = msg.String() == "d"
-			if m.currentEditID != -1 {
-				cmd = m.handleCurrentEditID(msg)
-				cmds = append(cmds, cmd)
-			} else {
-				cmd := m.handleCurrentNormalMode(msg)
-				cmds = append(cmds, cmd)
-			}
-		}
-	}
-
-	if m.isFocused && m.currentEditID == -1 && !dKeyPressed {
-		m.sessionsList, cmd = m.sessionsList.Update(msg)
-		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)
-}
-
-func (m Model) View() string {
-	listView := m.normalListView()
-
-	if m.isFocused {
-		listView = m.sessionsList.EditListView(m.terminalHeight)
-	}
-
-	editForm := ""
-	if m.currentEditID != -1 {
-		editForm = m.textInput.View()
-	}
-
-	borderColor := util.NormalTabBorderColor
-
-	if m.isFocused {
-		borderColor = util.ActiveTabBorderColor
-	}
-
-	return m.settingsContainer.BorderForeground(borderColor).Render(
-		lipgloss.JoinVertical(lipgloss.Left,
-			listHeader("Sessions"),
-			listView,
-			editForm,
-		),
-	)
 }
 
 func (m Model) GetCompletion(resp chan clients.ProcessApiCompletionResponse) tea.Cmd {
@@ -442,109 +323,4 @@ func (m *Model) resetStateAndCreateError(errMsg string) tea.Cmd {
 	m.ArrayOfProcessResult = []clients.ProcessApiCompletionResponse{}
 	m.CurrentAnswer = ""
 	return util.MakeErrorMsg(errMsg)
-}
-
-func (m *Model) handleCurrentEditID(msg tea.KeyMsg) tea.Cmd {
-	var cmd tea.Cmd
-	m.textInput, cmd = m.textInput.Update(msg)
-
-	if msg.String() == "enter" {
-		if m.textInput.Value() != "" {
-			m.sessionService.UpdateSessionName(m.currentEditID, m.textInput.Value())
-			m.updateSessionsList()
-			m.currentEditID = -1
-		}
-	}
-	return cmd
-}
-
-func (m *Model) handleUpdateCurrentSession(session Session) tea.Cmd {
-	m.userService.UpdateUserCurrentActiveSession(1, session.ID)
-
-	m.CurrentSessionID = session.ID
-	m.CurrentSessionName = session.SessionName
-	m.ArrayOfMessages = session.Messages
-	listItems := constructSessionsListItems(m.AllSessions, m.CurrentSessionID)
-
-	m.sessionsList.SetItems(listItems)
-
-	return SendUpdateCurrentSessionMsg(session)
-}
-
-func (m *Model) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
-	var cmd tea.Cmd
-
-	// We don't want to do anything if we're processing
-	if m.ProcessingMode != IDLE {
-		return cmd
-	}
-
-	switch msg.String() {
-	case "ctrl+n":
-
-		currentTime := time.Now()
-		formattedTime := currentTime.Format(time.ANSIC)
-		defaultSessionName := fmt.Sprintf("%s", formattedTime)
-		newSession, _ := m.sessionService.InsertNewSession(defaultSessionName, []util.MessageToSend{})
-
-		cmd = m.handleUpdateCurrentSession(newSession)
-		m.updateSessionsList()
-
-	case "enter":
-		i, ok := m.sessionsList.GetSelectedItem()
-		if ok {
-			session, err := m.sessionService.GetSession(i.Id)
-			if err != nil {
-				util.MakeErrorMsg(err.Error())
-			}
-
-			cmd = m.handleUpdateCurrentSession(session)
-		}
-
-	case "e":
-		ti := textinput.New()
-		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
-		m.textInput = ti
-		i, ok := m.sessionsList.GetSelectedItem()
-		if ok {
-			m.currentEditID = i.Id
-			m.textInput.Placeholder = "New Session Name"
-		}
-		m.textInput.Focus()
-		m.textInput.CharLimit = 100
-
-	case "d":
-		i, ok := m.sessionsList.GetSelectedItem()
-		if ok {
-			// delete this one if it's not the active one
-			if i.Id != m.CurrentSessionID {
-				m.sessionService.DeleteSession(i.Id)
-				m.updateSessionsList()
-			}
-		}
-
-	}
-
-	return cmd
-}
-
-func constructSessionsListItems(sessions []Session, currentSessionId int) []list.Item {
-	items := []list.Item{}
-
-	for _, session := range sessions {
-		anItem := components.SessionListItem{
-			Id:       session.ID,
-			Text:     session.SessionName,
-			IsActive: session.ID == currentSessionId,
-		}
-		items = append(items, anItem)
-	}
-
-	return items
-}
-
-func (m *Model) updateSessionsList() {
-	m.AllSessions, _ = m.sessionService.GetAllSessions()
-	items := constructSessionsListItems(m.AllSessions, m.CurrentSessionID)
-	m.sessionsList.SetItems(items)
 }

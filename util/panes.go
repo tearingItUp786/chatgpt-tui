@@ -44,7 +44,7 @@ func CalcChatPaneSize(tw, th int, isZenMode bool) (w, h int) {
 	return paneWidth, paneHeight
 }
 
-func CalcSettingsPaneSize(tw, th int) (w, h int) {
+func CalcSidePaneSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}

@@ -1,4 +1,4 @@
-package views
+package panes
 
 import (
 	"github.com/charmbracelet/bubbles/viewport"
