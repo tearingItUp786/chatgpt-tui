@@ -17,6 +17,7 @@ import (
 
 const ModelsCacheTtl = time.Hour * 24 * 14 // 14 days
 const ModelsSeparator = ";"
+const DateLayout = "2006-01-02 15:04:05"
 
 type SettingsService struct {
 	DB *sql.DB
@@ -69,7 +70,11 @@ func (ss *SettingsService) GetProviderModels(apiUrl string) []string {
 	availableModels := []string{}
 
 	if provider != util.Local {
-		availableModels, _ = ss.TryGetModelsCache(int(provider))
+		var cacheErr error
+		availableModels, cacheErr = ss.TryGetModelsCache(int(provider))
+		if cacheErr != nil {
+			log.Println("Faild to get models cache: ", cacheErr)
+		}
 	}
 
 	if len(availableModels) == 0 {
@@ -79,7 +84,7 @@ func (ss *SettingsService) GetProviderModels(apiUrl string) []string {
 			panic(modelsResponse.Err)
 		}
 
-		availableModels := util.GetFilteredModelList(apiUrl, modelsResponse.Result.GetModelNames())
+		availableModels = util.GetFilteredModelList(apiUrl, modelsResponse.Result.GetModelNames())
 
 		if provider == util.Local {
 			return availableModels
@@ -87,7 +92,7 @@ func (ss *SettingsService) GetProviderModels(apiUrl string) []string {
 
 		err := ss.CacheModelsForProvider(int(provider), availableModels)
 		if err != nil {
-			return []string{}
+			log.Println("Cache update error:", err)
 		}
 	}
 
@@ -107,13 +112,11 @@ func (ss *SettingsService) TryGetModelsCache(provider int) ([]string, error) {
 		return []string{}, err
 	}
 
-	layout := "2025-02-01 12:01:25"
-	if parsedDate, err := time.Parse(layout, cachedAt); err != nil {
-		log.Println("Failed to check cache expiration")
-	} else {
-		if parsedDate.Before(time.Now().UTC().Add(ModelsCacheTtl)) {
-			return []string{}, errors.New("cache expired")
-		}
+	expireDate := time.Now().UTC().Add(-ModelsCacheTtl)
+	parsedDate, err := time.Parse(DateLayout, cachedAt)
+
+	if err == nil && parsedDate.Before(expireDate) {
+		return []string{}, errors.New("Models cache expired")
 	}
 
 	response := strings.Split(cachedModels, ModelsSeparator)
@@ -125,17 +128,19 @@ func (ss *SettingsService) CacheModelsForProvider(provider int, models []string)
 
 	upsert := `
 		INSERT INTO models
-			(provider, models)
+			(provider, models, cached_at)
 		VALUES
-			($1, $2)
+			($1, $2, $3)
 		ON CONFLICT(provider) DO UPDATE SET
-			models=$2;
+			models=$2,
+			cached_at=$3;
 	`
 
 	_, err := ss.DB.Exec(
 		upsert,
 		provider,
 		mergedString,
+		time.Now().UTC().Format(DateLayout),
 	)
 	return err
 }
