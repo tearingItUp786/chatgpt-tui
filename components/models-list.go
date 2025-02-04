@@ -18,11 +18,11 @@ type ModelsList struct {
 }
 
 var listItemSpan = lipgloss.NewStyle().
-	PaddingLeft(2).
+	PaddingLeft(util.ListItemPaddingLeft).
 	Foreground(lipgloss.Color(util.White))
 
 var listItemSpanSelected = lipgloss.NewStyle().
-	PaddingLeft(2).
+	PaddingLeft(util.ListItemPaddingLeft).
 	Foreground(lipgloss.Color(util.Pink200))
 
 type ModelsListItem string
@@ -71,11 +71,17 @@ func (l *ModelsList) SetItems(items []list.Item) {
 }
 
 func NewModelsList(items []list.Item) ModelsList {
-	newList := list.New(items, modelItemDelegate{}, 10, 8)
+	newList := list.New(
+		items,
+		modelItemDelegate{},
+		util.DefaultModelsListWidth,
+		util.DefaultModelsListHeight)
+
 	newList.SetStatusBarItemName("model detected", "models detected")
 	newList.SetShowTitle(false)
 	newList.SetShowHelp(false)
 	newList.SetFilteringEnabled(false)
+	newList.DisableQuitKeybindings()
 
 	return ModelsList{
 		list: newList,

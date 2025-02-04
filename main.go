@@ -15,10 +15,10 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/migrations"
+	"github.com/tearingItUp786/chatgpt-tui/panes"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/util"
-	"github.com/tearingItUp786/chatgpt-tui/views"
 )
 
 type model struct {
@@ -28,35 +28,39 @@ type model struct {
 	error            util.ErrorEvent
 	currentSessionID string
 
-	chatPane       views.ChatPane
-	promptPane     views.PromptPane
-	settingsModel  settings.Model
-	sessionModel   sessions.Model
-	terminalWidth  int
-	terminalHeight int
+	chatPane            panes.ChatPane
+	promptPane          panes.PromptPane
+	sessionsPane        panes.SessionsPane
+	settingsModel       settings.Model
+	sessionOrchestrator sessions.Model
+	terminalWidth       int
+	terminalHeight      int
 }
 
 func initialModal(db *sql.DB, ctx context.Context) model {
-	promptPane := views.NewPromptPane()
+	promptPane := panes.NewPromptPane()
+	sessionsPane := panes.NewSessionsPane(db, ctx)
 
 	si := settings.New(db, ctx)
 	sm := sessions.New(db, ctx)
 
 	return model{
-		ready:            false,
-		viewMode:         util.NormalMode,
-		focused:          util.PromptType,
-		settingsModel:    si,
-		currentSessionID: "",
-		sessionModel:     sm,
-		promptPane:       promptPane,
+		ready:               false,
+		viewMode:            util.NormalMode,
+		focused:             util.PromptType,
+		settingsModel:       si,
+		currentSessionID:    "",
+		sessionOrchestrator: sm,
+		promptPane:          promptPane,
+		sessionsPane:        sessionsPane,
 	}
 }
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.promptPane.Init(),
-		m.sessionModel.Init(),
+		m.sessionOrchestrator.Init(),
+		m.sessionsPane.Init(),
 		m.chatPane.Init(),
 		m.settingsModel.Init(),
 	)
@@ -68,14 +72,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds []tea.Cmd
 	)
 
+	m.sessionsPane, cmd = m.sessionsPane.Update(msg)
+	cmds = append(cmds, cmd)
+
 	// the settings model is actually an input into the session model
-	m.sessionModel, cmd = m.sessionModel.Update(msg)
+	m.sessionOrchestrator, cmd = m.sessionOrchestrator.Update(msg)
 	cmds = append(cmds, cmd)
 
 	m.chatPane, cmd = m.chatPane.Update(msg)
 	cmds = append(cmds, cmd)
 
-	if m.sessionModel.ProcessingMode == sessions.IDLE {
+	if m.sessionOrchestrator.ProcessingMode == sessions.IDLE {
 		m.settingsModel, cmd = m.settingsModel.Update(msg)
 		cmds = append(cmds, cmd)
 	}
@@ -83,26 +90,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case util.ErrorEvent:
 		util.Log("Error: ", msg.Message)
-		m.sessionModel.ProcessingMode = sessions.IDLE
+		m.sessionOrchestrator.ProcessingMode = sessions.IDLE
 		m.error = msg
 		cmds = append(cmds, util.SendProcessingStateChangedMsg(false))
 
 	case util.PromptReady:
 		m.error = util.ErrorEvent{}
-		m.sessionModel.ArrayOfMessages = append(m.sessionModel.ArrayOfMessages, clients.ConstructUserMessage(msg.Prompt))
-		m.sessionModel.ProcessingMode = sessions.PROCESSING
+		m.sessionOrchestrator.ArrayOfMessages = append(m.sessionOrchestrator.ArrayOfMessages, clients.ConstructUserMessage(msg.Prompt))
+		m.sessionOrchestrator.ProcessingMode = sessions.PROCESSING
 
 		return m, tea.Batch(
 			util.SendProcessingStateChangedMsg(true),
 			// use current session for requests to OpenAI API
-			m.chatPane.DisplayCompletion(m.sessionModel))
+			m.chatPane.DisplayCompletion(m.sessionOrchestrator))
 
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
 
 		case "ctrl+o":
 			m.focused = util.PromptType
-			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
+			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 
 			cmds = append(cmds, cmd)
@@ -119,7 +126,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			chatContainerWidth := m.chatPane.GetWidth()
 			m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
 			cmds = append(cmds, cmd)
-			m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
+			m.sessionsPane, cmd = m.sessionsPane.Update(util.MakeWindowResizeMsg(chatContainerWidth))
 			cmds = append(cmds, cmd)
 		}
 
@@ -132,7 +139,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
 
-			m.sessionModel, _ = m.sessionModel.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
+			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
 			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatMessagesType))
 			m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptType))
@@ -155,7 +162,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if !m.ready {
-			m.chatPane = views.NewChatPane(chatPaneWidth, chatPaneHeight)
+			m.chatPane = panes.NewChatPane(chatPaneWidth, chatPaneHeight)
 			m.ready = true
 		} else {
 			m.chatPane.SetPaneWitdth(chatPaneWidth)
@@ -164,7 +171,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
 		cmds = append(cmds, cmd)
-		m.sessionModel, cmd = m.sessionModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
+		m.sessionsPane, cmd = m.sessionsPane.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
 		cmds = append(cmds, cmd)
 		m.promptPane, cmd = m.promptPane.Update(util.MakeWindowResizeMsg(msg.Width))
 		cmds = append(cmds, cmd)
@@ -183,7 +190,7 @@ func (m model) View() string {
 	settingsAndSessionViews := lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.settingsModel.View(),
-		m.sessionModel.View(),
+		m.sessionsPane.View(),
 	)
 
 	mainView := m.chatPane.View()

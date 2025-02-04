@@ -29,11 +29,12 @@ const (
 // in the sql database. After a successful save, we are going to
 // go back to view mode.
 type Model struct {
-	terminalWidth  int
-	terminalHeight int
-	isFocused      bool
-	mode           int
-	textInput      textinput.Model
+	terminalWidth   int
+	terminalHeight  int
+	isFocused       bool
+	mode            int
+	textInput       textinput.Model
+	settingsService *SettingsService
 
 	modelPicker components.ModelsList
 
@@ -49,10 +50,10 @@ var settingsService *SettingsService
 var listHeader = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderBottom(true).
-	MarginLeft(util.ListMarginLeft)
+	MarginLeft(util.ListItemMarginLeft)
 
 var listItemHeading = lipgloss.NewStyle().
-	PaddingLeft(util.ListPaddingLeft).
+	PaddingLeft(util.ListItemPaddingLeft).
 	Foreground(lipgloss.Color(util.Pink100))
 
 var listItemSpan = lipgloss.NewStyle().
@@ -191,14 +192,14 @@ func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 
 		if key == "m" || key == "f" || key == "t" {
 			ti := textinput.New()
-			ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(2)
+			ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.DefaultElementsPadding)
 			m.textInput = ti
 
 			switch key {
 			case "m":
 				m.mode = modelMode
-				modelsResponse := m.openAiClient.RequestModelsList()
-				m.updateModelsList(modelsResponse)
+				availableModels := m.settingsService.GetProviderModels(m.config.ChatGPTApiUrl)
+				m.updateModelsList(availableModels)
 
 			case "f":
 				m.mode = frequencyMode
@@ -274,10 +275,9 @@ func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (m *Model) updateModelsList(models clients.ProcessModelsResponse) {
+func (m *Model) updateModelsList(models []string) {
 	var modelsList []list.Item
-	filteredModels := util.GetFilteredModelList(m.config.ChatGPTApiUrl, models.Result.GetModelNames())
-	for _, model := range filteredModels {
+	for _, model := range models {
 		modelsList = append(modelsList, components.ModelsListItem(model))
 	}
 
@@ -306,12 +306,13 @@ func New(db *sql.DB, ctx context.Context) Model {
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 
 	return Model{
-		terminalWidth: util.DefaultSettingsPaneWidth,
-		mode:          viewMode,
-		settings:      settings,
-		list:          listStyle,
-		modelPicker:   modelPicker,
-		config:        config,
-		openAiClient:  openAiClient,
+		terminalWidth:   util.DefaultSettingsPaneWidth,
+		mode:            viewMode,
+		settings:        settings,
+		list:            listStyle,
+		modelPicker:     modelPicker,
+		config:          config,
+		openAiClient:    openAiClient,
+		settingsService: settingsService,
 	}
 }

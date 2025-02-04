@@ -13,10 +13,12 @@ import (
 )
 
 var (
-	titleStyle        = lipgloss.NewStyle().MarginLeft(-2)
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(2)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(-2).Foreground(lipgloss.Color(util.Pink200))
-	activeItemStyle   = itemStyle.Copy().Foreground(lipgloss.Color(util.Pink300))
+	itemStyle         = lipgloss.NewStyle().PaddingLeft(util.ListItemPaddingLeft)
+	selectedItemStyle = lipgloss.
+				NewStyle().
+				PaddingLeft(util.ListRightShiftedItemPadding).
+				Foreground(lipgloss.Color(util.Pink200))
+	activeItemStyle = itemStyle.Copy().Foreground(lipgloss.Color(util.Pink300))
 )
 
 type SessionListItem struct {
@@ -26,9 +28,7 @@ type SessionListItem struct {
 }
 
 type SessionsList struct {
-	list     list.Model
-	choice   string
-	quitting bool
+	list list.Model
 }
 
 func (i SessionListItem) FilterValue() string { return "" }
@@ -85,22 +85,28 @@ func (l SessionsList) Update(msg tea.Msg) (SessionsList, tea.Cmd) {
 }
 
 func NewSessionsList(items []list.Item) SessionsList {
-	defaultWidth := 20
-	listHeight := 5
+	l := list.New(
+		items,
+		sessionItemDelegate{},
+		util.DefaultSessionsListWidth,
+		util.DefaultSessionsListHeight)
 
-	l := list.New(items, sessionItemDelegate{}, defaultWidth, listHeight)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
-	l.Styles.Title = titleStyle
+	l.DisableQuitKeybindings()
 
 	return SessionsList{
 		list: l,
 	}
 }
 
-func (l *SessionsList) EditListView(terminalHeight int) string {
-	l.list.SetHeight(terminalHeight - 22)
-	return lipgloss.NewStyle().MaxHeight(terminalHeight - 22).PaddingLeft(2).Render(l.list.View())
+func (l *SessionsList) EditListView(paneHeight int) string {
+	l.list.SetHeight(paneHeight)
+	return lipgloss.
+		NewStyle().
+		MaxHeight(paneHeight).
+		PaddingLeft(util.DefaultElementsPadding).
+		Render(l.list.View())
 }

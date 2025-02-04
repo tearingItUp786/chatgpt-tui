@@ -1,4 +1,4 @@
-package views
+package panes
 
 import (
 	"github.com/charmbracelet/bubbles/viewport"
@@ -27,7 +27,7 @@ type ChatPane struct {
 var chatContainerStyle = lipgloss.NewStyle().
 	Border(lipgloss.ThickBorder()).
 	BorderForeground(util.NormalTabBorderColor).
-	MarginRight(1)
+	MarginRight(util.ChatPaneMarginRight)
 
 func NewChatPane(w, h int) ChatPane {
 	chatContainerStyle = chatContainerStyle.Copy().Width(w).Height(h)
@@ -41,6 +41,8 @@ func NewChatPane(w, h int) ChatPane {
 		chatContent:            util.MotivationalMessage,
 		isChatContainerFocused: false,
 		msgChan:                msgChan,
+		terminalWidth:          util.DefaultTerminalWidth,
+		terminalHeight:         util.DefaultTerminalHeight,
 	}
 }
 
