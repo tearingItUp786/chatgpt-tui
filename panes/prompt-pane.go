@@ -29,8 +29,8 @@ func NewPromptPane() PromptPane {
 		AlignVertical(lipgloss.Bottom).
 		BorderStyle(lipgloss.ThickBorder()).
 		BorderForeground(util.ActiveTabBorderColor).
-		MaxHeight(4).
-		MarginTop(1)
+		MaxHeight(util.PromptPaneHeight).
+		MarginTop(util.PromptPaneMarginTop)
 
 	return PromptPane{
 		input:          input,
@@ -38,8 +38,8 @@ func NewPromptPane() PromptPane {
 		inputMode:      util.PromptNormalMode,
 		isSessionIdle:  true,
 		isFocused:      true,
-		terminalWidth:  120,
-		terminalHeight: 50,
+		terminalWidth:  util.DefaultTerminalWidth,
+		terminalHeight: util.DefaultTerminalHeight,
 	}
 }
 

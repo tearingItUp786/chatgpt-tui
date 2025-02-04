@@ -43,8 +43,8 @@ func NewSessionsPane(db *sql.DB, ctx context.Context) SessionsPane {
 		sessionService: ss,
 		userService:    us,
 		isFocused:      false,
-		terminalWidth:  120,
-		terminalHeight: 50,
+		terminalWidth:  util.DefaultTerminalWidth,
+		terminalHeight: util.DefaultTerminalHeight,
 		container: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Top).
 			Border(lipgloss.ThickBorder(), true).
@@ -161,7 +161,7 @@ func (p *SessionsPane) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 
 	case "e":
 		ti := textinput.New()
-		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.Padding)
+		ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.DefaultElementsPadding)
 		p.textInput = ti
 		i, ok := p.sessionsList.GetSelectedItem()
 		if ok {
@@ -241,7 +241,7 @@ func listHeader(str ...string) string {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
-		MarginLeft(util.ListMarginLeft).
+		MarginLeft(util.ListItemMarginLeft).
 		Render(str...)
 }
 
@@ -254,7 +254,7 @@ func listItem(heading string, value string, isActive bool) string {
 		headingColor = colorValue
 	}
 	headingEl := lipgloss.NewStyle().
-		PaddingLeft(util.Padding).
+		PaddingLeft(util.ListItemPaddingLeft).
 		Foreground(lipgloss.Color(headingColor)).
 		Render
 	spanEl := lipgloss.NewStyle().

@@ -4,24 +4,40 @@ package util
 const (
 	DefaultSettingsPaneWidth = 20
 	DefaultSessionsPaneWidth = 20
+
+	DefaultTerminalWidth  = 120
+	DefaultTerminalHeight = 80
+
+	DefaultModelsListWidth  = 10
+	DefaultModelsListHeight = 8
+
+	DefaultSessionsListWidth  = 20
+	DefaultSessionsListHeight = 5
+
+	DefaultElementsPadding = 2
 )
 
 // Panes
 const (
-	PromptPaneHeight  = 5
-	PromptPanePadding = 2
+	PromptPaneHeight    = 5
+	PromptPanePadding   = 2
+	PromptPaneMarginTop = 1
+
+	SessionsPaneListTitleMarginLeft = -2
 
 	SettingsPanePadding    = 5
 	SettingsPaneHeight     = 12
 	SettingsPaneListHeight = 5
+
+	ChatPaneMarginRight = 1
 )
 
-// UI
+// UI elements
 const (
-	Padding = 2
+	ListRightShiftedItemPadding = -2
 
-	ListMarginLeft  = 2
-	ListPaddingLeft = 2
+	ListItemMarginLeft  = 2
+	ListItemPaddingLeft = 2
 
 	WidthMinScalingLimit = 120
 )
@@ -38,7 +54,7 @@ func CalcChatPaneSize(tw, th int, isZenMode bool) (w, h int) {
 	paneWidth := tw / 3 * 2
 
 	if isZenMode {
-		paneWidth = tw - Padding
+		paneWidth = tw - DefaultElementsPadding
 	}
 
 	paneHeight := th - PromptPaneHeight
