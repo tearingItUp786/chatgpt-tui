@@ -67,6 +67,10 @@ var MotivationalMessage = lipgloss.NewStyle().
 	PaddingLeft(1).
 	Render("There's something scary about a blank canvas...that's why I'm here 😄!")
 
+type ModelsLoaded struct {
+	Models []string
+}
+
 type ProcessingStateChanged struct {
 	IsProcessing bool
 }

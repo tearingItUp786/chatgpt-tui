@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -35,6 +36,8 @@ type Model struct {
 	mode            int
 	textInput       textinput.Model
 	settingsService *SettingsService
+	spinner         spinner.Model
+	loading         bool
 
 	modelPicker components.ModelsList
 
@@ -88,12 +91,18 @@ func (m Model) View() string {
 		editForm = m.textInput.View()
 	}
 
+	modelRowContent := listItemRenderer("model", m.settings.Model)
+	if m.loading {
+		log.Println("loading in progress")
+		modelRowContent = listItemRenderer(m.spinner.View(), "")
+	}
+
 	return m.list.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			listHeader.Render("Settings"),
 			lipgloss.NewStyle().Height(util.SettingsPaneListHeight).Render(
 				lipgloss.JoinVertical(lipgloss.Left,
-					listItemRenderer("model", m.settings.Model),
+					modelRowContent,
 					listItemRenderer("frequency", fmt.Sprint(m.settings.Frequency)),
 					listItemRenderer("max_tokens", fmt.Sprint((m.settings.MaxTokens))),
 				),
@@ -127,6 +136,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
+
+	case spinner.TickMsg:
+		m.spinner, cmd = m.spinner.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case util.ModelsLoaded:
+		m.loading = false
+		m.mode = modelMode
+		m.updateModelsList(msg.Models)
 
 	case tea.KeyMsg:
 		// in order to do proper event bubbling, we don't actually want to handle
@@ -197,9 +215,10 @@ func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 
 			switch key {
 			case "m":
-				m.mode = modelMode
-				availableModels := m.settingsService.GetProviderModels(m.config.ChatGPTApiUrl)
-				m.updateModelsList(availableModels)
+				m.loading = true
+				return tea.Batch(
+					func() tea.Msg { return m.loadModels(m.config.ChatGPTApiUrl) },
+					m.spinner.Tick)
 
 			case "f":
 				m.mode = frequencyMode
@@ -228,6 +247,11 @@ func (m *Model) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 	}
 
 	return cmd
+}
+
+func (m Model) loadModels(apiUrl string) tea.Msg {
+	availableModels := m.settingsService.GetProviderModels(apiUrl)
+	return util.ModelsLoaded{Models: availableModels}
 }
 
 func (m *Model) handleEditMode(msg tea.KeyMsg) tea.Cmd {
@@ -284,6 +308,14 @@ func (m *Model) updateModelsList(models []string) {
 	m.modelPicker.SetItems(modelsList)
 }
 
+func initSpinner() spinner.Model {
+	s := spinner.New()
+	s.Spinner = spinner.Points
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(util.Pink200))
+
+	return s
+}
+
 func New(db *sql.DB, ctx context.Context) Model {
 	config, ok := config.FromContext(ctx)
 	if !ok {
@@ -305,6 +337,8 @@ func New(db *sql.DB, ctx context.Context) Model {
 	modelPicker := components.NewModelsList([]list.Item{components.ModelsListItem(settings.Model)})
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 
+	spinner := initSpinner()
+
 	return Model{
 		terminalWidth:   util.DefaultSettingsPaneWidth,
 		mode:            viewMode,
@@ -314,5 +348,6 @@ func New(db *sql.DB, ctx context.Context) Model {
 		config:          config,
 		openAiClient:    openAiClient,
 		settingsService: settingsService,
+		spinner:         spinner,
 	}
 }
