@@ -17,7 +17,6 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/migrations"
 	"github.com/tearingItUp786/chatgpt-tui/panes"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
-	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
@@ -28,10 +27,11 @@ type model struct {
 	error            util.ErrorEvent
 	currentSessionID string
 
-	chatPane            panes.ChatPane
-	promptPane          panes.PromptPane
-	sessionsPane        panes.SessionsPane
-	settingsModel       settings.Model
+	chatPane     panes.ChatPane
+	promptPane   panes.PromptPane
+	sessionsPane panes.SessionsPane
+	settingsPane panes.SettingsPane
+
 	sessionOrchestrator sessions.Model
 	terminalWidth       int
 	terminalHeight      int
@@ -40,29 +40,29 @@ type model struct {
 func initialModal(db *sql.DB, ctx context.Context) model {
 	promptPane := panes.NewPromptPane()
 	sessionsPane := panes.NewSessionsPane(db, ctx)
+	settingsPane := panes.NewSettingsPane(db, ctx)
 
-	si := settings.New(db, ctx)
 	sm := sessions.New(db, ctx)
 
 	return model{
 		ready:               false,
 		viewMode:            util.NormalMode,
 		focused:             util.PromptType,
-		settingsModel:       si,
 		currentSessionID:    "",
 		sessionOrchestrator: sm,
 		promptPane:          promptPane,
 		sessionsPane:        sessionsPane,
+		settingsPane:        settingsPane,
 	}
 }
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
-		m.promptPane.Init(),
 		m.sessionOrchestrator.Init(),
+		m.promptPane.Init(),
 		m.sessionsPane.Init(),
 		m.chatPane.Init(),
-		m.settingsModel.Init(),
+		m.settingsPane.Init(),
 	)
 }
 
@@ -72,18 +72,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds []tea.Cmd
 	)
 
-	m.sessionsPane, cmd = m.sessionsPane.Update(msg)
-	cmds = append(cmds, cmd)
-
-	// the settings model is actually an input into the session model
 	m.sessionOrchestrator, cmd = m.sessionOrchestrator.Update(msg)
 	cmds = append(cmds, cmd)
 
-	m.chatPane, cmd = m.chatPane.Update(msg)
+	m.promptPane, cmd = m.promptPane.Update(msg)
 	cmds = append(cmds, cmd)
 
 	if m.sessionOrchestrator.ProcessingMode == sessions.IDLE {
-		m.settingsModel, cmd = m.settingsModel.Update(msg)
+		m.sessionsPane, cmd = m.sessionsPane.Update(msg)
+		cmds = append(cmds, cmd)
+		m.settingsPane, cmd = m.settingsPane.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
@@ -110,7 +108,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+o":
 			m.focused = util.PromptType
 			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
-			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
+			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 
 			cmds = append(cmds, cmd)
 
@@ -124,7 +122,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			chatContainerWidth := m.chatPane.GetWidth()
-			m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(chatContainerWidth))
+			m.settingsPane, cmd = m.settingsPane.Update(util.MakeWindowResizeMsg(chatContainerWidth))
 			cmds = append(cmds, cmd)
 			m.sessionsPane, cmd = m.sessionsPane.Update(util.MakeWindowResizeMsg(chatContainerWidth))
 			cmds = append(cmds, cmd)
@@ -140,7 +138,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
 
 			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
-			m.settingsModel, _ = m.settingsModel.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
+			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
 			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatMessagesType))
 			m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptType))
 
@@ -169,7 +167,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chatPane.SetPaneHeight(chatPaneHeight)
 		}
 
-		m.settingsModel, cmd = m.settingsModel.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
+		m.settingsPane, cmd = m.settingsPane.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
 		cmds = append(cmds, cmd)
 		m.sessionsPane, cmd = m.sessionsPane.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
 		cmds = append(cmds, cmd)
@@ -179,8 +177,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.chatPane, cmd = m.chatPane.Update(msg)
 	cmds = append(cmds, cmd)
-	m.promptPane, cmd = m.promptPane.Update(msg)
-	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
 
@@ -189,7 +185,7 @@ func (m model) View() string {
 
 	settingsAndSessionViews := lipgloss.JoinVertical(
 		lipgloss.Left,
-		m.settingsModel.View(),
+		m.settingsPane.View(),
 		m.sessionsPane.View(),
 	)
 

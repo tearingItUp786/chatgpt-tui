@@ -71,6 +71,11 @@ type ModelsLoaded struct {
 	Models []string
 }
 
+type SettingsLoaded struct {
+	Settings Settings
+	Error    error
+}
+
 type ProcessingStateChanged struct {
 	IsProcessing bool
 }

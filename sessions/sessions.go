@@ -22,9 +22,10 @@ const (
 )
 
 type Model struct {
-	sessionService *SessionService
-	userService    *user.UserService
-	config         config.Config
+	sessionService  *SessionService
+	userService     *user.UserService
+	settingsService *settings.SettingsService
+	config          config.Config
 
 	OpenAiClient         *clients.OpenAiClient
 	Settings             util.Settings
@@ -48,11 +49,6 @@ func New(db *sql.DB, ctx context.Context) Model {
 	}
 
 	settingsService := settings.NewSettingsService(db)
-	settings, err := settingsService.GetSettings(ctx, *config)
-	if err != nil {
-		panic(err)
-	}
-
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 
 	return Model{
@@ -60,7 +56,7 @@ func New(db *sql.DB, ctx context.Context) Model {
 		ArrayOfProcessResult: []clients.ProcessApiCompletionResponse{},
 		sessionService:       ss,
 		userService:          us,
-		Settings:             settings,
+		settingsService:      settingsService,
 		OpenAiClient:         openAiClient,
 		ProcessingMode:       IDLE,
 	}
@@ -69,7 +65,10 @@ func New(db *sql.DB, ctx context.Context) Model {
 func (m Model) Init() tea.Cmd {
 	// Need to load the latest session as the current session  (select recently created)
 	// OR we need to create a brand new session for the user with a random name (insert new and return)
-	return func() tea.Msg {
+
+	settingsData := func() tea.Msg { return m.settingsService.GetSettings(nil, m.config) }
+
+	dbData := func() tea.Msg {
 		mostRecentSession, err := m.sessionService.GetMostRecessionSessionOrCreateOne()
 		if err != nil {
 			return util.MakeErrorMsg(err.Error())
@@ -94,12 +93,15 @@ func (m Model) Init() tea.Cmd {
 			return util.MakeErrorMsg(err.Error())
 		}
 
-		return LoadDataFromDB{
+		dbLoadEvent := LoadDataFromDB{
 			Session:                mostRecentSession,
 			AllSessions:            allSessions,
 			CurrentActiveSessionID: user.CurrentActiveSessionID,
 		}
+		return dbLoadEvent
 	}
+
+	return tea.Batch(settingsData, dbData)
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {

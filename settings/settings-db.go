@@ -10,10 +10,13 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
+
+// const ModelsCacheTtl = time.Second * 5
 
 const ModelsCacheTtl = time.Hour * 24 * 14 // 14 days
 const ModelsSeparator = ";"
@@ -29,7 +32,7 @@ func NewSettingsService(db *sql.DB) *SettingsService {
 	}
 }
 
-func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) (util.Settings, error) {
+func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) tea.Msg {
 	settings := util.Settings{}
 	row := ss.DB.QueryRow(
 		`select settings_id, settings_model, settings_max_tokens, settings_frequency from settings`,
@@ -41,7 +44,10 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) (
 
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			return util.Settings{}, err
+			return UpdateSettingsEvent{
+				Settings: util.Settings{},
+				Err:      err,
+			}
 		}
 
 		settings = util.Settings{
@@ -62,7 +68,10 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) (
 		ss.UpdateSettings(settings)
 	}
 
-	return settings, nil
+	return UpdateSettingsEvent{
+		Settings: settings,
+		Err:      nil,
+	}
 }
 
 func (ss *SettingsService) GetProviderModels(apiUrl string) []string {
@@ -119,8 +128,15 @@ func (ss *SettingsService) TryGetModelsCache(provider int) ([]string, error) {
 		return []string{}, errors.New("Models cache expired")
 	}
 
-	response := strings.Split(cachedModels, ModelsSeparator)
-	return response, nil
+	modelsList := strings.Split(cachedModels, ModelsSeparator)
+	filteredModels := []string{}
+	for _, model := range modelsList {
+		if len(model) != 0 {
+			filteredModels = append(filteredModels, model)
+		}
+	}
+
+	return filteredModels, nil
 }
 
 func (ss *SettingsService) CacheModelsForProvider(provider int, models []string) error {

@@ -32,6 +32,7 @@ var chatContainerStyle = lipgloss.NewStyle().
 func NewChatPane(w, h int) ChatPane {
 	chatContainerStyle = chatContainerStyle.Copy().Width(w).Height(h)
 	chatView := viewport.New(w, h)
+	chatView.HighPerformanceRendering = true
 	chatView.SetContent(util.MotivationalMessage)
 	msgChan := make(chan clients.ProcessApiCompletionResponse)
 	return ChatPane{
@@ -54,9 +55,7 @@ func waitForActivity(sub chan clients.ProcessApiCompletionResponse) tea.Cmd {
 }
 
 func (p ChatPane) Init() tea.Cmd {
-	return tea.Batch(
-		waitForActivity(p.msgChan),
-	)
+	return nil
 }
 
 func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
