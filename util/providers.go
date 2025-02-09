@@ -1,7 +1,6 @@
 package util
 
 import (
-	"log"
 	"slices"
 	"strings"
 )
@@ -31,7 +30,6 @@ func GetFilteredModelList(apiUrl string, models []string) []string {
 	var modelNames []string
 	provider := GetInferenceProvider(apiUrl)
 
-	log.Println("Provider: ", provider)
 	for _, model := range models {
 		switch provider {
 		case Local:

@@ -152,6 +152,8 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 			p.modelPicker = components.NewModelsList([]list.Item{components.ModelsListItem(msg.Settings.Model)})
 			p.initMode = false
 			p.loading = false
+
+			cmds = append(cmds, util.SendAsyncDependencyReadyMsg(util.SettingsPaneModule))
 		}
 
 	case util.ModelsLoaded:
@@ -198,7 +200,6 @@ func (p SettingsPane) View() string {
 
 	modelRowContent := listItemRenderer("model", p.settings.Model)
 	if p.loading {
-		log.Println("loading in progress")
 		modelRowContent = listItemRenderer(p.spinner.View(), "")
 	}
 

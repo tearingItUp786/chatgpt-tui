@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -20,9 +21,11 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
+var AsyncDeps = []util.AsyncDependency{util.SettingsPaneModule, util.Orchestrator}
+
 type model struct {
-	ready            bool
-	focused          util.FocusPane
+	viewReady        bool
+	focused          util.Pane
 	viewMode         util.ViewMode
 	error            util.ErrorEvent
 	currentSessionID string
@@ -31,6 +34,7 @@ type model struct {
 	promptPane   panes.PromptPane
 	sessionsPane panes.SessionsPane
 	settingsPane panes.SettingsPane
+	loadedDeps   []util.AsyncDependency
 
 	sessionOrchestrator sessions.Orchestrator
 
@@ -49,7 +53,6 @@ func initialModal(db *sql.DB, ctx context.Context) model {
 	orchestrator := sessions.NewOrchestrator(db, ctx)
 
 	return model{
-		ready:               true,
 		viewMode:            util.NormalMode,
 		focused:             util.PromptPane,
 		currentSessionID:    "",
@@ -91,6 +94,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case util.AsyncDependencyReady:
+		m.loadedDeps = append(m.loadedDeps, msg.Dependency)
+		for _, dependency := range AsyncDeps {
+			if !slices.Contains(m.loadedDeps, dependency) {
+				continue
+			}
+			m.viewReady = true
+		}
+		m.promptPane = m.promptPane.Enable()
+
 	case util.ErrorEvent:
 		util.Log("Error: ", msg.Message)
 		m.sessionOrchestrator.ProcessingMode = sessions.IDLE
@@ -104,10 +117,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Batch(
 			util.SendProcessingStateChangedMsg(true),
-			// use current session for requests to OpenAI API
 			m.chatPane.DisplayCompletion(m.sessionOrchestrator))
 
 	case tea.KeyMsg:
+		if !m.viewReady {
+			break
+		}
 		switch keypress := msg.String(); keypress {
 
 		case "ctrl+o":
@@ -128,9 +143,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch msg.Type {
-
 		case tea.KeyTab:
-			if m.promptPane.IsTypingInProcess() {
+			if m.promptPane.IsTypingInProcess() || !m.viewReady {
 				break
 			}
 
@@ -143,7 +157,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyCtrlC:
 			return m, tea.Quit
-
 		}
 
 	case tea.WindowSizeMsg:

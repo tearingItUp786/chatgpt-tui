@@ -12,14 +12,20 @@ const (
 	PromptNormalMode
 )
 
-type FocusPane int
+type Pane int
+type AsyncDependency int
 
 // fake enum to keep tab of the currently focused pane
 const (
-	SettingsPane FocusPane = iota
+	SettingsPane Pane = iota
 	SessionsPane
 	PromptPane
 	ChatPane
+)
+
+const (
+	SettingsPaneModule AsyncDependency = iota
+	Orchestrator
 )
 
 type ViewMode int
@@ -30,12 +36,12 @@ const (
 )
 
 var (
-	NormalFocusModes = []FocusPane{SettingsPane, SessionsPane, PromptPane, ChatPane}
-	ZenFocusModes    = []FocusPane{PromptPane, ChatPane}
+	NormalFocusModes = []Pane{SettingsPane, SessionsPane, PromptPane, ChatPane}
+	ZenFocusModes    = []Pane{PromptPane, ChatPane}
 )
 
-func GetNewFocusMode(mode ViewMode, currentFocus FocusPane, tw int) FocusPane {
-	var focusModes []FocusPane
+func GetNewFocusMode(mode ViewMode, currentFocus Pane, tw int) Pane {
+	var focusModes []Pane
 
 	switch mode {
 	case NormalMode:
@@ -88,6 +94,16 @@ type PromptReady struct {
 func SendPromptReadyMsg(prompt string) tea.Cmd {
 	return func() tea.Msg {
 		return PromptReady{Prompt: prompt}
+	}
+}
+
+type AsyncDependencyReady struct {
+	Dependency AsyncDependency
+}
+
+func SendAsyncDependencyReadyMsg(dependency AsyncDependency) tea.Cmd {
+	return func() tea.Msg {
+		return AsyncDependencyReady{Dependency: dependency}
 	}
 }
 

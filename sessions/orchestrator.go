@@ -36,6 +36,10 @@ type Orchestrator struct {
 	CurrentAnswer        string
 	AllSessions          []Session
 	ProcessingMode       string
+
+	settingsReady bool
+	dataLoaded    bool
+	initialized   bool
 }
 
 func NewOrchestrator(db *sql.DB, ctx context.Context) Orchestrator {
@@ -60,6 +64,9 @@ func NewOrchestrator(db *sql.DB, ctx context.Context) Orchestrator {
 		OpenAiClient:         openAiClient,
 		ProcessingMode:       IDLE,
 	}
+}
+
+type OrchestratorInitialized struct {
 }
 
 func (m Orchestrator) Init() tea.Cmd {
@@ -128,14 +135,21 @@ func (m Orchestrator) Update(msg tea.Msg) (Orchestrator, tea.Cmd) {
 		m.CurrentSessionName = msg.Session.SessionName
 		m.ArrayOfMessages = msg.Session.Messages
 		m.AllSessions = msg.AllSessions
+		m.dataLoaded = true
 
 	case settings.UpdateSettingsEvent:
 		m.Settings = msg.Settings
+		m.settingsReady = true
 
 	case clients.ProcessApiCompletionResponse:
 		// add the latest message to the array of messages
 		cmds = append(cmds, m.handleMsgProcessing(msg))
 		cmds = append(cmds, SendResponseChunkProcessedMsg(m.CurrentAnswer, m.ArrayOfMessages))
+	}
+
+	if m.dataLoaded && m.settingsReady && !m.initialized {
+		cmds = append(cmds, util.SendAsyncDependencyReadyMsg(util.Orchestrator))
+		m.initialized = true
 	}
 
 	return m, tea.Batch(cmds...)
