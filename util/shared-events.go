@@ -16,10 +16,10 @@ type FocusPane int
 
 // fake enum to keep tab of the currently focused pane
 const (
-	SettingsType FocusPane = iota
-	SessionsType
-	PromptType
-	ChatMessagesType
+	SettingsPane FocusPane = iota
+	SessionsPane
+	PromptPane
+	ChatPane
 )
 
 type ViewMode int
@@ -30,8 +30,8 @@ const (
 )
 
 var (
-	NormalFocusModes = []FocusPane{SettingsType, SessionsType, PromptType, ChatMessagesType}
-	ZenFocusModes    = []FocusPane{PromptType, ChatMessagesType}
+	NormalFocusModes = []FocusPane{SettingsPane, SessionsPane, PromptPane, ChatPane}
+	ZenFocusModes    = []FocusPane{PromptPane, ChatPane}
 )
 
 func GetNewFocusMode(mode ViewMode, currentFocus FocusPane, tw int) FocusPane {
@@ -71,11 +71,6 @@ type ModelsLoaded struct {
 	Models []string
 }
 
-type SettingsLoaded struct {
-	Settings Settings
-	Error    error
-}
-
 type ProcessingStateChanged struct {
 	IsProcessing bool
 }
@@ -112,14 +107,6 @@ func MakeErrorMsg(v string) tea.Cmd {
 	return func() tea.Msg {
 		return ErrorEvent{Message: v}
 	}
-}
-
-type OurWindowResize struct {
-	Width int
-}
-
-func MakeWindowResizeMsg(w int) tea.Msg {
-	return OurWindowResize{Width: w}
 }
 
 type CopyLastMsg struct{}

@@ -68,16 +68,13 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		p.sessionsListData = msg.AllSessions
 		p.currentSessionID = msg.CurrentActiveSessionID
 		listItems := constructSessionsListItems(msg.AllSessions, msg.CurrentActiveSessionID)
-		p.sessionsList = components.NewSessionsList(listItems)
+		w, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
+		p.sessionsList = components.NewSessionsList(listItems, w, h)
 		p.currentEditID = EditModeDisabled
 
 	case util.FocusEvent:
 		p.isFocused = msg.IsFocused
 		p.currentEditID = EditModeDisabled
-
-	case util.OurWindowResize:
-		width, height := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
-		p.container = p.container.Width(width).Height(height)
 
 	case tea.WindowSizeMsg:
 		p.terminalWidth = msg.Width

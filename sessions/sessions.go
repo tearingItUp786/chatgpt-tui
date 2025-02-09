@@ -21,7 +21,7 @@ const (
 	ERROR      = "error"
 )
 
-type Model struct {
+type Orchestrator struct {
 	sessionService  *SessionService
 	userService     *user.UserService
 	settingsService *settings.SettingsService
@@ -38,7 +38,7 @@ type Model struct {
 	ProcessingMode       string
 }
 
-func New(db *sql.DB, ctx context.Context) Model {
+func NewOrchestrator(db *sql.DB, ctx context.Context) Orchestrator {
 	ss := NewSessionService(db)
 	us := user.NewUserService(db)
 
@@ -51,7 +51,7 @@ func New(db *sql.DB, ctx context.Context) Model {
 	settingsService := settings.NewSettingsService(db)
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 
-	return Model{
+	return Orchestrator{
 		config:               *config,
 		ArrayOfProcessResult: []clients.ProcessApiCompletionResponse{},
 		sessionService:       ss,
@@ -62,7 +62,7 @@ func New(db *sql.DB, ctx context.Context) Model {
 	}
 }
 
-func (m Model) Init() tea.Cmd {
+func (m Orchestrator) Init() tea.Cmd {
 	// Need to load the latest session as the current session  (select recently created)
 	// OR we need to create a brand new session for the user with a random name (insert new and return)
 
@@ -104,7 +104,7 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(settingsData, dbData)
 }
 
-func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+func (m Orchestrator) Update(msg tea.Msg) (Orchestrator, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -141,11 +141,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m Model) GetCompletion(resp chan clients.ProcessApiCompletionResponse) tea.Cmd {
+func (m Orchestrator) GetCompletion(resp chan clients.ProcessApiCompletionResponse) tea.Cmd {
 	return m.OpenAiClient.RequestCompletion(m.ArrayOfMessages, m.Settings, resp)
 }
 
-func (m Model) GetLatestBotMessage() (string, error) {
+func (m Orchestrator) GetLatestBotMessage() (string, error) {
 	// the last bot in the array is actually the blank message (the stop command)
 	lastIndex := len(m.ArrayOfMessages) - 2
 	// Check if lastIndex is within the bounds of the slice
@@ -158,7 +158,7 @@ func (m Model) GetLatestBotMessage() (string, error) {
 	)
 }
 
-func (m Model) GetMessagesAsString() string {
+func (m Orchestrator) GetMessagesAsString() string {
 	var messages string
 	for _, message := range m.ArrayOfMessages {
 		messageToUse := message.Content
@@ -175,7 +175,7 @@ func (m Model) GetMessagesAsString() string {
 }
 
 // MIGHT BE WORTH TO MOVE TO A SEP FILE
-func (m *Model) appendAndOrderProcessResults(msg clients.ProcessApiCompletionResponse) {
+func (m *Orchestrator) appendAndOrderProcessResults(msg clients.ProcessApiCompletionResponse) {
 	m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
 	m.CurrentAnswer = ""
 
@@ -187,7 +187,7 @@ func (m *Model) appendAndOrderProcessResults(msg clients.ProcessApiCompletionRes
 	})
 }
 
-func (m *Model) assertChoiceContentString(choice clients.Choice) (string, tea.Cmd) {
+func (m *Orchestrator) assertChoiceContentString(choice clients.Choice) (string, tea.Cmd) {
 	choiceContent, ok := choice.Delta["content"]
 
 	if !ok {
@@ -242,7 +242,7 @@ func constructJsonMessage(arrayOfProcessResult []clients.ProcessApiCompletionRes
 	return newMessage, nil
 }
 
-func (m *Model) handleFinalChoiceMessage() tea.Cmd {
+func (m *Orchestrator) handleFinalChoiceMessage() tea.Cmd {
 	// if the json for whatever reason is malformed, bail out
 	jsonMessages, err := constructJsonMessage(m.ArrayOfProcessResult)
 
@@ -291,7 +291,7 @@ func getArrayOfIDs(arr []clients.ProcessApiCompletionResponse) []int {
 }
 
 // updates the current view with the messages coming in
-func (m *Model) handleMsgProcessing(msg clients.ProcessApiCompletionResponse) tea.Cmd {
+func (m *Orchestrator) handleMsgProcessing(msg clients.ProcessApiCompletionResponse) tea.Cmd {
 	m.appendAndOrderProcessResults(msg)
 	areIdsAllThere := areIDsInOrderAndComplete(getArrayOfIDs(m.ArrayOfProcessResult))
 	m.ProcessingMode = PROCESSING
@@ -320,7 +320,7 @@ func (m *Model) handleMsgProcessing(msg clients.ProcessApiCompletionResponse) te
 	return nil
 }
 
-func (m *Model) resetStateAndCreateError(errMsg string) tea.Cmd {
+func (m *Orchestrator) resetStateAndCreateError(errMsg string) tea.Cmd {
 	m.ProcessingMode = ERROR
 	m.ArrayOfProcessResult = []clients.ProcessApiCompletionResponse{}
 	m.CurrentAnswer = ""

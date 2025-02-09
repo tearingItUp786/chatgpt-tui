@@ -84,7 +84,7 @@ func (l SessionsList) Update(msg tea.Msg) (SessionsList, tea.Cmd) {
 	return l, cmd
 }
 
-func NewSessionsList(items []list.Item) SessionsList {
+func NewSessionsList(items []list.Item, w, h int) SessionsList {
 	l := list.New(
 		items,
 		sessionItemDelegate{},
@@ -96,6 +96,8 @@ func NewSessionsList(items []list.Item) SessionsList {
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
+	l.SetWidth(w)
+	l.SetHeight(h)
 
 	return SessionsList{
 		list: l,

@@ -82,10 +82,9 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
 
-		promptPaneWidth, _ := util.CalcPromptPaneSize(p.terminalWidth, p.terminalHeight)
-		p.container = p.container.Copy().MaxWidth(p.terminalWidth).Width(promptPaneWidth)
-
-		p.input.Width = promptPaneWidth
+		w, _ := util.CalcPromptPaneSize(p.terminalWidth, p.terminalHeight)
+		p.container = p.container.Copy().MaxWidth(p.terminalWidth).Width(w)
+		p.input.Width = w
 
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {

@@ -1,10 +1,9 @@
 package util
 
+import "math"
+
 // Defaults
 const (
-	DefaultSettingsPaneWidth = 20
-	DefaultSessionsPaneWidth = 20
-
 	DefaultTerminalWidth  = 120
 	DefaultTerminalHeight = 80
 
@@ -23,13 +22,14 @@ const (
 	PromptPanePadding   = 2
 	PromptPaneMarginTop = 1
 
-	SessionsPaneListTitleMarginLeft = -2
-
-	SettingsPanePadding    = 5
-	SettingsPaneHeight     = 12
-	SettingsPaneListHeight = 5
-
 	ChatPaneMarginRight = 1
+	SidePaneLeftPadding = 5
+
+	// A 'counterweight' is a sum of other elements' margins and paggings
+	// The counterweight needs to be subtracted when calculating pane sizes
+	// in order to properly align elements
+	SettingsPaneHeightCounterweight = 3
+	SessionsPaneHeightCounterweight = 5
 )
 
 // UI elements
@@ -42,6 +42,40 @@ const (
 	WidthMinScalingLimit = 120
 )
 
+/*
+Pane sizes are calculated with proportions:
+- Prompt pane:
+  - Width: full termial witdh minus paddings
+  - Height: a constant for height and a constant for top margin
+
+- Chat pane:
+  - Width: takes 2/3 of the terminal width
+  - Height: full terminal height minus the prompt pane height
+
+- Settings pane:
+  - Width: takes 1/3 of the terminal width, minus paddings
+  - Height: takes 1/3 of the chat pane height, minus paddings
+
+- Sessions pane:
+  - Width: takes 1/3 of the terminal width, minus paddings
+  - Height: takes 2/3 of the chat pane height, minus paddings
+*/
+
+func twoThirds(reference int) int {
+	return int(math.Round(float64(reference) * (2.0 / 3.0)))
+}
+
+func oneThird(reference int) int {
+	return int(math.Round(float64(reference) / 3.0))
+}
+
+func ensureNonNegative(number int) int {
+	if number < 0 {
+		return 0
+	}
+	return number
+}
+
 func CalcPromptPaneSize(tw, th int) (w, h int) {
 	return tw - PromptPanePadding, PromptPaneHeight
 }
@@ -50,9 +84,8 @@ func CalcChatPaneSize(tw, th int, isZenMode bool) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		isZenMode = true
 	}
-	// two thirds of terminal width
-	paneWidth := tw / 3 * 2
 
+	paneWidth := twoThirds(tw)
 	if isZenMode {
 		paneWidth = tw - DefaultElementsPadding
 	}
@@ -65,28 +98,41 @@ func CalcSettingsPaneSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
-	chatPaneWidth, _ := CalcChatPaneSize(tw, th, false)
-	settingsPaneWidth := tw - chatPaneWidth - SettingsPanePadding
-	return settingsPaneWidth, SettingsPaneHeight
+	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	settingsPaneWidth := oneThird(tw) - SidePaneLeftPadding
+	settingsPaneHeight := oneThird(chatPaneHeight) - SettingsPaneHeightCounterweight
+
+	settingsPaneWidth = ensureNonNegative(settingsPaneWidth)
+	settingsPaneHeight = ensureNonNegative(settingsPaneHeight)
+
+	return settingsPaneWidth, settingsPaneHeight
 }
 
 func CalcSettingsListSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
-	chatPaneWidth, _ := CalcChatPaneSize(tw, th, false)
-	settingsPaneWidth := tw - chatPaneWidth - SettingsPanePadding
-	return settingsPaneWidth, SettingsPaneListHeight
+	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	settingsPaneWidth := oneThird(tw) - SidePaneLeftPadding
+	settingsPaneListHeight := oneThird(chatPaneHeight) - SettingsPaneHeightCounterweight
+
+	settingsPaneWidth = ensureNonNegative(settingsPaneWidth)
+	settingsPaneListHeight = ensureNonNegative(settingsPaneListHeight)
+
+	return settingsPaneWidth, settingsPaneListHeight
 }
 
 func CalcSessionsPaneSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
-	_, settingsPaneHeight := CalcSettingsPaneSize(tw, th)
-	chatPaneWidth, chatPaneHeight := CalcChatPaneSize(tw, th, false)
-	sessionsPaneHeight := chatPaneHeight - settingsPaneHeight - SettingsPanePadding
-	sessionsPaneWidth := tw - chatPaneWidth - SettingsPanePadding
+	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	sessionsPaneHeight := twoThirds(chatPaneHeight) - SessionsPaneHeightCounterweight
+	sessionsPaneWidth := oneThird(tw) - SidePaneLeftPadding
+
+	sessionsPaneWidth = ensureNonNegative(sessionsPaneWidth)
+	sessionsPaneHeight = ensureNonNegative(sessionsPaneHeight)
+
 	return sessionsPaneWidth, sessionsPaneHeight
 }
 
@@ -94,9 +140,12 @@ func CalcSessionsListSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
-	_, settingsPaneHeight := CalcSettingsPaneSize(tw, th)
-	chatPaneWidth, chatPaneHeight := CalcChatPaneSize(tw, th, false)
-	sessionsPaneListHeight := chatPaneHeight - settingsPaneHeight - SettingsPanePadding
-	sessionsPaneListWidth := tw - chatPaneWidth - SettingsPanePadding
+	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	sessionsPaneListHeight := twoThirds(chatPaneHeight) - SessionsPaneHeightCounterweight
+	sessionsPaneListWidth := oneThird(tw) - SidePaneLeftPadding
+
+	sessionsPaneListWidth = ensureNonNegative(sessionsPaneListWidth)
+	sessionsPaneListHeight = ensureNonNegative(sessionsPaneListHeight)
+
 	return sessionsPaneListWidth, sessionsPaneListHeight
 }

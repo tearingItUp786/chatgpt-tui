@@ -95,14 +95,13 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 
 	listStyle := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder(), true).
-		BorderForeground(util.NormalTabBorderColor).
-		Height(util.SettingsPaneHeight)
+		BorderForeground(util.NormalTabBorderColor)
 
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 	spinner := initSpinner()
 
 	return SettingsPane{
-		terminalWidth:   util.DefaultSettingsPaneWidth,
+		terminalWidth:   util.DefaultTerminalWidth,
 		mode:            viewMode,
 		list:            listStyle,
 		config:          config,
@@ -124,10 +123,6 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case util.OurWindowResize:
-		util.Log("our Window resized", msg.Width)
-		width, _ := util.CalcSettingsListSize(p.terminalWidth, p.terminalHeight)
-		p.list.Width(width)
 
 	case util.FocusEvent:
 		p.isFocused = msg.IsFocused
@@ -144,6 +139,8 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
+		w, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
+		p.list.Width(w).Height(h)
 
 	case spinner.TickMsg:
 		p.spinner, cmd = p.spinner.Update(msg)
@@ -205,10 +202,11 @@ func (p SettingsPane) View() string {
 		modelRowContent = listItemRenderer(p.spinner.View(), "")
 	}
 
+	_, h := util.CalcSettingsListSize(p.terminalWidth, p.terminalHeight)
 	return p.list.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			settingsListHeader.Render("Settings"),
-			lipgloss.NewStyle().Height(util.SettingsPaneListHeight).Render(
+			lipgloss.NewStyle().Height(h).Render(
 				lipgloss.JoinVertical(lipgloss.Left,
 					modelRowContent,
 					listItemRenderer("frequency", fmt.Sprint(p.settings.Frequency)),

@@ -32,9 +32,10 @@ type model struct {
 	sessionsPane panes.SessionsPane
 	settingsPane panes.SettingsPane
 
-	sessionOrchestrator sessions.Model
-	terminalWidth       int
-	terminalHeight      int
+	sessionOrchestrator sessions.Orchestrator
+
+	terminalWidth  int
+	terminalHeight int
 }
 
 func initialModal(db *sql.DB, ctx context.Context) model {
@@ -42,17 +43,21 @@ func initialModal(db *sql.DB, ctx context.Context) model {
 	sessionsPane := panes.NewSessionsPane(db, ctx)
 	settingsPane := panes.NewSettingsPane(db, ctx)
 
-	sm := sessions.New(db, ctx)
+	w, h := util.CalcChatPaneSize(util.DefaultTerminalWidth, util.DefaultTerminalHeight, false)
+	chatPane := panes.NewChatPane(w, h)
+
+	orchestrator := sessions.NewOrchestrator(db, ctx)
 
 	return model{
-		ready:               false,
+		ready:               true,
 		viewMode:            util.NormalMode,
-		focused:             util.PromptType,
+		focused:             util.PromptPane,
 		currentSessionID:    "",
-		sessionOrchestrator: sm,
+		sessionOrchestrator: orchestrator,
 		promptPane:          promptPane,
 		sessionsPane:        sessionsPane,
 		settingsPane:        settingsPane,
+		chatPane:            chatPane,
 	}
 }
 
@@ -106,9 +111,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch keypress := msg.String(); keypress {
 
 		case "ctrl+o":
-			m.focused = util.PromptType
-			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
-			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
+			m.focused = util.PromptPane
+			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsPane))
+			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsPane))
 
 			cmds = append(cmds, cmd)
 
@@ -120,12 +125,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewMode = util.NormalMode
 				m.chatPane.SwitchToNormalMode()
 			}
-
-			chatContainerWidth := m.chatPane.GetWidth()
-			m.settingsPane, cmd = m.settingsPane.Update(util.MakeWindowResizeMsg(chatContainerWidth))
-			cmds = append(cmds, cmd)
-			m.sessionsPane, cmd = m.sessionsPane.Update(util.MakeWindowResizeMsg(chatContainerWidth))
-			cmds = append(cmds, cmd)
 		}
 
 		switch msg.Type {
@@ -137,10 +136,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
 
-			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsType))
-			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsType))
-			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatMessagesType))
-			m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptType))
+			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsPane))
+			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsPane))
+			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatPane))
+			m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptPane))
 
 		case tea.KeyCtrlC:
 			return m, tea.Quit
@@ -151,27 +150,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
 
-		chatPaneWidth, chatPaneHeight := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, false)
+		isZenMode := m.viewMode == util.ZenMode
+		chatPaneWidth, chatPaneHeight := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, isZenMode)
 
-		util.Log("viewMode:", m.viewMode)
-		if m.viewMode == util.ZenMode {
-			chatPaneWidthZen, _ := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, true)
-			m.chatPane.SetPaneWitdth(chatPaneWidthZen)
-		}
+		m.chatPane.SetPaneWitdth(chatPaneWidth)
+		m.chatPane.SetPaneHeight(chatPaneHeight)
 
-		if !m.ready {
-			m.chatPane = panes.NewChatPane(chatPaneWidth, chatPaneHeight)
-			m.ready = true
-		} else {
-			m.chatPane.SetPaneWitdth(chatPaneWidth)
-			m.chatPane.SetPaneHeight(chatPaneHeight)
-		}
-
-		m.settingsPane, cmd = m.settingsPane.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
+		m.chatPane, cmd = m.chatPane.Update(msg)
 		cmds = append(cmds, cmd)
-		m.sessionsPane, cmd = m.sessionsPane.Update(util.MakeWindowResizeMsg(m.chatPane.GetWidth()))
+		m.settingsPane, cmd = m.settingsPane.Update(msg)
 		cmds = append(cmds, cmd)
-		m.promptPane, cmd = m.promptPane.Update(util.MakeWindowResizeMsg(msg.Width))
+		m.sessionsPane, cmd = m.sessionsPane.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
@@ -183,7 +172,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var windowViews string
 
-	settingsAndSessionViews := lipgloss.JoinVertical(
+	settingsAndSessionPanes := lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.settingsPane.View(),
 		m.sessionsPane.View(),
@@ -196,7 +185,7 @@ func (m model) View() string {
 
 	secondaryScreen := ""
 	if m.viewMode == util.NormalMode {
-		secondaryScreen = settingsAndSessionViews
+		secondaryScreen = settingsAndSessionPanes
 	}
 
 	windowViews = lipgloss.NewStyle().
