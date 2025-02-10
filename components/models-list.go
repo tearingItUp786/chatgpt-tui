@@ -39,9 +39,7 @@ func (d modelItemDelegate) Render(w io.Writer, m list.Model, index int, listItem
 	}
 
 	str := fmt.Sprintf("%d. %s", index+1, i)
-	if m.Width()-10 < len(str) {
-		str = str[0:m.Width()-14] + "..."
-	}
+	str = util.TrimListItem(str, m.Width())
 
 	fn := listItemSpan.Render
 	if index == m.Index() {

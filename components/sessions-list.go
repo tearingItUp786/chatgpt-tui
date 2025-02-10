@@ -51,9 +51,7 @@ func (d sessionItemDelegate) Render(w io.Writer, m list.Model, index int, listIt
 	}
 
 	str := fmt.Sprintf("%s", i.Text)
-	if m.Width()-10 < len(str) {
-		str = str[0:m.Width()-14] + "..."
-	}
+	str = util.TrimListItem(str, m.Width())
 
 	fn := itemStyle.Render
 	selectedRender := selectedItemStyle.Render

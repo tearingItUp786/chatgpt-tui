@@ -264,9 +264,7 @@ func listItem(heading string, value string, isActive bool, widthCap int) string 
 		Foreground(lipgloss.Color(color)).
 		Render
 
-	if widthCap-10 < len(value) {
-		value = value[0:widthCap-14] + "..."
-	}
+	value = util.TrimListItem(value, widthCap)
 
 	return headingEl(" "+heading, spanEl(value))
 }

@@ -40,6 +40,9 @@ const (
 	ListItemPaddingLeft = 2
 
 	WidthMinScalingLimit = 120
+
+	ListItemTrimThreshold  = 10
+	ListItemTrimCharAmount = 14
 )
 
 /*
@@ -148,4 +151,16 @@ func CalcSessionsListSize(tw, th int) (w, h int) {
 	sessionsPaneListHeight = ensureNonNegative(sessionsPaneListHeight)
 
 	return sessionsPaneListWidth, sessionsPaneListHeight
+}
+
+func TrimListItem(value string, listWidth int) string {
+	threshold := ListItemTrimThreshold
+	if listWidth-threshold > 0 {
+		trimTo := listWidth - ListItemTrimCharAmount
+		if listWidth-threshold < len(value) {
+			value = value[0:trimTo] + "..."
+		}
+	}
+
+	return value
 }
