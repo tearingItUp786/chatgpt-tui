@@ -44,7 +44,7 @@ type SettingsPane struct {
 
 	modelPicker components.ModelsList
 
-	list lipgloss.Style
+	container lipgloss.Style
 
 	initMode     bool
 	config       *config.Config
@@ -92,18 +92,17 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	}
 
 	settingsService = settings.NewSettingsService(db)
-
-	listStyle := lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder(), true).
-		BorderForeground(util.NormalTabBorderColor)
-
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
 	spinner := initSpinner()
+
+	containerStyle := lipgloss.NewStyle().
+		Border(lipgloss.ThickBorder(), true).
+		BorderForeground(util.NormalTabBorderColor)
 
 	return SettingsPane{
 		terminalWidth:   util.DefaultTerminalWidth,
 		mode:            viewMode,
-		list:            listStyle,
+		container:       containerStyle,
 		config:          config,
 		openAiClient:    openAiClient,
 		settingsService: settingsService,
@@ -132,7 +131,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		if p.isFocused {
 			borderColor = util.ActiveTabBorderColor
 		}
-		p.list.BorderForeground(borderColor)
+		p.container.BorderForeground(borderColor)
 
 		return p, nil
 
@@ -140,7 +139,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
 		w, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
-		p.list.Width(w).Height(h)
+		p.container.Width(w).Height(h)
 
 	case spinner.TickMsg:
 		p.spinner, cmd = p.spinner.Update(msg)
@@ -149,7 +148,8 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 	case settings.UpdateSettingsEvent:
 		if p.initMode {
 			p.settings = msg.Settings
-			p.modelPicker = components.NewModelsList([]list.Item{components.ModelsListItem(msg.Settings.Model)})
+			w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
+			p.modelPicker = components.NewModelsList([]list.Item{components.ModelsListItem(msg.Settings.Model)}, w, h)
 			p.initMode = false
 			p.loading = false
 
@@ -159,6 +159,8 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 	case util.ModelsLoaded:
 		p.loading = false
 		p.mode = modelMode
+		w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
+		p.modelPicker.SetSize(w, h)
 		p.updateModelsList(msg.Models)
 
 	case tea.KeyMsg:
@@ -187,13 +189,15 @@ func (p SettingsPane) View() string {
 	editForm := ""
 	if p.mode == modelMode {
 		editForm = p.modelPicker.View()
-		return p.list.Render(
+		w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
+		return p.container.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
 				settingsListHeader.Render("Settings"),
-				editForm,
+				lipgloss.NewStyle().Width(w).Height(h).Render(editForm),
 			),
 		)
 	}
+
 	if p.mode != viewMode && p.mode != modelMode {
 		editForm = p.textInput.View()
 	}
@@ -203,8 +207,8 @@ func (p SettingsPane) View() string {
 		modelRowContent = listItemRenderer(p.spinner.View(), "")
 	}
 
-	_, h := util.CalcSettingsListSize(p.terminalWidth, p.terminalHeight)
-	return p.list.Render(
+	_, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
+	return p.container.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			settingsListHeader.Render("Settings"),
 			lipgloss.NewStyle().Height(h).Render(

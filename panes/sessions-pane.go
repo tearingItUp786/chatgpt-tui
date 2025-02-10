@@ -27,6 +27,7 @@ type SessionsPane struct {
 	userService      *user.UserService
 	container        lipgloss.Style
 
+	sessionsListReady  bool
 	currentSessionID   int
 	currentEditID      int
 	currentSessionName string
@@ -71,6 +72,7 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		w, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
 		p.sessionsList = components.NewSessionsList(listItems, w, h)
 		p.currentEditID = EditModeDisabled
+		p.sessionsListReady = true
 
 	case util.FocusEvent:
 		p.isFocused = msg.IsFocused
@@ -81,6 +83,10 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		p.terminalHeight = msg.Height
 		width, height := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
 		p.container = p.container.Width(width).Height(height)
+		if p.sessionsListReady {
+			width, height = util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
+			p.sessionsList.SetSize(width, height)
+		}
 
 	case tea.KeyMsg:
 		if p.isFocused {
@@ -242,7 +248,7 @@ func listHeader(str ...string) string {
 		Render(str...)
 }
 
-func listItem(heading string, value string, isActive bool) string {
+func listItem(heading string, value string, isActive bool, widthCap int) string {
 	headingColor := util.Pink100
 	color := "#bbb"
 	if isActive {
@@ -258,22 +264,28 @@ func listItem(heading string, value string, isActive bool) string {
 		Foreground(lipgloss.Color(color)).
 		Render
 
+	if widthCap-10 < len(value) {
+		value = value[0:widthCap-14] + "..."
+	}
+
 	return headingEl(" "+heading, spanEl(value))
 }
 
 func (p SessionsPane) normalListView() string {
 	sessionListItems := []string{}
+	listWidth := p.sessionsList.GetWidth()
 	for _, session := range p.sessionsListData {
 		isCurrentSession := p.currentSessionID == session.ID
 		sessionListItems = append(
 			sessionListItems,
-			listItem(fmt.Sprint(session.ID), session.SessionName, isCurrentSession),
+			listItem(fmt.Sprint(session.ID), session.SessionName, isCurrentSession, listWidth),
 		)
 	}
 
-	_, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
+	w, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
 
 	return lipgloss.NewStyle().
+		Width(w).
 		Height(h).
 		MaxHeight(h).
 		Render(strings.Join(sessionListItems, "\n"))

@@ -51,6 +51,9 @@ func (d sessionItemDelegate) Render(w io.Writer, m list.Model, index int, listIt
 	}
 
 	str := fmt.Sprintf("%s", i.Text)
+	if m.Width()-10 < len(str) {
+		str = str[0:m.Width()-14] + "..."
+	}
 
 	fn := itemStyle.Render
 	selectedRender := selectedItemStyle.Render
@@ -78,6 +81,15 @@ func (l *SessionsList) SetItems(items []list.Item) {
 	l.list.SetItems(items)
 }
 
+func (l *SessionsList) SetSize(w, h int) {
+	l.list.SetWidth(w)
+	l.list.SetHeight(h)
+}
+
+func (l SessionsList) GetWidth() int {
+	return l.list.Width()
+}
+
 func (l SessionsList) Update(msg tea.Msg) (SessionsList, tea.Cmd) {
 	var cmd tea.Cmd
 	l.list, cmd = l.list.Update(msg)
@@ -85,19 +97,13 @@ func (l SessionsList) Update(msg tea.Msg) (SessionsList, tea.Cmd) {
 }
 
 func NewSessionsList(items []list.Item, w, h int) SessionsList {
-	l := list.New(
-		items,
-		sessionItemDelegate{},
-		util.DefaultSessionsListWidth,
-		util.DefaultSessionsListHeight)
+	l := list.New(items, sessionItemDelegate{}, w, h)
 
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
-	l.SetWidth(w)
-	l.SetHeight(h)
 
 	return SessionsList{
 		list: l,

@@ -108,18 +108,18 @@ func CalcSettingsPaneSize(tw, th int) (w, h int) {
 	return settingsPaneWidth, settingsPaneHeight
 }
 
-func CalcSettingsListSize(tw, th int) (w, h int) {
+func CalcModelsListSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
-	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
-	settingsPaneWidth := oneThird(tw) - SidePaneLeftPadding
-	settingsPaneListHeight := oneThird(chatPaneHeight) - SettingsPaneHeightCounterweight
+	settingsPaneWidth, settingsPaneHeight := CalcSettingsPaneSize(tw, th)
+	modelsListWidth := settingsPaneWidth - DefaultElementsPadding*2
+	modelsListHeight := settingsPaneHeight + 1
 
-	settingsPaneWidth = ensureNonNegative(settingsPaneWidth)
-	settingsPaneListHeight = ensureNonNegative(settingsPaneListHeight)
+	modelsListWidth = ensureNonNegative(modelsListWidth)
+	modelsListHeight = ensureNonNegative(modelsListHeight)
 
-	return settingsPaneWidth, settingsPaneListHeight
+	return modelsListWidth, modelsListHeight
 }
 
 func CalcSessionsPaneSize(tw, th int) (w, h int) {
