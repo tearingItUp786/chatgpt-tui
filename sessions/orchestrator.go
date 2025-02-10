@@ -310,6 +310,10 @@ func (m *Orchestrator) handleMsgProcessing(msg clients.ProcessApiCompletionRespo
 	areIdsAllThere := areIDsInOrderAndComplete(getArrayOfIDs(m.ArrayOfProcessResult))
 	m.ProcessingMode = PROCESSING
 
+	if msg.Err != nil {
+		return util.MakeErrorMsg(msg.Err.Error())
+	}
+
 	for _, msg := range m.ArrayOfProcessResult {
 		if msg.Final && areIdsAllThere {
 			util.Log("-----Final message found-----")

@@ -7,12 +7,6 @@ const (
 	DefaultTerminalWidth  = 120
 	DefaultTerminalHeight = 80
 
-	DefaultModelsListWidth  = 10
-	DefaultModelsListHeight = 8
-
-	DefaultSessionsListWidth  = 20
-	DefaultSessionsListHeight = 5
-
 	DefaultElementsPadding = 2
 )
 
@@ -116,7 +110,7 @@ func CalcModelsListSize(tw, th int) (w, h int) {
 		return 0, 0
 	}
 	settingsPaneWidth, settingsPaneHeight := CalcSettingsPaneSize(tw, th)
-	modelsListWidth := settingsPaneWidth - DefaultElementsPadding*2
+	modelsListWidth := settingsPaneWidth - DefaultElementsPadding
 	modelsListHeight := settingsPaneHeight + 1
 
 	modelsListWidth = ensureNonNegative(modelsListWidth)
@@ -130,8 +124,8 @@ func CalcSessionsPaneSize(tw, th int) (w, h int) {
 		return 0, 0
 	}
 	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
-	sessionsPaneHeight := twoThirds(chatPaneHeight) - SessionsPaneHeightCounterweight
 	sessionsPaneWidth := oneThird(tw) - SidePaneLeftPadding
+	sessionsPaneHeight := twoThirds(chatPaneHeight) - SessionsPaneHeightCounterweight
 
 	sessionsPaneWidth = ensureNonNegative(sessionsPaneWidth)
 	sessionsPaneHeight = ensureNonNegative(sessionsPaneHeight)
@@ -144,8 +138,8 @@ func CalcSessionsListSize(tw, th int) (w, h int) {
 		return 0, 0
 	}
 	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
-	sessionsPaneListHeight := twoThirds(chatPaneHeight) - SessionsPaneHeightCounterweight
 	sessionsPaneListWidth := oneThird(tw) - SidePaneLeftPadding
+	sessionsPaneListHeight := twoThirds(chatPaneHeight) - SessionsPaneHeightCounterweight
 
 	sessionsPaneListWidth = ensureNonNegative(sessionsPaneListWidth)
 	sessionsPaneListHeight = ensureNonNegative(sessionsPaneListHeight)

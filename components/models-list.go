@@ -67,15 +67,6 @@ func (l ModelsList) Update(msg tea.Msg) (ModelsList, tea.Cmd) {
 	return l, cmd
 }
 
-func (l *ModelsList) SetItems(items []list.Item) {
-	l.list.SetItems(items)
-}
-
-func (l *ModelsList) SetSize(w, h int) {
-	l.list.SetWidth(w)
-	l.list.SetHeight(h)
-}
-
 func NewModelsList(items []list.Item, w, h int) ModelsList {
 	newList := list.New(items, modelItemDelegate{}, w, h)
 

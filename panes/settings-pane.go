@@ -159,8 +159,6 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 	case util.ModelsLoaded:
 		p.loading = false
 		p.mode = modelMode
-		w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
-		p.modelPicker.SetSize(w, h)
 		p.updateModelsList(msg.Models)
 
 	case tea.KeyMsg:
@@ -188,12 +186,10 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 func (p SettingsPane) View() string {
 	editForm := ""
 	if p.mode == modelMode {
-		editForm = p.modelPicker.View()
-		w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
 		return p.container.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
 				settingsListHeader.Render("Settings"),
-				lipgloss.NewStyle().Width(w).Height(h).Render(editForm),
+				p.modelPicker.View(),
 			),
 		)
 	}
@@ -356,5 +352,6 @@ func (p *SettingsPane) updateModelsList(models []string) {
 		modelsList = append(modelsList, components.ModelsListItem(model))
 	}
 
-	p.modelPicker.SetItems(modelsList)
+	w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
+	p.modelPicker = components.NewModelsList(modelsList, w, h)
 }
