@@ -8,6 +8,7 @@ var (
 	Pink300 = "#BD54BF"
 	Purple  = "#432D59"
 	Indigo  = "#4A2B8C"
+	Red     = "#DE3163"
 	White   = "#FFFFFF"
 
 	NormalTabBorderColor = lipgloss.Color("#bbb")

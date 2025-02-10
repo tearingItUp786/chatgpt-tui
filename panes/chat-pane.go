@@ -148,7 +148,7 @@ func (p ChatPane) View() string {
 }
 
 func (p ChatPane) DisplayError(error string) string {
-	return p.chatContainer.Render(error)
+	return p.chatContainer.Render(util.RenderErrorMessage(error, p.chatContainer.GetWidth()))
 }
 
 func (p ChatPane) SwitchToZenMode() {

@@ -36,6 +36,14 @@ func RenderUserMessage(msg string, width int) string {
 		Render("💁 " + msg)
 }
 
+func RenderErrorMessage(msg string, width int) string {
+	msg = strings.TrimSpace(msg)
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color(Red)).
+		Width(width / 3 * 2).
+		Render("⛔ " + "Encountered error:\n" + msg)
+}
+
 func RenderBotMessage(msg string, width int) string {
 	if msg == "" {
 		return ""
