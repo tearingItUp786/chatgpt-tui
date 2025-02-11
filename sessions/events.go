@@ -6,8 +6,7 @@ import (
 )
 
 type LoadDataFromDB struct {
-	Session Session
-
+	Session                Session
 	AllSessions            []Session
 	CurrentActiveSessionID int
 }

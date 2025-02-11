@@ -12,9 +12,7 @@ import (
 )
 
 type ModelsList struct {
-	list     list.Model
-	choice   string
-	quitting bool
+	list list.Model
 }
 
 var listItemSpan = lipgloss.NewStyle().
@@ -39,12 +37,15 @@ func (d modelItemDelegate) Render(w io.Writer, m list.Model, index int, listItem
 	if !ok {
 		return
 	}
+
 	str := fmt.Sprintf("%d. %s", index+1, i)
+	str = util.TrimListItem(str, m.Width())
 
 	fn := listItemSpan.Render
 	if index == m.Index() {
 		fn = func(s ...string) string {
-			return listItemSpanSelected.Render("> " + strings.Join(s, " "))
+			row := "> " + strings.Join(s, " ")
+			return listItemSpanSelected.Render(row)
 		}
 	}
 
@@ -66,22 +67,17 @@ func (l ModelsList) Update(msg tea.Msg) (ModelsList, tea.Cmd) {
 	return l, cmd
 }
 
-func (l *ModelsList) SetItems(items []list.Item) {
-	l.list.SetItems(items)
-}
-
-func NewModelsList(items []list.Item) ModelsList {
-	newList := list.New(
-		items,
-		modelItemDelegate{},
-		util.DefaultModelsListWidth,
-		util.DefaultModelsListHeight)
+func NewModelsList(items []list.Item, w, h int) ModelsList {
+	newList := list.New(items, modelItemDelegate{}, w, h)
 
 	newList.SetStatusBarItemName("model detected", "models detected")
 	newList.SetShowTitle(false)
 	newList.SetShowHelp(false)
 	newList.SetFilteringEnabled(false)
 	newList.DisableQuitKeybindings()
+
+	newList.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color(util.Pink300)).Render("•")
+	newList.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color(util.White)).Render("•")
 
 	return ModelsList{
 		list: newList,

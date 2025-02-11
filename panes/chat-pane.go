@@ -54,9 +54,7 @@ func waitForActivity(sub chan clients.ProcessApiCompletionResponse) tea.Cmd {
 }
 
 func (p ChatPane) Init() tea.Cmd {
-	return tea.Batch(
-		waitForActivity(p.msgChan),
-	)
+	return nil
 }
 
 func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
@@ -100,9 +98,10 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
-		_, paneHeight := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
+		paneWidth, paneHeight := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
 		p.chatContainer = p.chatContainer.Height(paneHeight)
 		p.chatView.Height = p.chatContainer.GetHeight()
+		p.chatView.Width = paneWidth
 
 	case tea.KeyMsg:
 		if !p.isChatContainerFocused {
@@ -136,9 +135,9 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 	return p, tea.Batch(cmds...)
 }
 
-func (p ChatPane) DisplayCompletion(session sessions.Model) tea.Cmd {
+func (p ChatPane) DisplayCompletion(orchestrator sessions.Orchestrator) tea.Cmd {
 	return tea.Batch(
-		session.GetCompletion(p.msgChan),
+		orchestrator.GetCompletion(p.msgChan),
 		waitForActivity(p.msgChan),
 	)
 }
@@ -149,21 +148,23 @@ func (p ChatPane) View() string {
 }
 
 func (p ChatPane) DisplayError(error string) string {
-	return p.chatContainer.Render(error)
+	return p.chatContainer.Render(util.RenderErrorMessage(error, p.chatContainer.GetWidth()))
 }
 
 func (p ChatPane) SwitchToZenMode() {
-	paneWidth, _ := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, true)
+	w, h := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, true)
 	p.chatContainer.
 		BorderForeground(util.NormalTabBorderColor).
-		Width(paneWidth)
+		Width(w).
+		Height(h)
 }
 
 func (p ChatPane) SwitchToNormalMode() {
-	paneWidth, _ := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
+	w, h := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
 	p.chatContainer.
 		BorderForeground(util.NormalTabBorderColor).
-		Width(paneWidth)
+		Width(w).
+		Height(h)
 }
 
 func (p ChatPane) SetPaneWitdth(w int) {

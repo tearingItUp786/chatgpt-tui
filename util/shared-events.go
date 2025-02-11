@@ -12,14 +12,20 @@ const (
 	PromptNormalMode
 )
 
-type FocusPane int
+type Pane int
+type AsyncDependency int
 
 // fake enum to keep tab of the currently focused pane
 const (
-	SettingsType FocusPane = iota
-	SessionsType
-	PromptType
-	ChatMessagesType
+	SettingsPane Pane = iota
+	SessionsPane
+	PromptPane
+	ChatPane
+)
+
+const (
+	SettingsPaneModule AsyncDependency = iota
+	Orchestrator
 )
 
 type ViewMode int
@@ -30,12 +36,12 @@ const (
 )
 
 var (
-	NormalFocusModes = []FocusPane{SettingsType, SessionsType, PromptType, ChatMessagesType}
-	ZenFocusModes    = []FocusPane{PromptType, ChatMessagesType}
+	NormalFocusModes = []Pane{SettingsPane, SessionsPane, PromptPane, ChatPane}
+	ZenFocusModes    = []Pane{PromptPane, ChatPane}
 )
 
-func GetNewFocusMode(mode ViewMode, currentFocus FocusPane, tw int) FocusPane {
-	var focusModes []FocusPane
+func GetNewFocusMode(mode ViewMode, currentFocus Pane, tw int) Pane {
+	var focusModes []Pane
 
 	switch mode {
 	case NormalMode:
@@ -67,6 +73,10 @@ var MotivationalMessage = lipgloss.NewStyle().
 	PaddingLeft(1).
 	Render("There's something scary about a blank canvas...that's why I'm here 😄!")
 
+type ModelsLoaded struct {
+	Models []string
+}
+
 type ProcessingStateChanged struct {
 	IsProcessing bool
 }
@@ -87,6 +97,16 @@ func SendPromptReadyMsg(prompt string) tea.Cmd {
 	}
 }
 
+type AsyncDependencyReady struct {
+	Dependency AsyncDependency
+}
+
+func SendAsyncDependencyReadyMsg(dependency AsyncDependency) tea.Cmd {
+	return func() tea.Msg {
+		return AsyncDependencyReady{Dependency: dependency}
+	}
+}
+
 type FocusEvent struct {
 	IsFocused bool
 }
@@ -103,14 +123,6 @@ func MakeErrorMsg(v string) tea.Cmd {
 	return func() tea.Msg {
 		return ErrorEvent{Message: v}
 	}
-}
-
-type OurWindowResize struct {
-	Width int
-}
-
-func MakeWindowResizeMsg(w int) tea.Msg {
-	return OurWindowResize{Width: w}
 }
 
 type CopyLastMsg struct{}

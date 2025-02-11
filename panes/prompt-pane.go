@@ -8,6 +8,8 @@ import (
 )
 
 const ResponseWaitingMsg = "> Please wait ..."
+const InitializingMsg = "Components initializing ..."
+const PlaceholderMsg = "Prompts go here"
 
 type PromptPane struct {
 	input     textinput.Model
@@ -18,11 +20,12 @@ type PromptPane struct {
 	isFocused      bool
 	terminalWidth  int
 	terminalHeight int
+	ready          bool
 }
 
 func NewPromptPane() PromptPane {
 	input := textinput.New()
-	input.Placeholder = "Prompts go here"
+	input.Placeholder = InitializingMsg
 	input.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
 
 	container := lipgloss.NewStyle().
@@ -82,12 +85,15 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
 
-		promptPaneWidth, _ := util.CalcPromptPaneSize(p.terminalWidth, p.terminalHeight)
-		p.container = p.container.Copy().MaxWidth(p.terminalWidth).Width(promptPaneWidth)
-
-		p.input.Width = promptPaneWidth
+		w, _ := util.CalcPromptPaneSize(p.terminalWidth, p.terminalHeight)
+		p.container = p.container.Copy().MaxWidth(p.terminalWidth).Width(w)
+		p.input.Width = w
 
 	case tea.KeyMsg:
+		if !p.ready {
+			break
+		}
+
 		switch keypress := msg.String(); keypress {
 		case "i":
 			if p.isFocused && p.inputMode == util.PromptNormalMode {
@@ -123,6 +129,12 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 
 func (p PromptPane) IsTypingInProcess() bool {
 	return p.isFocused && p.inputMode == util.PromptInsertMode
+}
+
+func (p PromptPane) Enable() PromptPane {
+	p.input.Placeholder = PlaceholderMsg
+	p.ready = true
+	return p
 }
 
 func (p PromptPane) View() string {
