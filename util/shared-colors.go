@@ -2,15 +2,75 @@ package util
 
 import "github.com/charmbracelet/lipgloss"
 
-var (
-	Pink100 = "#F2B3E8"
-	Pink200 = "#8C3A87"
-	Pink300 = "#BD54BF"
-	Purple  = "#432D59"
-	Indigo  = "#4A2B8C"
-	Red     = "#DE3163"
-	White   = "#FFFFFF"
+type ColorScheme string
 
-	NormalTabBorderColor = lipgloss.Color("#bbb")
-	ActiveTabBorderColor = lipgloss.Color(Pink300)
+const (
+	OriginalPink ColorScheme = "Pink"
+	SmoothBlue   ColorScheme = "Blue"
 )
+
+const (
+	GlamourDarkTheme    = "dark"
+	GlamourDraculaTheme = "dracula"
+)
+
+var (
+	pink100   = "#F2B3E8"
+	pink200   = "#8C3A87"
+	pink300   = "#BD54BF"
+	purple    = "#432D59"
+	red       = "#DE3163"
+	white     = "#FFFFFF"
+	lightGrey = "#bbbbbb"
+)
+
+var (
+	smoothBlue = "#90a0d3"
+	pinkYellow = "#e3b89f"
+	cyan       = "#c3f7f5"
+	lightGreen = "#a0d390"
+	lightRed   = "#d390a0"
+)
+
+type SchemeColors struct {
+	MainColor            lipgloss.Color
+	AccentColor          lipgloss.Color
+	HighlightColor       lipgloss.Color
+	DefaultTextColor     lipgloss.Color
+	ErrorColor           lipgloss.Color
+	NormalTabBorderColor lipgloss.Color
+	ActiveTabBorderColor lipgloss.Color
+	RendererTheme        string
+}
+
+func (s ColorScheme) GetColors() SchemeColors {
+	defaultColors := SchemeColors{
+		MainColor:            lipgloss.Color(pink100),
+		AccentColor:          lipgloss.Color(pink200),
+		HighlightColor:       lipgloss.Color(pink300),
+		DefaultTextColor:     lipgloss.Color(white),
+		ErrorColor:           lipgloss.Color(red),
+		NormalTabBorderColor: lipgloss.Color(lightGrey),
+		ActiveTabBorderColor: lipgloss.Color(pink300),
+		RendererTheme:        GlamourDarkTheme,
+	}
+
+	switch s {
+	case SmoothBlue:
+		return SchemeColors{
+			MainColor:            lipgloss.Color(pinkYellow),
+			AccentColor:          lipgloss.Color(lightGreen),
+			HighlightColor:       lipgloss.Color(lightRed),
+			DefaultTextColor:     lipgloss.Color(white),
+			ErrorColor:           lipgloss.Color(red),
+			NormalTabBorderColor: lipgloss.Color(smoothBlue),
+			ActiveTabBorderColor: lipgloss.Color(pinkYellow),
+			RendererTheme:        GlamourDraculaTheme,
+		}
+
+	case OriginalPink:
+		return defaultColors
+	default:
+		return defaultColors
+	}
+}

@@ -16,12 +16,10 @@ type ModelsList struct {
 }
 
 var listItemSpan = lipgloss.NewStyle().
-	PaddingLeft(util.ListItemPaddingLeft).
-	Foreground(lipgloss.Color(util.White))
+	PaddingLeft(util.ListItemPaddingLeft)
 
 var listItemSpanSelected = lipgloss.NewStyle().
-	PaddingLeft(util.ListItemPaddingLeft).
-	Foreground(lipgloss.Color(util.Pink200))
+	PaddingLeft(util.ListItemPaddingLeft)
 
 type ModelsListItem string
 
@@ -67,7 +65,7 @@ func (l ModelsList) Update(msg tea.Msg) (ModelsList, tea.Cmd) {
 	return l, cmd
 }
 
-func NewModelsList(items []list.Item, w, h int) ModelsList {
+func NewModelsList(items []list.Item, w, h int, colors util.SchemeColors) ModelsList {
 	newList := list.New(items, modelItemDelegate{}, w, h)
 
 	newList.SetStatusBarItemName("model detected", "models detected")
@@ -76,8 +74,10 @@ func NewModelsList(items []list.Item, w, h int) ModelsList {
 	newList.SetFilteringEnabled(false)
 	newList.DisableQuitKeybindings()
 
-	newList.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color(util.Pink300)).Render("•")
-	newList.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color(util.White)).Render("•")
+	newList.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(colors.HighlightColor).Render("■")
+	newList.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render("•")
+	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
+	listItemSpanSelected = listItemSpanSelected.Copy().Foreground(colors.AccentColor)
 
 	return ModelsList{
 		list: newList,

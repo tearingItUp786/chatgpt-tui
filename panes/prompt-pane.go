@@ -1,9 +1,13 @@
 package panes
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
@@ -15,6 +19,7 @@ type PromptPane struct {
 	input     textinput.Model
 	container lipgloss.Style
 	inputMode util.PrompInputMode
+	colors    util.SchemeColors
 
 	isSessionIdle  bool
 	isFocused      bool
@@ -23,19 +28,27 @@ type PromptPane struct {
 	ready          bool
 }
 
-func NewPromptPane() PromptPane {
+func NewPromptPane(ctx context.Context) PromptPane {
+	config, ok := config.FromContext(ctx)
+	if !ok {
+		fmt.Println("No config found")
+		panic("No config found in context")
+	}
+	colors := config.ColorScheme.GetColors()
+
 	input := textinput.New()
 	input.Placeholder = InitializingMsg
-	input.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
+	input.PromptStyle = lipgloss.NewStyle().Foreground(colors.ActiveTabBorderColor)
 
 	container := lipgloss.NewStyle().
 		AlignVertical(lipgloss.Bottom).
 		BorderStyle(lipgloss.ThickBorder()).
-		BorderForeground(util.ActiveTabBorderColor).
+		BorderForeground(colors.ActiveTabBorderColor).
 		MaxHeight(util.PromptPaneHeight).
 		MarginTop(util.PromptPaneMarginTop)
 
 	return PromptPane{
+		colors:         colors,
 		input:          input,
 		container:      container,
 		inputMode:      util.PromptNormalMode,
@@ -71,12 +84,12 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 
 		if p.isFocused {
 			p.inputMode = util.PromptNormalMode
-			p.container = p.container.BorderForeground(util.ActiveTabBorderColor)
-			p.input.PromptStyle = p.input.PromptStyle.Copy().Foreground(lipgloss.Color(util.ActiveTabBorderColor))
+			p.container = p.container.BorderForeground(p.colors.ActiveTabBorderColor)
+			p.input.PromptStyle = p.input.PromptStyle.Copy().Foreground(p.colors.ActiveTabBorderColor)
 		} else {
 			p.inputMode = util.PromptNormalMode
-			p.container = p.container.BorderForeground(util.NormalTabBorderColor)
-			p.input.PromptStyle = p.input.PromptStyle.Foreground(lipgloss.Color(util.NormalTabBorderColor))
+			p.container = p.container.BorderForeground(p.colors.NormalTabBorderColor)
+			p.input.PromptStyle = p.input.PromptStyle.Foreground(p.colors.NormalTabBorderColor)
 			p.input.Blur()
 		}
 		return p, nil
