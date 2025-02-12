@@ -7,16 +7,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func GetMessagesAsPrettyString(msgsToRender []MessageToSend, w int) string {
+func GetMessagesAsPrettyString(msgsToRender []MessageToSend, w int, colors SchemeColors) string {
 	var messages string
 	for _, message := range msgsToRender {
 		messageToUse := message.Content
 
 		switch {
 		case message.Role == "user":
-			messageToUse = RenderUserMessage(messageToUse, w)
+			messageToUse = RenderUserMessage(messageToUse, w, colors)
 		case message.Role == "assistant":
-			messageToUse = RenderBotMessage(messageToUse, w)
+			messageToUse = RenderBotMessage(messageToUse, w, colors)
 		}
 
 		if messages == "" {
@@ -30,30 +30,41 @@ func GetMessagesAsPrettyString(msgsToRender []MessageToSend, w int) string {
 	return messages
 }
 
-func RenderUserMessage(msg string, width int) string {
+func RenderUserMessage(msg string, width int, colors SchemeColors) string {
+	msg = "\n💁 " + msg + "\n"
+	userMsg, _ := glamour.Render(msg, colors.RendererTheme)
+	output := strings.TrimSpace(userMsg)
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color(Pink100)).
-		Render("💁 " + msg)
+		BorderLeft(true).
+		BorderStyle(lipgloss.InnerHalfBlockBorder()).
+		BorderLeftForeground(colors.NormalTabBorderColor).
+		Render("\n" + output + "\n")
 }
 
-func RenderErrorMessage(msg string, width int) string {
-	msg = strings.TrimSpace(msg)
+func RenderErrorMessage(msg string, width int, colors SchemeColors) string {
+	msg = "```json\n" + msg + "\n```"
+	errMsg, _ := glamour.Render(msg, colors.RendererTheme)
+	output := strings.TrimSpace(errMsg)
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color(Red)).
-		Width(width / 3 * 2).
-		Render("⛔ " + "Encountered error:\n" + msg)
+		BorderLeft(true).
+		BorderStyle(lipgloss.InnerHalfBlockBorder()).
+		BorderLeftForeground(colors.ErrorColor).
+		Width(width).
+		Foreground(colors.HighlightColor).
+		Render(" ⛔ " + "Encountered error:\n" + output)
 }
 
-func RenderBotMessage(msg string, width int) string {
+func RenderBotMessage(msg string, width int, colors SchemeColors) string {
 	if msg == "" {
 		return ""
 	}
 
-	lol, _ := glamour.RenderWithEnvironmentConfig(msg)
-	output := strings.TrimSpace(lol)
+	msg = "\n🤖 " + msg + "\n"
+	aiResponse, _ := glamour.Render(msg, colors.RendererTheme)
+	output := strings.TrimSpace(aiResponse)
 	return lipgloss.NewStyle().
 		BorderLeft(true).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderLeftForeground(lipgloss.Color(Pink300)).
+		BorderStyle(lipgloss.InnerHalfBlockBorder()).
+		BorderLeftForeground(colors.ActiveTabBorderColor).
 		Render(output)
 }

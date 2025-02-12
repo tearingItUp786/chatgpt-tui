@@ -16,9 +16,8 @@ var (
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(util.ListItemPaddingLeft)
 	selectedItemStyle = lipgloss.
 				NewStyle().
-				PaddingLeft(util.ListRightShiftedItemPadding).
-				Foreground(lipgloss.Color(util.Pink200))
-	activeItemStyle = itemStyle.Copy().Foreground(lipgloss.Color(util.Pink300))
+				PaddingLeft(util.ListRightShiftedItemPadding)
+	activeItemStyle = itemStyle.Copy()
 )
 
 type SessionListItem struct {
@@ -94,7 +93,7 @@ func (l SessionsList) Update(msg tea.Msg) (SessionsList, tea.Cmd) {
 	return l, cmd
 }
 
-func NewSessionsList(items []list.Item, w, h int) SessionsList {
+func NewSessionsList(items []list.Item, w, h int, colors util.SchemeColors) SessionsList {
 	l := list.New(items, sessionItemDelegate{}, w, h)
 
 	l.SetShowTitle(false)
@@ -102,6 +101,9 @@ func NewSessionsList(items []list.Item, w, h int) SessionsList {
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
+
+	selectedItemStyle = selectedItemStyle.Copy().Foreground(colors.AccentColor)
+	activeItemStyle = activeItemStyle.Copy().Foreground(colors.HighlightColor)
 
 	return SessionsList{
 		list: l,

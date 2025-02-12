@@ -39,15 +39,17 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) t
 	)
 	err := row.Scan(&settings.ID, &settings.Model, &settings.MaxTokens, &settings.Frequency)
 
-	availableModels := ss.GetProviderModels(cfg.ChatGPTApiUrl)
+	availableModels, modelsError := ss.GetProviderModels(cfg.ChatGPTApiUrl)
+
+	if modelsError != nil {
+		return util.ErrorEvent{Message: modelsError.Error()}
+	}
+
 	isModelFromSettingsAvailable := slices.Contains(availableModels, settings.Model)
 
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			return UpdateSettingsEvent{
-				Settings: util.Settings{},
-				Err:      err,
-			}
+			return util.ErrorEvent{Message: err.Error()}
 		}
 
 		settings = util.Settings{
@@ -74,7 +76,7 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) t
 	}
 }
 
-func (ss *SettingsService) GetProviderModels(apiUrl string) []string {
+func (ss *SettingsService) GetProviderModels(apiUrl string) ([]string, error) {
 	provider := util.GetInferenceProvider(apiUrl)
 	availableModels := []string{}
 
@@ -90,13 +92,13 @@ func (ss *SettingsService) GetProviderModels(apiUrl string) []string {
 		openAiClient := clients.NewOpenAiClient(apiUrl, "")
 		modelsResponse := openAiClient.RequestModelsList()
 		if modelsResponse.Err != nil {
-			panic(modelsResponse.Err)
+			return []string{}, modelsResponse.Err
 		}
 
 		availableModels = util.GetFilteredModelList(apiUrl, modelsResponse.Result.GetModelNames())
 
 		if provider == util.Local {
-			return availableModels
+			return availableModels, nil
 		}
 
 		err := ss.CacheModelsForProvider(int(provider), availableModels)
@@ -105,7 +107,7 @@ func (ss *SettingsService) GetProviderModels(apiUrl string) []string {
 		}
 	}
 
-	return availableModels
+	return availableModels, nil
 }
 
 func (ss *SettingsService) TryGetModelsCache(provider int) ([]string, error) {

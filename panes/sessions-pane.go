@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/components"
+	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
 	"github.com/tearingItUp786/chatgpt-tui/user"
 	"github.com/tearingItUp786/chatgpt-tui/util"
@@ -26,6 +27,7 @@ type SessionsPane struct {
 	sessionService   *sessions.SessionService
 	userService      *user.UserService
 	container        lipgloss.Style
+	colors           util.SchemeColors
 
 	sessionsListReady  bool
 	currentSessionID   int
@@ -40,7 +42,15 @@ func NewSessionsPane(db *sql.DB, ctx context.Context) SessionsPane {
 	ss := sessions.NewSessionService(db)
 	us := user.NewUserService(db)
 
+	config, ok := config.FromContext(ctx)
+	if !ok {
+		fmt.Println("No config found")
+		panic("No config found in context")
+	}
+	colors := config.ColorScheme.GetColors()
+
 	return SessionsPane{
+		colors:         colors,
 		sessionService: ss,
 		userService:    us,
 		isFocused:      false,
@@ -49,7 +59,7 @@ func NewSessionsPane(db *sql.DB, ctx context.Context) SessionsPane {
 		container: lipgloss.NewStyle().
 			AlignVertical(lipgloss.Top).
 			Border(lipgloss.ThickBorder(), true).
-			BorderForeground(util.NormalTabBorderColor),
+			BorderForeground(colors.NormalTabBorderColor),
 	}
 }
 
@@ -70,7 +80,7 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		p.currentSessionID = msg.CurrentActiveSessionID
 		listItems := constructSessionsListItems(msg.AllSessions, msg.CurrentActiveSessionID)
 		w, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
-		p.sessionsList = components.NewSessionsList(listItems, w, h)
+		p.sessionsList = components.NewSessionsList(listItems, w, h, p.colors)
 		p.currentEditID = EditModeDisabled
 		p.sessionsListReady = true
 
@@ -122,10 +132,10 @@ func (p SessionsPane) View() string {
 		editForm = p.textInput.View()
 	}
 
-	borderColor := util.NormalTabBorderColor
+	borderColor := p.colors.NormalTabBorderColor
 
 	if p.isFocused {
-		borderColor = util.ActiveTabBorderColor
+		borderColor = p.colors.ActiveTabBorderColor
 	}
 
 	return p.container.BorderForeground(borderColor).Render(
@@ -248,11 +258,11 @@ func listHeader(str ...string) string {
 		Render(str...)
 }
 
-func listItem(heading string, value string, isActive bool, widthCap int) string {
-	headingColor := util.Pink100
-	color := "#bbb"
+func (p SessionsPane) listItem(heading string, value string, isActive bool, widthCap int) string {
+	headingColor := p.colors.MainColor
+	color := p.colors.NormalTabBorderColor
 	if isActive {
-		colorValue := util.Pink200
+		colorValue := p.colors.ActiveTabBorderColor
 		color = colorValue
 		headingColor = colorValue
 	}
@@ -276,7 +286,7 @@ func (p SessionsPane) normalListView() string {
 		isCurrentSession := p.currentSessionID == session.ID
 		sessionListItems = append(
 			sessionListItems,
-			listItem(fmt.Sprint(session.ID), session.SessionName, isCurrentSession, listWidth),
+			p.listItem(fmt.Sprint(session.ID), session.SessionName, isCurrentSession, listWidth),
 		)
 	}
 

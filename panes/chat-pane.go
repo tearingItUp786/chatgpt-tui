@@ -1,11 +1,15 @@
 package panes
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wrap"
 	"github.com/tearingItUp786/chatgpt-tui/clients"
+	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
@@ -20,21 +24,35 @@ type ChatPane struct {
 	terminalWidth  int
 	terminalHeight int
 
+	colors        util.SchemeColors
 	chatContainer lipgloss.Style
 	chatView      viewport.Model
 }
 
 var chatContainerStyle = lipgloss.NewStyle().
 	Border(lipgloss.ThickBorder()).
-	BorderForeground(util.NormalTabBorderColor).
 	MarginRight(util.ChatPaneMarginRight)
 
-func NewChatPane(w, h int) ChatPane {
-	chatContainerStyle = chatContainerStyle.Copy().Width(w).Height(h)
+func NewChatPane(ctx context.Context, w, h int) ChatPane {
 	chatView := viewport.New(w, h)
 	chatView.SetContent(util.MotivationalMessage)
 	msgChan := make(chan clients.ProcessApiCompletionResponse)
+
+	config, ok := config.FromContext(ctx)
+	if !ok {
+		fmt.Println("No config found")
+		panic("No config found in context")
+	}
+	colors := config.ColorScheme.GetColors()
+
+	chatContainerStyle = chatContainerStyle.
+		Copy().
+		Width(w).
+		Height(h).
+		BorderForeground(colors.NormalTabBorderColor)
+
 	return ChatPane{
+		colors:                 colors,
 		chatContainer:          chatContainerStyle,
 		chatView:               chatView,
 		chatViewReady:          false,
@@ -69,9 +87,9 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 		p.isChatContainerFocused = msg.IsFocused
 
 		if p.isChatContainerFocused {
-			p.chatContainer.BorderForeground(util.ActiveTabBorderColor)
+			p.chatContainer.BorderForeground(p.colors.ActiveTabBorderColor)
 		} else {
-			p.chatContainer.BorderForeground(util.NormalTabBorderColor)
+			p.chatContainer.BorderForeground(p.colors.NormalTabBorderColor)
 		}
 		return p, nil
 
@@ -84,8 +102,8 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 	case sessions.ResponseChunkProcessed:
 		paneWidth := p.chatContainer.GetWidth()
 
-		oldContent := util.GetMessagesAsPrettyString(msg.PreviousMsgArray, paneWidth)
-		styledBufferMessage := util.RenderBotMessage(msg.ChunkMessage, paneWidth)
+		oldContent := util.GetMessagesAsPrettyString(msg.PreviousMsgArray, paneWidth, p.colors)
+		styledBufferMessage := util.RenderBotMessage(msg.ChunkMessage, paneWidth, p.colors)
 
 		if styledBufferMessage != "" {
 			styledBufferMessage = "\n" + styledBufferMessage
@@ -148,13 +166,13 @@ func (p ChatPane) View() string {
 }
 
 func (p ChatPane) DisplayError(error string) string {
-	return p.chatContainer.Render(util.RenderErrorMessage(error, p.chatContainer.GetWidth()))
+	return p.chatContainer.Render(util.RenderErrorMessage(error, p.chatContainer.GetWidth(), p.colors))
 }
 
 func (p ChatPane) SwitchToZenMode() {
 	w, h := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, true)
 	p.chatContainer.
-		BorderForeground(util.NormalTabBorderColor).
+		BorderForeground(p.colors.NormalTabBorderColor).
 		Width(w).
 		Height(h)
 }
@@ -162,7 +180,7 @@ func (p ChatPane) SwitchToZenMode() {
 func (p ChatPane) SwitchToNormalMode() {
 	w, h := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
 	p.chatContainer.
-		BorderForeground(util.NormalTabBorderColor).
+		BorderForeground(p.colors.NormalTabBorderColor).
 		Width(w).
 		Height(h)
 }
@@ -186,7 +204,7 @@ func (p ChatPane) initializePane(session sessions.Session) (ChatPane, tea.Cmd) {
 		p.isChatPaneReady = true
 	}
 
-	oldContent := util.GetMessagesAsPrettyString(session.Messages, paneWidth)
+	oldContent := util.GetMessagesAsPrettyString(session.Messages, paneWidth, p.colors)
 	if oldContent == "" {
 		oldContent = util.MotivationalMessage
 	}

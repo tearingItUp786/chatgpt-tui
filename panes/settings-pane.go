@@ -41,6 +41,7 @@ type SettingsPane struct {
 	settingsService *settings.SettingsService
 	spinner         spinner.Model
 	loading         bool
+	colors          util.SchemeColors
 
 	modelPicker components.ModelsList
 
@@ -60,14 +61,10 @@ var settingsListHeader = lipgloss.NewStyle().
 	MarginLeft(util.ListItemMarginLeft)
 
 var listItemHeading = lipgloss.NewStyle().
-	PaddingLeft(util.ListItemPaddingLeft).
-	Foreground(lipgloss.Color(util.Pink100))
+	PaddingLeft(util.ListItemPaddingLeft)
 
-var listItemSpan = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#fff"))
-
-var listItemSpanSelected = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#fffaaa"))
+var listItemSpan = lipgloss.NewStyle()
+var spinnerStyle = lipgloss.NewStyle()
 
 func listItemRenderer(heading string, value string) string {
 	headingEl := listItemHeading.Render
@@ -79,7 +76,7 @@ func listItemRenderer(heading string, value string) string {
 func initSpinner() spinner.Model {
 	s := spinner.New()
 	s.Spinner = spinner.Points
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(util.Pink200))
+	s.Style = spinnerStyle
 
 	return s
 }
@@ -93,13 +90,19 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 
 	settingsService = settings.NewSettingsService(db)
 	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
-	spinner := initSpinner()
 
+	colors := config.ColorScheme.GetColors()
+	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
+	listItemHeading = listItemHeading.Copy().Foreground(colors.MainColor)
+	spinnerStyle = spinnerStyle.Copy().Foreground(colors.AccentColor)
 	containerStyle := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder(), true).
-		BorderForeground(util.NormalTabBorderColor)
+		BorderForeground(colors.NormalTabBorderColor)
+
+	spinner := initSpinner()
 
 	return SettingsPane{
+		colors:          colors,
 		terminalWidth:   util.DefaultTerminalWidth,
 		mode:            viewMode,
 		container:       containerStyle,
@@ -127,9 +130,9 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		p.isFocused = msg.IsFocused
 		p.mode = viewMode
 
-		borderColor := util.NormalTabBorderColor
+		borderColor := p.colors.NormalTabBorderColor
 		if p.isFocused {
-			borderColor = util.ActiveTabBorderColor
+			borderColor = p.colors.ActiveTabBorderColor
 		}
 		p.container.BorderForeground(borderColor)
 
@@ -145,11 +148,15 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		p.spinner, cmd = p.spinner.Update(msg)
 		cmds = append(cmds, cmd)
 
+	case util.ErrorEvent:
+		p.loading = false
+		p.mode = viewMode
+
 	case settings.UpdateSettingsEvent:
 		if p.initMode {
 			p.settings = msg.Settings
 			w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
-			p.modelPicker = components.NewModelsList([]list.Item{components.ModelsListItem(msg.Settings.Model)}, w, h)
+			p.modelPicker = components.NewModelsList([]list.Item{components.ModelsListItem(msg.Settings.Model)}, w, h, p.colors)
 			p.initMode = false
 			p.loading = false
 
@@ -342,7 +349,12 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (p SettingsPane) loadModels(apiUrl string) tea.Msg {
-	availableModels := p.settingsService.GetProviderModels(apiUrl)
+	availableModels, err := p.settingsService.GetProviderModels(apiUrl)
+
+	if err != nil {
+		return util.ErrorEvent{Message: err.Error()}
+	}
+
 	return util.ModelsLoaded{Models: availableModels}
 }
 
@@ -353,5 +365,5 @@ func (p *SettingsPane) updateModelsList(models []string) {
 	}
 
 	w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
-	p.modelPicker = components.NewModelsList(modelsList, w, h)
+	p.modelPicker = components.NewModelsList(modelsList, w, h, p.colors)
 }
