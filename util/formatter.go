@@ -14,9 +14,9 @@ func GetMessagesAsPrettyString(msgsToRender []MessageToSend, w int, colors Schem
 
 		switch {
 		case message.Role == "user":
-			messageToUse = RenderUserMessage(messageToUse, w, colors)
+			messageToUse = RenderUserMessage(messageToUse, w, colors, false)
 		case message.Role == "assistant":
-			messageToUse = RenderBotMessage(messageToUse, w, colors)
+			messageToUse = RenderBotMessage(messageToUse, w, colors, false)
 		}
 
 		if messages == "" {
@@ -30,7 +30,37 @@ func GetMessagesAsPrettyString(msgsToRender []MessageToSend, w int, colors Schem
 	return messages
 }
 
-func RenderUserMessage(msg string, width int, colors SchemeColors) string {
+func GetVisualModeView(msgsToRender []MessageToSend, w int, colors SchemeColors) string {
+	var messages string
+	for _, message := range msgsToRender {
+		messageToUse := message.Content
+
+		switch {
+		case message.Role == "user":
+			messageToUse = RenderUserMessage(messageToUse, w, colors, true)
+		case message.Role == "assistant":
+			messageToUse = RenderBotMessage(messageToUse, w, colors, true)
+		}
+
+		if messages == "" {
+			messages = messageToUse
+			continue
+		}
+
+		messages = messages + "\n" + messageToUse
+	}
+
+	return messages
+}
+
+func RenderUserMessage(msg string, width int, colors SchemeColors, isVisualMode bool) string {
+	if isVisualMode {
+		msg = "\n💁 " + msg
+		userMsg, _ := glamour.Render(msg, colors.RendererTheme)
+		output := strings.TrimSpace(userMsg)
+		return lipgloss.NewStyle().Render("\n" + output + "\n")
+	}
+
 	msg = "\n💁 " + msg + "\n"
 	userMsg, _ := glamour.Render(msg, colors.RendererTheme)
 	output := strings.TrimSpace(userMsg)
@@ -54,9 +84,16 @@ func RenderErrorMessage(msg string, width int, colors SchemeColors) string {
 		Render(" ⛔ " + "Encountered error:\n" + output)
 }
 
-func RenderBotMessage(msg string, width int, colors SchemeColors) string {
+func RenderBotMessage(msg string, width int, colors SchemeColors, isVisualMode bool) string {
 	if msg == "" {
 		return ""
+	}
+
+	if isVisualMode {
+		msg = "\n🤖 " + msg
+		userMsg, _ := glamour.Render(msg, colors.RendererTheme)
+		output := strings.TrimSpace(userMsg)
+		return lipgloss.NewStyle().Render("\n" + output + "\n")
 	}
 
 	msg = "\n🤖 " + msg + "\n"

@@ -138,7 +138,7 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.Type {
 		case tea.KeyTab:
-			if m.promptPane.IsTypingInProcess() || !m.viewReady {
+			if m.promptPane.IsTypingInProcess() || m.chatPane.IsVisualMode || !m.viewReady {
 				break
 			}
 

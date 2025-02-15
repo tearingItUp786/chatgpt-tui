@@ -77,6 +77,12 @@ func CalcPromptPaneSize(tw, th int) (w, h int) {
 	return tw - PromptPanePadding, PromptPaneHeight
 }
 
+func CalcVisualModeViewSize(tw, th int) (w, h int) {
+	chatPaneWidth, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+
+	return chatPaneWidth, chatPaneHeight - DefaultElementsPadding
+}
+
 func CalcChatPaneSize(tw, th int, isZenMode bool) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		isZenMode = true
