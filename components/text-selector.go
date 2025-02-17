@@ -68,6 +68,10 @@ func (s TextSelector) Init() tea.Cmd {
 }
 
 func (s TextSelector) Update(msg tea.Msg) (TextSelector, tea.Cmd) {
+	var (
+		cmds []tea.Cmd
+	)
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		paneWidth, paneHeight := util.CalcVisualModeViewSize(msg.Width, msg.Height)
@@ -119,11 +123,12 @@ func (s TextSelector) Update(msg tea.Msg) (TextSelector, tea.Cmd) {
 			if s.Selection.Active {
 				s.copySelectedLinesToClipboard()
 				s.Selection.Active = false
+				cmds = append(cmds, util.SendCopiedToBufferMsg())
 			}
 		}
 	}
 
-	return s, nil
+	return s, tea.Batch(cmds...)
 }
 
 func (s *TextSelector) AdjustScroll() {
@@ -140,11 +145,11 @@ func (s TextSelector) View() string {
 
 func (s TextSelector) renderLines() string {
 	highlightStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFF")).
+		Foreground(s.colors.DefaultTextColor).
 		Background(s.colors.HighlightColor)
 
 	cursorStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFF")).
+		Foreground(s.colors.DefaultTextColor).
 		Background(s.colors.AccentColor)
 
 	output := ""

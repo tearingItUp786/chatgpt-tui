@@ -48,6 +48,26 @@ func GetFilteredModelList(apiUrl string, models []string) []string {
 	return modelNames
 }
 
+func GetAdditionalReqRequestHeaders(provider ApiProvider, params map[string]interface{}) map[string]interface{} {
+	switch provider {
+
+	case Local:
+		params["stream_options"] = map[string]interface{}{
+			"include_usage": true,
+		}
+		return params
+	case OpenAi:
+		params["stream_options"] = map[string]interface{}{
+			"include_usage": true,
+		}
+		return params
+	case Mistral:
+		return params
+	}
+
+	return params
+}
+
 func GetInferenceProvider(apiUrl string) ApiProvider {
 	if slices.ContainsFunc(openAiApiPrefixes, func(p string) bool {
 		return strings.Contains(apiUrl, p)

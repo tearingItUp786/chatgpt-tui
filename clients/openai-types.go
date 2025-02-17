@@ -7,12 +7,19 @@ type Choice struct {
 }
 
 type CompletionChunk struct {
-	ID               string   `json:"id"`
-	Object           string   `json:"object"`
-	Created          int      `json:"created"`
-	Model            string   `json:"model"`
-	SystemFingerpint string   `json:"system_fingerprint"`
-	Choices          []Choice `json:"choices"`
+	ID               string      `json:"id"`
+	Object           string      `json:"object"`
+	Created          int         `json:"created"`
+	Model            string      `json:"model"`
+	SystemFingerpint string      `json:"system_fingerprint"`
+	Choices          []Choice    `json:"choices"`
+	Usage            *TokenUsage `json:"usage"`
+}
+
+type TokenUsage struct {
+	Prompt     int `json:"prompt_tokens"`
+	Completion int `json:"completion_tokens"`
+	Total      int `json:"total_tokens"`
 }
 
 type CompletionResponse struct {

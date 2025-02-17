@@ -14,7 +14,8 @@ const (
 const (
 	PromptPaneHeight    = 5
 	PromptPanePadding   = 2
-	PromptPaneMarginTop = 1
+	PromptPaneMarginTop = 0
+	StatsBarPaneHeight  = 5
 
 	ChatPaneMarginRight = 1
 	SidePaneLeftPadding = 5
@@ -23,7 +24,8 @@ const (
 	// The counterweight needs to be subtracted when calculating pane sizes
 	// in order to properly align elements
 	SettingsPaneHeightCounterweight = 3
-	SessionsPaneHeightCounterweight = 5
+	SessionsPaneHeightCounterweight = 4
+	CopiedLabelCounterweght         = 8
 )
 
 // UI elements
@@ -131,7 +133,7 @@ func CalcSessionsPaneSize(tw, th int) (w, h int) {
 	}
 	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
 	sessionsPaneWidth := oneThird(tw) - SidePaneLeftPadding
-	sessionsPaneHeight := twoThirds(chatPaneHeight) - SessionsPaneHeightCounterweight
+	sessionsPaneHeight := twoThirds(chatPaneHeight) - StatsBarPaneHeight - SessionsPaneHeightCounterweight
 
 	sessionsPaneWidth = ensureNonNegative(sessionsPaneWidth)
 	sessionsPaneHeight = ensureNonNegative(sessionsPaneHeight)
@@ -145,7 +147,7 @@ func CalcSessionsListSize(tw, th int) (w, h int) {
 	}
 	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
 	sessionsPaneListWidth := oneThird(tw) - SidePaneLeftPadding
-	sessionsPaneListHeight := twoThirds(chatPaneHeight) - SessionsPaneHeightCounterweight
+	sessionsPaneListHeight := twoThirds(chatPaneHeight) - StatsBarPaneHeight - SessionsPaneHeightCounterweight
 
 	sessionsPaneListWidth = ensureNonNegative(sessionsPaneListWidth)
 	sessionsPaneListHeight = ensureNonNegative(sessionsPaneListHeight)
