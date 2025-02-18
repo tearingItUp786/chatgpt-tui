@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// `Exclusion keywords` filter out models that contain any of the specified in their names
+// `Prefixes` allow models to be used in app IF model name starts with any of the specidied
+// Theses two can be used together, but `exclusion keywords` take presedence over `prefixes`
 var (
 	openAiChatModelsPrefixes = []string{"gpt-", "o1", "o3"}
 	openAiExclusionKeywords  = []string{"audio", "realtime"}
