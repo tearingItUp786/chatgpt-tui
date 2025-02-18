@@ -7,7 +7,7 @@ import (
 
 var (
 	openAiChatModelsPrefixes = []string{"gpt-", "o1", "o3"}
-	openAiExclusionKeywords  = []string{"audio", "realtime"}
+	openAiExclusionKeywords  = []string{"audio", "realtime", "instruct"}
 
 	mistralExclusionKeywords = []string{"pixtral", "embed"}
 )

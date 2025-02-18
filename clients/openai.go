@@ -88,7 +88,9 @@ func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []util.MessageT
 	messages := []util.MessageToSend{}
 	messages = append(messages, constructSystemMessage(c.systemMessage))
 	for _, singleMessage := range chatMsgs {
-		messages = append(messages, singleMessage)
+		if singleMessage.Content != "" {
+			messages = append(messages, singleMessage)
+		}
 	}
 	log.Println("Constructing message: ", modelSettings.Model)
 
