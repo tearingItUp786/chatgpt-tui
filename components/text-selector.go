@@ -18,45 +18,45 @@ const (
 	CursorSymbol    = "~"
 )
 
-type KeyMap struct {
-	VisualLineMode key.Binding
-	Up             key.Binding
-	Down           key.Binding
-	PageUp         key.Binding
-	PageDown       key.Binding
-	Copy           key.Binding
-	Bottom         key.Binding
-	Top            key.Binding
+type keyMap struct {
+	visualLineMode key.Binding
+	up             key.Binding
+	down           key.Binding
+	pageUp         key.Binding
+	pageDown       key.Binding
+	copy           key.Binding
+	bottom         key.Binding
+	top            key.Binding
 }
 
-var DefaultKeyMap = KeyMap{
-	VisualLineMode: key.NewBinding(key.WithKeys("V", "v", tea.KeySpace.String()), key.WithHelp("V, v, <space>", "visual line mode")),
-	Up:             key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
-	Down:           key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
-	PageUp:         key.NewBinding(key.WithKeys("ctrl+u", "u"), key.WithHelp("ctrl+u", "move up a page")),
-	PageDown:       key.NewBinding(key.WithKeys("ctrl+d", "d"), key.WithHelp("ctrl+d", "move down a page")),
-	Copy:           key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy selection")),
-	Bottom:         key.NewBinding(key.WithKeys("G"), key.WithHelp("G", "go to bottom")),
-	Top:            key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "go to top")),
+var defaultKeyMap = keyMap{
+	visualLineMode: key.NewBinding(key.WithKeys("V", "v", tea.KeySpace.String()), key.WithHelp("V, v, <space>", "visual line mode")),
+	up:             key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
+	down:           key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
+	pageUp:         key.NewBinding(key.WithKeys("ctrl+u", "u"), key.WithHelp("ctrl+u", "move up a page")),
+	pageDown:       key.NewBinding(key.WithKeys("ctrl+d", "d"), key.WithHelp("ctrl+d", "move down a page")),
+	copy:           key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy selection")),
+	bottom:         key.NewBinding(key.WithKeys("G"), key.WithHelp("G", "go to bottom")),
+	top:            key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "go to top")),
 }
 
-type Cursor struct {
+type cursor struct {
 	line int
 }
 
-type Selection struct {
+type selection struct {
 	Active bool
-	anchor Cursor
+	anchor cursor
 }
 
 type TextSelector struct {
-	Selection    Selection
+	Selection    selection
 	lines        []string
-	cursor       Cursor
+	cursor       cursor
 	scrollOffset int
 	paneHeight   int
 	paneWidth    int
-	keys         KeyMap
+	keys         keyMap
 	renderedText string
 	colors       util.SchemeColors
 
@@ -87,31 +87,31 @@ func (s TextSelector) Update(msg tea.Msg) (TextSelector, tea.Cmd) {
 
 		switch {
 
-		case key.Matches(msg, s.keys.PageUp):
+		case key.Matches(msg, s.keys.pageUp):
 			upLines := s.paneHeight / 2
 			s.cursor.line = max(s.cursor.line-upLines, s.firstLinePosition())
 			s.AdjustScroll()
 
-		case key.Matches(msg, s.keys.Up):
+		case key.Matches(msg, s.keys.up):
 			s = s.handleKeyUp()
 
-		case key.Matches(msg, s.keys.Down):
+		case key.Matches(msg, s.keys.down):
 			s = s.handleKeyDown()
 
-		case key.Matches(msg, s.keys.PageDown):
+		case key.Matches(msg, s.keys.pageDown):
 			downLines := s.paneHeight / 2
 			s.cursor.line = min(s.cursor.line+downLines, s.lastLinePosition())
 			s.AdjustScroll()
 
-		case key.Matches(msg, s.keys.Bottom):
+		case key.Matches(msg, s.keys.bottom):
 			s.cursor.line = s.lastLinePosition()
 			s.AdjustScroll()
 
-		case key.Matches(msg, s.keys.Top):
+		case key.Matches(msg, s.keys.top):
 			s.cursor.line = s.firstLinePosition()
 			s.AdjustScroll()
 
-		case key.Matches(msg, s.keys.VisualLineMode):
+		case key.Matches(msg, s.keys.visualLineMode):
 			if s.Selection.Active {
 				s.Selection.Active = false
 			} else {
@@ -119,7 +119,7 @@ func (s TextSelector) Update(msg tea.Msg) (TextSelector, tea.Cmd) {
 				s.Selection.anchor = s.cursor
 			}
 
-		case key.Matches(msg, s.keys.Copy):
+		case key.Matches(msg, s.keys.copy):
 			if s.Selection.Active {
 				s.copySelectedLinesToClipboard()
 				s.Selection.Active = false
@@ -294,12 +294,12 @@ func NewTextSelector(w, h int, scrollPos int, sessionData string, colors util.Sc
 
 	state := TextSelector{
 		lines:        lines,
-		cursor:       Cursor{line: pos},
-		Selection:    Selection{Active: false},
+		cursor:       cursor{line: pos},
+		Selection:    selection{Active: false},
 		scrollOffset: scrollPos,
 		paneHeight:   viewHeight,
 		paneWidth:    viewWidth,
-		keys:         DefaultKeyMap,
+		keys:         defaultKeyMap,
 		renderedText: sessionData,
 		numberLines:  0,
 		colors:       colors,
