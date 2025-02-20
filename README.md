@@ -48,6 +48,13 @@ Additional fields:
  - `systemMessage` field is available for customizing system prompt messages.
  - `defaultModel` field sets the default model (recommended to set when not using ChatGPT)
 
+## Cache invalidation
+
+Models list is cached for 14 days upon loading. If you need to invalidate cache use `--purge-cache` flag:
+```bash
+./chatgpt-tui --purge-cache
+```
+
 ## Demo
 
 ![tui demo](./tui-demo.gif)
@@ -76,7 +83,7 @@ Additional fields:
 
 Selection mode allows to navigate the chat pane and select lines to copy. Supports basic vim-motions.  
 
-<b>Navigation:</b>
+<b>Navigation</b>
  - `j`, `k` - go down and up a line
    - Multiline jumps like `3j` (3 lines down), `99k` (99 lines up) are also supported
  - `d`, `u`, `Ctrl+d`, `Ctrl+u` - go up or down half page
@@ -104,7 +111,7 @@ Selection mode allows to navigate the chat pane and select lines to copy. Suppor
 ## Info pane
 
 Information pane displays processing state of inference (`IDLE`, `PROCESSING`) as well as token stats for the current session:
- - `IN`: shows the total amount of input token LLM consumed per session
+ - `IN`: shows the total amount of input tokens LLM consumed per session
  - `OUT`: shows the total amount of output tokens LLM produced per session
 
 Please refer to this guide as you navigate the TUI. Happy exploring!

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -16,7 +17,15 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/views"
 )
 
+var purgeCache bool
+
+func init() {
+	flag.BoolVar(&purgeCache, "purge-cache", false, "Invalidate models cache")
+}
+
 func main() {
+	flag.Parse()
+
 	env := os.Getenv("FOO_ENV")
 	if "" == env {
 		env = "development"
@@ -58,6 +67,15 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
+
+	if purgeCache {
+		err = util.PurgeModelsCache(db)
+		if err != nil {
+			log.Println("Failed to purge models cache:", err)
+		} else {
+			log.Println("Models cache invalidated")
+		}
+	}
 
 	ctx := context.Background()
 	ctxWithConfig := config.WithConfig(ctx, &configToUse)
