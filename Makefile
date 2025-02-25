@@ -22,7 +22,7 @@ release-dry-run:
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \
 		-w /go/src/$(PACKAGE_NAME) \
-		ghcr.io/goreleaser/goreleaser-cross:v1.22.1 \
+		ghcr.io/goreleaser/goreleaser-cross:v1.24-v2.7.0 \
 		--clean --skip-validate --skip-publish
 
 .PHONY: release
@@ -43,7 +43,7 @@ release:
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \
 		-w /go/src/$(PACKAGE_NAME) \
-		ghcr.io/goreleaser/goreleaser-cross:v1.22.1 \
+		ghcr.io/goreleaser/goreleaser-cross:v1.24-v2.7.0 \
 		release --clean
 
 
@@ -77,5 +77,5 @@ release-candidate:
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \
 		-w /go/src/$(PACKAGE_NAME) \
-		ghcr.io/goreleaser/goreleaser-cross:v1.22.1 \
+		ghcr.io/goreleaser/goreleaser-cross:v1.24-v2.7.0 \
 		release --clean --config=.goreleaser-rc.yaml
