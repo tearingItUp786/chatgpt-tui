@@ -1,6 +1,5 @@
 name: release
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -27,8 +26,6 @@ jobs:
     if: needs.check-tag.outputs.proceed == 'stable'
     runs-on: ubuntu-latest
     steps:
-      - name: Set environment variable
-        run: echo "GOLANG_CROSS_VERSION=v1.22.1" >> $GITHUB_ENV
       - name: checkout code
         uses: actions/checkout@v2
         with:
@@ -54,8 +51,6 @@ jobs:
     if: needs.check-tag.outputs.proceed == 'candidate'
     runs-on: ubuntu-latest
     steps:
-      - name: Set environment variable
-        run: echo "GOLANG_CROSS_VERSION=v1.22.1" >> $GITHUB_ENV
       - name: checkout code
         uses: actions/checkout@v2
         with:
