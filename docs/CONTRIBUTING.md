@@ -36,5 +36,5 @@ for example, the github action is failing, you can try the following (after diag
 
 1. Delete the tag locally: `git tag -d v<your-version>-rc`
 2. Delete the tag on [github](https://github.com/tearingItUp786/chatgpt-tui/releases/tag)
-3. Run the release workflow again and it should work
+3. Run through the `Cutting a release` steps again as outlined above.
 
