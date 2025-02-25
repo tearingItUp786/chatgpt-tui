@@ -8,8 +8,8 @@ CREATE TABLE settings (
 );
 
 INSERT INTO settings 
-(settings_model, settings_max_tokens, settings_frequency) 
-VALUES ('gpt-3.5-turbo', 300.0, 0.0); -- Assuming you want to store 300 as a floating-point number
+(settings_id, settings_model, settings_max_tokens, settings_frequency) 
+VALUES (0, 'gpt-3.5-turbo', 300.0, 0.0); -- Assuming you want to store 300 as a floating-point number
 
 -- +goose StatementEnd
 -- +goose Down

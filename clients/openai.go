@@ -31,7 +31,7 @@ func NewOpenAiClient(apiUrl, systemMessage string) *OpenAiClient {
 }
 
 func (c OpenAiClient) RequestCompletion(
-	chatMsgs []MessageToSend,
+	chatMsgs []util.MessageToSend,
 	modelSettings util.Settings,
 	resultChan chan ProcessApiCompletionResponse,
 ) tea.Cmd {
@@ -67,22 +67,22 @@ func (c OpenAiClient) RequestModelsList() ProcessModelsResponse {
 	return processModelsListResponse(resp)
 }
 
-func ConstructUserMessage(content string) MessageToSend {
-	return MessageToSend{
+func ConstructUserMessage(content string) util.MessageToSend {
+	return util.MessageToSend{
 		Role:    "user",
 		Content: content,
 	}
 }
 
-func constructSystemMessage(content string) MessageToSend {
-	return MessageToSend{
+func constructSystemMessage(content string) util.MessageToSend {
+	return util.MessageToSend{
 		Role:    "system",
 		Content: content,
 	}
 }
 
-func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []MessageToSend, modelSettings util.Settings) ([]byte, error) {
-	messages := []MessageToSend{}
+func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []util.MessageToSend, modelSettings util.Settings) ([]byte, error) {
+	messages := []util.MessageToSend{}
 	messages = append(messages, constructSystemMessage(c.systemMessage))
 	for _, singleMessage := range chatMsgs {
 		messages = append(messages, singleMessage)
@@ -221,4 +221,13 @@ func processChunk(chunkData string, id int) ProcessApiCompletionResponse {
 	}
 
 	return ProcessApiCompletionResponse{ID: id, Result: chunk, Err: nil}
+}
+
+func (m ModelsListResponse) GetModelNames() []string {
+	var modelNames []string
+	for _, model := range m.Data {
+		modelNames = append(modelNames, model.Id)
+	}
+
+	return modelNames
 }

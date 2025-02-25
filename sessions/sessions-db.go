@@ -4,13 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 type Session struct {
 	ID          int
-	Messages    []clients.MessageToSend
+	Messages    []util.MessageToSend
 	CreatedAt   string
 	SessionName string
 }
@@ -37,7 +36,7 @@ SELECT sessions_id, sessions_messages, sessions_created_at, sessions_session_nam
 	// so we create a latest sesion
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ss.InsertNewSession("default", []clients.MessageToSend{})
+			return ss.InsertNewSession("default", []util.MessageToSend{})
 		} else {
 			// An error occurred that isn't due to no rows being found
 			return Session{}, err
@@ -106,7 +105,7 @@ func (ss *SessionService) GetAllSessions() ([]Session, error) {
 	return sessions, nil
 }
 
-func (ss *SessionService) UpdateSessionMessages(id int, messages []clients.MessageToSend) error {
+func (ss *SessionService) UpdateSessionMessages(id int, messages []util.MessageToSend) error {
 	jsonData, err := json.Marshal(messages)
 	if err != nil {
 		return err
@@ -139,13 +138,13 @@ func (ss *SessionService) UpdateSessionName(id int, name string) error {
 	return nil
 }
 
-func (ss *SessionService) InsertNewSession(name string, messages []clients.MessageToSend) (Session, error) {
+func (ss *SessionService) InsertNewSession(name string, messages []util.MessageToSend) (Session, error) {
 	// No session found, create a new one
 	newSession := Session{
 		// Initialize your session fields as needed
 		// ID will be set by the database if using auto-increment
-		SessionName: name,                      // Set a default or generate a name
-		Messages:    []clients.MessageToSend{}, // Assuming Messages is a slice of Message
+		SessionName: name,                   // Set a default or generate a name
+		Messages:    []util.MessageToSend{}, // Assuming Messages is a slice of Message
 	}
 
 	insertSQL := `INSERT INTO sessions (sessions_session_name, sessions_messages) VALUES (?, ?);`

@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	titleStyle        = lipgloss.NewStyle().MarginLeft(-2)
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(2)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(-2).Foreground(lipgloss.Color(util.Pink200))
-	activeItemStyle   = itemStyle.Copy().Foreground(lipgloss.Color(util.Pink300))
+	itemStyle         = lipgloss.NewStyle().PaddingLeft(util.ListItemPaddingLeft)
+	selectedItemStyle = lipgloss.
+				NewStyle().
+				PaddingLeft(util.ListRightShiftedItemPadding)
+	activeItemStyle = itemStyle.Copy()
 )
 
 type SessionListItem struct {
@@ -26,9 +27,7 @@ type SessionListItem struct {
 }
 
 type SessionsList struct {
-	list     list.Model
-	choice   string
-	quitting bool
+	list list.Model
 }
 
 func (i SessionListItem) FilterValue() string { return "" }
@@ -51,6 +50,7 @@ func (d sessionItemDelegate) Render(w io.Writer, m list.Model, index int, listIt
 	}
 
 	str := fmt.Sprintf("%s", i.Text)
+	str = util.TrimListItem(str, m.Width())
 
 	fn := itemStyle.Render
 	selectedRender := selectedItemStyle.Render
@@ -78,29 +78,43 @@ func (l *SessionsList) SetItems(items []list.Item) {
 	l.list.SetItems(items)
 }
 
+func (l *SessionsList) SetSize(w, h int) {
+	l.list.SetWidth(w)
+	l.list.SetHeight(h)
+}
+
+func (l SessionsList) GetWidth() int {
+	return l.list.Width()
+}
+
 func (l SessionsList) Update(msg tea.Msg) (SessionsList, tea.Cmd) {
 	var cmd tea.Cmd
 	l.list, cmd = l.list.Update(msg)
 	return l, cmd
 }
 
-func NewSessionsList(items []list.Item) SessionsList {
-	defaultWidth := 20
-	listHeight := 5
+func NewSessionsList(items []list.Item, w, h int, colors util.SchemeColors) SessionsList {
+	l := list.New(items, sessionItemDelegate{}, w, h)
 
-	l := list.New(items, sessionItemDelegate{}, defaultWidth, listHeight)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
-	l.Styles.Title = titleStyle
+	l.DisableQuitKeybindings()
+
+	selectedItemStyle = selectedItemStyle.Copy().Foreground(colors.AccentColor)
+	activeItemStyle = activeItemStyle.Copy().Foreground(colors.HighlightColor)
 
 	return SessionsList{
 		list: l,
 	}
 }
 
-func (l *SessionsList) EditListView(terminalHeight int) string {
-	l.list.SetHeight(terminalHeight - 22)
-	return lipgloss.NewStyle().MaxHeight(terminalHeight - 22).PaddingLeft(2).Render(l.list.View())
+func (l *SessionsList) EditListView(paneHeight int) string {
+	l.list.SetHeight(paneHeight)
+	return lipgloss.
+		NewStyle().
+		MaxHeight(paneHeight).
+		PaddingLeft(util.DefaultElementsPadding).
+		Render(l.list.View())
 }

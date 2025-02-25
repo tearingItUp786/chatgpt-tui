@@ -7,10 +7,11 @@ import (
 
 type UpdateSettingsEvent struct {
 	Settings util.Settings
+	Err      error
 }
 
-func MakeSettingsUpdateMsg(s util.Settings) tea.Cmd {
+func MakeSettingsUpdateMsg(s util.Settings, err error) tea.Cmd {
 	return func() tea.Msg {
-		return UpdateSettingsEvent{Settings: s}
+		return UpdateSettingsEvent{Settings: s, Err: err}
 	}
 }
