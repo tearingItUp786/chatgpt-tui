@@ -1,6 +1,5 @@
-# This version variable is not working with the github action
-# so we're manuall setting the value
-# GOLANG_CROSS_VERSION  := v1.22.1
+PACKAGE_NAME          := github.com/goreleaser/goreleaser-cross-example
+GOLANG_CROSS_VERSION  := v1.22.1
 
 SYSROOT_DIR     ?= sysroots
 SYSROOT_ARCHIVE ?= sysroots.tar.bz2
@@ -22,7 +21,7 @@ release-dry-run:
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \
 		-w /go/src/$(PACKAGE_NAME) \
-		ghcr.io/goreleaser/goreleaser-cross:v1.24-v2.7.0 \
+		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		--clean --skip-validate --skip-publish
 
 .PHONY: release
@@ -43,7 +42,7 @@ release:
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \
 		-w /go/src/$(PACKAGE_NAME) \
-		ghcr.io/goreleaser/goreleaser-cross:v1.24-v2.7.0 \
+		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean
 
 
@@ -56,7 +55,7 @@ release-candidate-dry-run:
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \
 		-w /go/src/$(PACKAGE_NAME) \
-		ghcr.io/goreleaser/goreleaser-cross:v1.22.1 \
+		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		--clean --skip-validate --skip-publish --config=.goreleaser-rc.yaml
 
 .PHONY: release-candidate
@@ -77,5 +76,5 @@ release-candidate:
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \
 		-w /go/src/$(PACKAGE_NAME) \
-		ghcr.io/goreleaser/goreleaser-cross:v1.24-v2.7.0 \
+		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean --config=.goreleaser-rc.yaml
