@@ -9,6 +9,8 @@ jobs:
     outputs:
       proceed: ${{ steps.tag-checker.outputs.proceed }}
     steps:
+      - name: Set environment variable
+        run: echo "GOLANG_CROSS_VERSION=v1.22.1" >> $GITHUB_ENV
       - name: Check for RC in tag
         id: tag-checker
         run: |
