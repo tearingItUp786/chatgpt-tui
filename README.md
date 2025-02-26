@@ -83,7 +83,7 @@ Models list is cached for 14 days upon loading. If you need to invalidate cache 
 
 ### Selection mode
 
-![selection demo](./selection-mode.gif)
+![selection demo](./docs/images/selection-mode.gif)
 
 Selection mode allows to navigate the chat pane and select lines to copy. Supports basic vim-motions.  
 
