@@ -83,7 +83,7 @@ func main() {
 	p := tea.NewProgram(
 		views.NewMainView(db, ctxWithConfig),
 		tea.WithAltScreen(),
-		// tea.WithMouseCellMotion(), // turn on mouse support so we can track the mouse wheel
+		tea.WithMouseCellMotion(),
 	)
 	_, err = p.Run()
 	if err != nil {
