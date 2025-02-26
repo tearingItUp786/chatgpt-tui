@@ -46,7 +46,11 @@ specified as `chatGPTApiUrl: "https://api.openai.com"`.
 The url can be anything that follows OpenAI API standard ( [ollama](https://ollama.com/), [lmstudio](https://lmstudio.ai/), etc)
 Additional fields:
  - `systemMessage` field is available for customizing system prompt messages.
- - `defaultModel` field sets the default model (recommended to set when not using ChatGPT)
+ - `defaultModel` field sets the default model 
+
+### Themes
+You can change colorscheme using the `colorScheme` field.
+Possible options are `Pink` and `Blue`. Default colorscheme is `Pink`
 
 ## Cache invalidation
 
@@ -57,7 +61,7 @@ Models list is cached for 14 days upon loading. If you need to invalidate cache 
 
 ## Demo
 
-![tui demo](./tui-demo.gif)
+![tui demo](./docs/images/tui-demo.gif)
 
 ## Global Keybindings
 

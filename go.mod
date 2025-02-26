@@ -1,6 +1,6 @@
 module github.com/tearingItUp786/chatgpt-tui
 
-go 1.21
+go 1.22.1
 
 require (
 	github.com/atotto/clipboard v0.1.4
