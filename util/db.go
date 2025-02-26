@@ -113,6 +113,11 @@ func MigrateFS(db *sql.DB, migrationsFS fs.FS, dir string) error {
 	return migrate(db, dir)
 }
 
+func PurgeModelsCache(db *sql.DB) error {
+	_, err := db.Exec("delete from models")
+	return err
+}
+
 func checkErr(err error) {
 	if err != nil {
 		Log(err)

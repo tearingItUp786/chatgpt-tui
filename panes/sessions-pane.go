@@ -28,6 +28,7 @@ type SessionsPane struct {
 	userService      *user.UserService
 	container        lipgloss.Style
 	colors           util.SchemeColors
+	currentSession   sessions.Session
 
 	sessionsListReady  bool
 	currentSessionID   int
@@ -76,6 +77,7 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 	dKeyPressed := false
 	switch msg := msg.(type) {
 	case sessions.LoadDataFromDB:
+		p.currentSession = msg.Session
 		p.sessionsListData = msg.AllSessions
 		p.currentSessionID = msg.CurrentActiveSessionID
 		listItems := constructSessionsListItems(msg.AllSessions, msg.CurrentActiveSessionID)
@@ -96,6 +98,15 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		if p.sessionsListReady {
 			width, height = util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
 			p.sessionsList.SetSize(width, height)
+		}
+
+	case util.ProcessingStateChanged:
+		if !msg.IsProcessing {
+			session, err := p.sessionService.GetSession(p.currentSessionID)
+			if err != nil {
+				util.MakeErrorMsg(err.Error())
+			}
+			cmds = append(cmds, p.handleUpdateCurrentSession(session))
 		}
 
 	case tea.KeyMsg:
@@ -140,7 +151,7 @@ func (p SessionsPane) View() string {
 
 	return p.container.BorderForeground(borderColor).Render(
 		lipgloss.JoinVertical(lipgloss.Left,
-			listHeader("Sessions"),
+			p.listHeader("Sessions"),
 			listView,
 			editForm,
 		),
@@ -165,6 +176,7 @@ func (p *SessionsPane) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 		i, ok := p.sessionsList.GetSelectedItem()
 		if ok {
 			session, err := p.sessionService.GetSession(i.Id)
+			p.currentSessionID = i.Id
 			if err != nil {
 				util.MakeErrorMsg(err.Error())
 			}
@@ -199,6 +211,7 @@ func (p *SessionsPane) handleCurrentNormalMode(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (p *SessionsPane) handleUpdateCurrentSession(session sessions.Session) tea.Cmd {
+	p.currentSession = session
 	p.userService.UpdateUserCurrentActiveSession(1, session.ID)
 
 	p.currentSessionID = session.ID
@@ -250,10 +263,12 @@ func (p *SessionsPane) updateSessionsList() {
 	p.sessionsList.SetItems(items)
 }
 
-func listHeader(str ...string) string {
+func (p SessionsPane) listHeader(str ...string) string {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
+		Bold(true).
+		Foreground(p.colors.DefaultTextColor).
 		MarginLeft(util.ListItemMarginLeft).
 		Render(str...)
 }

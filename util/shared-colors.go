@@ -29,7 +29,7 @@ var (
 	pinkYellow = "#e3b89f"
 	cyan       = "#c3f7f5"
 	lightGreen = "#a0d390"
-	lightRed   = "#d390a0"
+	blue       = "#6b81c5"
 )
 
 type SchemeColors struct {
@@ -60,7 +60,7 @@ func (s ColorScheme) GetColors() SchemeColors {
 		return SchemeColors{
 			MainColor:            lipgloss.Color(pinkYellow),
 			AccentColor:          lipgloss.Color(lightGreen),
-			HighlightColor:       lipgloss.Color(lightRed),
+			HighlightColor:       lipgloss.Color(blue),
 			DefaultTextColor:     lipgloss.Color(white),
 			ErrorColor:           lipgloss.Color(red),
 			NormalTabBorderColor: lipgloss.Color(smoothBlue),

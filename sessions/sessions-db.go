@@ -8,10 +8,12 @@ import (
 )
 
 type Session struct {
-	ID          int
-	Messages    []util.MessageToSend
-	CreatedAt   string
-	SessionName string
+	ID               int
+	Messages         []util.MessageToSend
+	CreatedAt        string
+	SessionName      string
+	PromptTokens     int
+	CompletionTokens int
 }
 
 type SessionService struct {
@@ -54,7 +56,7 @@ SELECT sessions_id, sessions_messages, sessions_created_at, sessions_session_nam
 func (ss *SessionService) GetSession(id int) (Session, error) {
 	var messages string
 	rows, err := ss.DB.Query(
-		`SELECT sessions_id, sessions_messages, sessions_created_at, sessions_session_name FROM sessions WHERE sessions_id=$1`,
+		`SELECT sessions_id, sessions_messages, sessions_created_at, sessions_session_name, prompt_tokens, completion_tokens FROM sessions WHERE sessions_id=$1`,
 		id,
 	)
 	if err != nil {
@@ -67,7 +69,7 @@ func (ss *SessionService) GetSession(id int) (Session, error) {
 	aSession := Session{}
 	if rows.Next() {
 		// Check for errors from Scan.
-		if err := rows.Scan(&aSession.ID, &messages, &aSession.CreatedAt, &aSession.SessionName); err != nil {
+		if err := rows.Scan(&aSession.ID, &messages, &aSession.CreatedAt, &aSession.SessionName, &aSession.PromptTokens, &aSession.CompletionTokens); err != nil {
 			return Session{}, err
 		}
 	} else {
@@ -89,7 +91,7 @@ func (ss *SessionService) GetSession(id int) (Session, error) {
 // get me all the sessions
 func (ss *SessionService) GetAllSessions() ([]Session, error) {
 	rows, err := ss.DB.Query(
-		`SELECT sessions_id,  sessions_created_at, sessions_session_name FROM sessions ORDER BY sessions_id DESC`,
+		`SELECT sessions_id,  sessions_created_at, sessions_session_name, prompt_tokens, completion_tokens FROM sessions ORDER BY sessions_id DESC`,
 	)
 	if err != nil {
 		return []Session{}, err
@@ -97,7 +99,7 @@ func (ss *SessionService) GetAllSessions() ([]Session, error) {
 	sessions := []Session{}
 	for rows.Next() {
 		aSession := Session{}
-		rows.Scan(&aSession.ID, &aSession.CreatedAt, &aSession.SessionName)
+		rows.Scan(&aSession.ID, &aSession.CreatedAt, &aSession.SessionName, &aSession.PromptTokens, &aSession.CompletionTokens)
 		sessions = append(sessions, aSession)
 	}
 	defer rows.Close()
@@ -116,6 +118,23 @@ func (ss *SessionService) UpdateSessionMessages(id int, messages []util.MessageT
 			SET sessions_messages  = $1
 			where sessions_id = $2
 	`, jsonData, id)
+
+	if err != nil {
+		// TODO: handle better
+		util.Log("I panic here")
+		panic(err)
+	}
+	return nil
+}
+
+func (ss *SessionService) UpdateSessionTokens(id int, promptTokens, completionTokens int) error {
+	_, err := ss.DB.Exec(`
+			UPDATE sessions
+			SET 
+				prompt_tokens = prompt_tokens + $1,
+				completion_tokens = completion_tokens + $2
+			WHERE sessions_id = $3
+	`, promptTokens, completionTokens, id)
 
 	if err != nil {
 		// TODO: handle better

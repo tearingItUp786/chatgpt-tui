@@ -19,11 +19,14 @@ import (
 type OpenAiClient struct {
 	apiUrl        string
 	systemMessage string
+	provider      util.ApiProvider
 	client        http.Client
 }
 
 func NewOpenAiClient(apiUrl, systemMessage string) *OpenAiClient {
+	provider := util.GetInferenceProvider(apiUrl)
 	return &OpenAiClient{
+		provider:      provider,
 		apiUrl:        apiUrl,
 		systemMessage: systemMessage,
 		client:        http.Client{},
@@ -85,17 +88,22 @@ func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []util.MessageT
 	messages := []util.MessageToSend{}
 	messages = append(messages, constructSystemMessage(c.systemMessage))
 	for _, singleMessage := range chatMsgs {
-		messages = append(messages, singleMessage)
+		if singleMessage.Content != "" {
+			messages = append(messages, singleMessage)
+		}
 	}
 	log.Println("Constructing message: ", modelSettings.Model)
-	// log.Println("Messages: ", messages)
-	body, err := json.Marshal(map[string]interface{}{
+
+	reqParams := map[string]interface{}{
 		"model":             modelSettings.Model, // Use string literals for keys
 		"frequency_penalty": modelSettings.Frequency,
 		"max_tokens":        modelSettings.MaxTokens,
 		"stream":            true,
 		"messages":          messages,
-	})
+	}
+	util.GetAdditionalReqRequestHeaders(c.provider, reqParams)
+
+	body, err := json.Marshal(reqParams)
 	if err != nil {
 		log.Fatalf("Error marshaling JSON: %v", err)
 		return nil, err

@@ -102,6 +102,8 @@ func NewSessionsList(items []list.Item, w, h int, colors util.SchemeColors) Sess
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
 
+	l.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(colors.HighlightColor).Render("■")
+	l.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render("•")
 	selectedItemStyle = selectedItemStyle.Copy().Foreground(colors.AccentColor)
 	activeItemStyle = activeItemStyle.Copy().Foreground(colors.HighlightColor)
 
