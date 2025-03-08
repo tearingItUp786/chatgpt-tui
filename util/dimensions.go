@@ -12,10 +12,11 @@ const (
 
 // Panes
 const (
-	PromptPaneHeight    = 5
-	PromptPanePadding   = 2
-	PromptPaneMarginTop = 0
-	StatsBarPaneHeight  = 5
+	PromptPaneHeight      = 5
+	PromptPanePadding     = 2
+	PromptPaneMarginTop   = 0
+	StatsBarPaneHeight    = 5
+	EditModeUiElementsSum = 4
 
 	ChatPaneMarginRight = 1
 	SidePaneLeftPadding = 5
@@ -25,7 +26,7 @@ const (
 	// in order to properly align elements
 	SettingsPaneHeightCounterweight = 3
 	SessionsPaneHeightCounterweight = 4
-	CopiedLabelCounterweght         = 8
+	NotificationLabelCounterweght   = 8
 )
 
 // UI elements
@@ -75,27 +76,45 @@ func ensureNonNegative(number int) int {
 	return number
 }
 
-func CalcPromptPaneSize(tw, th int) (w, h int) {
-	return tw - PromptPanePadding, PromptPaneHeight
+func CalcPromptPaneSize(tw, th int, isTextEditMode bool) (w, h int) {
+	if !isTextEditMode {
+		return tw - PromptPanePadding, PromptPaneHeight
+	}
+
+	paneHeight := oneThird(th)
+	return tw - PromptPanePadding, paneHeight
 }
 
 func CalcVisualModeViewSize(tw, th int) (w, h int) {
-	chatPaneWidth, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	chatPaneWidth, chatPaneHeight := CalcChatPaneSize(tw, th, NormalMode)
 
-	return chatPaneWidth, chatPaneHeight - DefaultElementsPadding
+	return chatPaneWidth, chatPaneHeight - 1
 }
 
-func CalcChatPaneSize(tw, th int, isZenMode bool) (w, h int) {
-	if tw < WidthMinScalingLimit {
-		isZenMode = true
-	}
+func CalcChatPaneSize(tw, th int, mode ViewMode) (w, h int) {
+	isSmallScale := tw < WidthMinScalingLimit
 
-	paneWidth := twoThirds(tw)
-	if isZenMode {
+	var (
+		paneWidth  int
+		paneHeight int
+	)
+
+	switch mode {
+	case NormalMode:
+		paneHeight = th - PromptPaneHeight
+		if isSmallScale {
+			paneWidth = tw - DefaultElementsPadding
+		} else {
+			paneWidth = twoThirds(tw)
+		}
+	case ZenMode:
+		paneHeight = th - PromptPaneHeight
+		paneWidth = tw - DefaultElementsPadding
+	case TextEditMode:
+		paneHeight = twoThirds(th) - EditModeUiElementsSum
 		paneWidth = tw - DefaultElementsPadding
 	}
 
-	paneHeight := th - PromptPaneHeight
 	return paneWidth, paneHeight
 }
 
@@ -103,7 +122,7 @@ func CalcSettingsPaneSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
-	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	_, chatPaneHeight := CalcChatPaneSize(tw, th, NormalMode)
 	settingsPaneWidth := oneThird(tw) - SidePaneLeftPadding
 	settingsPaneHeight := oneThird(chatPaneHeight) - SettingsPaneHeightCounterweight
 
@@ -131,7 +150,7 @@ func CalcSessionsPaneSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
-	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	_, chatPaneHeight := CalcChatPaneSize(tw, th, NormalMode)
 	sessionsPaneWidth := oneThird(tw) - SidePaneLeftPadding
 	sessionsPaneHeight := twoThirds(chatPaneHeight) - StatsBarPaneHeight - SessionsPaneHeightCounterweight
 
@@ -145,7 +164,7 @@ func CalcSessionsListSize(tw, th int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
-	_, chatPaneHeight := CalcChatPaneSize(tw, th, false)
+	_, chatPaneHeight := CalcChatPaneSize(tw, th, NormalMode)
 	sessionsPaneListWidth := oneThird(tw) - SidePaneLeftPadding
 	sessionsPaneListHeight := twoThirds(chatPaneHeight) - StatsBarPaneHeight - SessionsPaneHeightCounterweight
 

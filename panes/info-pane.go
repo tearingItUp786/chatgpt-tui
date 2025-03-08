@@ -16,6 +16,7 @@ import (
 
 const (
 	copiedLabelText     = "Copied"
+	cancelledLabelText  = "Stopped"
 	idleLabelText       = "IDLE"
 	processingLabelText = "Processing"
 )
@@ -39,12 +40,13 @@ type InfoPane struct {
 	processingActiveLabel lipgloss.Style
 	promptTokensLablel    lipgloss.Style
 	completionTokensLabel lipgloss.Style
-	copiedLabel           lipgloss.Style
+	notificationLabel     lipgloss.Style
 
-	showCopyLabel  bool
-	isProcessing   bool
-	terminalWidth  int
-	terminalHeight int
+	showNotification bool
+	notification     util.Notification
+	isProcessing     bool
+	terminalWidth    int
+	terminalHeight   int
 }
 
 func NewInfoPane(db *sql.DB, ctx context.Context) InfoPane {
@@ -71,7 +73,7 @@ func NewInfoPane(db *sql.DB, ctx context.Context) InfoPane {
 	completionTokensLabel := defaultLabelStyle.Copy().
 		BorderLeftForeground(colors.ActiveTabBorderColor).
 		Foreground(colors.DefaultTextColor)
-	copiedLabel := defaultLabelStyle.Copy().
+	notificationLabel := defaultLabelStyle.Copy().
 		Background(colors.NormalTabBorderColor).
 		BorderLeftForeground(colors.HighlightColor).
 		Foreground(colors.DefaultTextColor)
@@ -81,7 +83,7 @@ func NewInfoPane(db *sql.DB, ctx context.Context) InfoPane {
 		processingActiveLabel: processingActiveLabel,
 		promptTokensLablel:    promptTokensLablel,
 		completionTokensLabel: completionTokensLabel,
-		copiedLabel:           copiedLabel,
+		notificationLabel:     notificationLabel,
 
 		spinner:        spinner,
 		colors:         colors,
@@ -126,12 +128,13 @@ func (p InfoPane) Update(msg tea.Msg) (InfoPane, tea.Cmd) {
 		p.spinner, cmd = p.spinner.Update(msg)
 		cmds = append(cmds, cmd)
 
-	case util.CopiedToBufferMsg:
-		p.showCopyLabel = true
+	case util.NotificationMsg:
+		p.notification = msg.Notification
+		p.showNotification = true
 		cmds = append(cmds, tickAfter2Sec())
 
 	case tickMsg:
-		p.showCopyLabel = false
+		p.showNotification = false
 
 	case util.ProcessingStateChanged:
 		p.isProcessing = msg.IsProcessing
@@ -163,13 +166,26 @@ func (p InfoPane) View() string {
 
 	firstRow := processingLabel
 
-	if p.showCopyLabel {
+	if p.showNotification {
+		label := ""
+		switch p.notification {
+		case util.CopiedNotification:
+			label = p.notificationLabel.
+				Background(p.colors.NormalTabBorderColor).
+				MarginLeft(paneWidth - len(copiedLabelText) - len(idleLabelText) - util.NotificationLabelCounterweght).
+				Render(copiedLabelText)
+		case util.CancelledNotification:
+			label = p.notificationLabel.
+				Background(p.colors.ErrorColor).
+				MarginLeft(paneWidth - len(cancelledLabelText) - len(idleLabelText) - util.NotificationLabelCounterweght).
+				Render(cancelledLabelText)
+		}
+
 		firstRow = lipgloss.JoinHorizontal(
 			lipgloss.Left,
 			processingLabel,
-			p.copiedLabel.
-				MarginLeft(paneWidth-len(copiedLabelText)-len(idleLabelText)-util.CopiedLabelCounterweght).
-				Render(copiedLabelText))
+			label,
+		)
 	}
 
 	secondRow := lipgloss.JoinHorizontal(

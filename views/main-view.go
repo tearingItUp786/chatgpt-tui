@@ -31,6 +31,9 @@ type MainView struct {
 	loadedDeps   []util.AsyncDependency
 
 	sessionOrchestrator sessions.Orchestrator
+	context             context.Context
+	completionContext   context.Context
+	cancelInference     context.CancelFunc
 
 	terminalWidth  int
 	terminalHeight int
@@ -42,7 +45,7 @@ func NewMainView(db *sql.DB, ctx context.Context) MainView {
 	settingsPane := panes.NewSettingsPane(db, ctx)
 	statusBarPane := panes.NewInfoPane(db, ctx)
 
-	w, h := util.CalcChatPaneSize(util.DefaultTerminalWidth, util.DefaultTerminalHeight, false)
+	w, h := util.CalcChatPaneSize(util.DefaultTerminalWidth, util.DefaultTerminalHeight, util.NormalMode)
 	chatPane := panes.NewChatPane(ctx, w, h)
 
 	orchestrator := sessions.NewOrchestrator(db, ctx)
@@ -57,6 +60,7 @@ func NewMainView(db *sql.DB, ctx context.Context) MainView {
 		settingsPane:        settingsPane,
 		infoPane:            statusBarPane,
 		chatPane:            chatPane,
+		context:             ctx,
 	}
 }
 
@@ -115,16 +119,24 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.error = util.ErrorEvent{}
 		m.sessionOrchestrator.ArrayOfMessages = append(m.sessionOrchestrator.ArrayOfMessages, clients.ConstructUserMessage(msg.Prompt))
 		m.sessionOrchestrator.ProcessingMode = sessions.PROCESSING
+		m.viewMode = util.NormalMode
 
+		completionContext, cancelInference := context.WithCancel(m.context)
+		m.completionContext = completionContext
+		m.cancelInference = cancelInference
 		return m, tea.Batch(
 			util.SendProcessingStateChangedMsg(true),
-			m.chatPane.DisplayCompletion(m.sessionOrchestrator))
+			m.chatPane.DisplayCompletion(m.completionContext, m.sessionOrchestrator),
+			util.SendViewModeChangedMsg(m.viewMode))
 
 	case tea.KeyMsg:
 		if !m.viewReady {
 			break
 		}
 		switch keypress := msg.String(); keypress {
+
+		case "ctrl+b":
+			m.cancelInference()
 
 		case "ctrl+o":
 			m.focused = util.PromptPane
@@ -136,11 +148,26 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.viewMode {
 			case util.NormalMode:
 				m.viewMode = util.ZenMode
-				m.chatPane.SwitchToZenMode()
 			case util.ZenMode:
 				m.viewMode = util.NormalMode
-				m.chatPane.SwitchToNormalMode()
 			}
+
+			cmds = append(cmds, util.SendViewModeChangedMsg(m.viewMode))
+		case "ctrl+f":
+			if m.focused != util.PromptPane {
+				break
+			}
+
+			switch m.viewMode {
+			case util.NormalMode:
+				m.viewMode = util.TextEditMode
+			case util.ZenMode:
+				m.viewMode = util.TextEditMode
+			case util.TextEditMode:
+				m.viewMode = util.NormalMode
+			}
+
+			cmds = append(cmds, util.SendViewModeChangedMsg(m.viewMode))
 		}
 
 		switch msg.Type {
@@ -163,12 +190,6 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
-
-		isZenMode := m.viewMode == util.ZenMode
-		chatPaneWidth, chatPaneHeight := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, isZenMode)
-
-		m.chatPane.SetPaneWitdth(chatPaneWidth)
-		m.chatPane.SetPaneHeight(chatPaneHeight)
 
 		m.chatPane, cmd = m.chatPane.Update(msg)
 		cmds = append(cmds, cmd)

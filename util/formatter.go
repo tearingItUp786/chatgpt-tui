@@ -54,15 +54,18 @@ func GetVisualModeView(msgsToRender []MessageToSend, w int, colors SchemeColors)
 }
 
 func RenderUserMessage(msg string, width int, colors SchemeColors, isVisualMode bool) string {
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithPreservedNewLines(),
+		glamour.WithStylePath(colors.RendererTheme))
 	if isVisualMode {
 		msg = "\n💁 " + msg
-		userMsg, _ := glamour.Render(msg, colors.RendererTheme)
+		userMsg, _ := renderer.Render(msg)
 		output := strings.TrimSpace(userMsg)
 		return lipgloss.NewStyle().Render("\n" + output + "\n")
 	}
 
 	msg = "\n💁 " + msg + "\n"
-	userMsg, _ := glamour.Render(msg, colors.RendererTheme)
+	userMsg, _ := renderer.Render(msg)
 	output := strings.TrimSpace(userMsg)
 	return lipgloss.NewStyle().
 		BorderLeft(true).

@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -120,12 +121,12 @@ func (m Orchestrator) Update(msg tea.Msg) (Orchestrator, tea.Cmd) {
 		latestBotMessage, err := m.GetLatestBotMessage()
 		if err == nil {
 			clipboard.WriteAll(latestBotMessage)
-			cmds = append(cmds, util.SendCopiedToBufferMsg())
+			cmds = append(cmds, util.SendNotificationMsg(util.CopiedNotification))
 		}
 
 	case util.CopyAllMsgs:
 		clipboard.WriteAll(m.GetMessagesAsString())
-		cmds = append(cmds, util.SendCopiedToBufferMsg())
+		cmds = append(cmds, util.SendNotificationMsg(util.CopiedNotification))
 
 	case UpdateCurrentSession:
 		m.CurrentSessionID = msg.Session.ID
@@ -157,8 +158,8 @@ func (m Orchestrator) Update(msg tea.Msg) (Orchestrator, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m Orchestrator) GetCompletion(resp chan clients.ProcessApiCompletionResponse) tea.Cmd {
-	return m.OpenAiClient.RequestCompletion(m.ArrayOfMessages, m.Settings, resp)
+func (m Orchestrator) GetCompletion(ctx context.Context, resp chan clients.ProcessApiCompletionResponse) tea.Cmd {
+	return m.OpenAiClient.RequestCompletion(ctx, m.ArrayOfMessages, m.Settings, resp)
 }
 
 func (m Orchestrator) GetLatestBotMessage() (string, error) {
@@ -317,6 +318,12 @@ func (m *Orchestrator) handleMsgProcessing(msg clients.ProcessApiCompletionRespo
 	m.ProcessingMode = PROCESSING
 
 	if msg.Err != nil {
+		if errors.Is(context.Canceled, msg.Err) {
+			return tea.Batch(
+				m.handleFinalChoiceMessage(),
+				util.SendNotificationMsg(util.CancelledNotification),
+				util.SendProcessingStateChangedMsg(false))
+		}
 		return util.MakeErrorMsg(msg.Err.Error())
 	}
 

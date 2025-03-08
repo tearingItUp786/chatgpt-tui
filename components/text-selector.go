@@ -123,7 +123,7 @@ func (s TextSelector) Update(msg tea.Msg) (TextSelector, tea.Cmd) {
 			if s.Selection.Active {
 				s.copySelectedLinesToClipboard()
 				s.Selection.Active = false
-				cmds = append(cmds, util.SendCopiedToBufferMsg())
+				cmds = append(cmds, util.SendNotificationMsg(util.CopiedNotification))
 			}
 		}
 	}

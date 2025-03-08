@@ -3,6 +3,7 @@ package clients
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,6 +35,7 @@ func NewOpenAiClient(apiUrl, systemMessage string) *OpenAiClient {
 }
 
 func (c OpenAiClient) RequestCompletion(
+	ctx context.Context,
 	chatMsgs []util.MessageToSend,
 	modelSettings util.Settings,
 	resultChan chan ProcessApiCompletionResponse,
@@ -48,7 +50,7 @@ func (c OpenAiClient) RequestCompletion(
 			return util.ErrorEvent{Message: err.Error()}
 		}
 
-		resp, err := c.postOpenAiAPI(apiKey, path, body)
+		resp, err := c.postOpenAiAPI(ctx, apiKey, path, body)
 		if err != nil {
 			return util.ErrorEvent{Message: err.Error()}
 		}
@@ -136,11 +138,11 @@ func (c OpenAiClient) getOpenAiAPI(apiKey string, path string) (*http.Response, 
 	return client.Do(req)
 }
 
-func (c OpenAiClient) postOpenAiAPI(apiKey, path string, body []byte) (*http.Response, error) {
+func (c OpenAiClient) postOpenAiAPI(ctx context.Context, apiKey, path string, body []byte) (*http.Response, error) {
 	baseUrl := getBaseUrl(c.apiUrl)
 	requestUrl := fmt.Sprintf("%s/%s", baseUrl, path)
 
-	req, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", requestUrl, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}

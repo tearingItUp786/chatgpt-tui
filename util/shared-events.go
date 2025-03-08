@@ -14,6 +14,7 @@ const (
 
 type Pane int
 type AsyncDependency int
+type Notification int
 
 // fake enum to keep tab of the currently focused pane
 const (
@@ -28,10 +29,16 @@ const (
 	Orchestrator
 )
 
+const (
+	CopiedNotification Notification = iota
+	CancelledNotification
+)
+
 type ViewMode int
 
 const (
 	ZenMode ViewMode = iota
+	TextEditMode
 	NormalMode
 )
 
@@ -125,11 +132,13 @@ func MakeErrorMsg(v string) tea.Cmd {
 	}
 }
 
-type CopiedToBufferMsg struct{}
+type NotificationMsg struct {
+	Notification Notification
+}
 
-func SendCopiedToBufferMsg() tea.Cmd {
+func SendNotificationMsg(notification Notification) tea.Cmd {
 	return func() tea.Msg {
-		return CopiedToBufferMsg{}
+		return NotificationMsg{Notification: notification}
 	}
 }
 
@@ -143,4 +152,14 @@ type CopyAllMsgs struct{}
 
 func SendCopyAllMsgs() tea.Msg {
 	return CopyAllMsgs{}
+}
+
+type ViewModeChanged struct {
+	Mode ViewMode
+}
+
+func SendViewModeChangedMsg(mode ViewMode) tea.Cmd {
+	return func() tea.Msg {
+		return ViewModeChanged{Mode: mode}
+	}
 }
