@@ -98,6 +98,10 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+
+	case util.ViewModeChanged:
+		m.viewMode = msg.Mode
+
 	case util.AsyncDependencyReady:
 		m.loadedDeps = append(m.loadedDeps, msg.Dependency)
 		for _, dependency := range asyncDeps {
@@ -136,7 +140,9 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch keypress := msg.String(); keypress {
 
 		case "ctrl+b":
-			m.cancelInference()
+			if m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
+				m.cancelInference()
+			}
 
 		case "ctrl+o":
 			m.focused = util.PromptPane

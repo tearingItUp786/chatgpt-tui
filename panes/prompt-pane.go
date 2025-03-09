@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -58,7 +59,7 @@ func NewPromptPane(ctx context.Context) PromptPane {
 	textEditor.FocusedStyle.Prompt = lipgloss.NewStyle().Foreground(colors.ActiveTabBorderColor)
 	textEditor.FocusedStyle.CursorLine.Background(lipgloss.NoColor{})
 	textEditor.FocusedStyle.EndOfBuffer = lipgloss.NewStyle().Foreground(colors.ActiveTabBorderColor)
-	textEditor.FocusedStyle.LineNumber = lipgloss.NewStyle().Foreground(colors.AccentColor).Faint(true)
+	textEditor.FocusedStyle.LineNumber = lipgloss.NewStyle().Foreground(colors.AccentColor)
 
 	textEditor.EndOfBufferCharacter = rune(' ')
 	textEditor.ShowLineNumbers = true
@@ -107,6 +108,7 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+
 	case util.ViewModeChanged:
 		p.viewMode = msg.Mode
 
@@ -185,6 +187,13 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 					cmds = append(cmds, p.input.Cursor.BlinkCmd())
 				}
 			}
+		case "ctrl+r":
+			switch p.viewMode {
+			case util.TextEditMode:
+				p.textEditor.Reset()
+			default:
+				p.input.Reset()
+			}
 		}
 
 		switch msg.Type {
@@ -195,9 +204,18 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 
 				switch p.viewMode {
 				case util.TextEditMode:
-					p.textEditor.Blur()
+					if !p.textEditor.Focused() {
+						p.textEditor.Reset()
+						cmds = append(cmds, util.SendViewModeChangedMsg(util.NormalMode))
+					} else {
+						p.textEditor.Blur()
+					}
 				default:
-					p.input.Blur()
+					if !p.input.Focused() {
+						p.input.Reset()
+					} else {
+						p.input.Blur()
+					}
 				}
 			}
 
@@ -225,17 +243,26 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 					return p, util.SendPromptReadyMsg(promptText)
 				}
 			}
-		case tea.KeyCtrlV:
+		case tea.KeyCtrlS:
 			if p.isFocused && p.viewMode == util.TextEditMode && p.textEditor.Focused() {
-				buffer := clipboard.Read(clipboard.FmtText)
-				editorValue := p.textEditor.Value()
-				p.textEditor.SetValue(editorValue + string(buffer))
-				p.textEditor.SetCursor(0)
+				p.insertBufferContentAsCodeBlock()
 			}
 		}
 	}
 
 	return p, tea.Batch(cmds...)
+}
+
+func (p *PromptPane) insertBufferContentAsCodeBlock() {
+	buffer := clipboard.Read(clipboard.FmtText)
+	currentInput := p.textEditor.Value()
+	lines := strings.Split(currentInput, "\n")
+	lang := lines[len(lines)-1]
+	currentInput = strings.Join(lines[0:len(lines)-1], "\n")
+	bufferContent := strings.Trim(string(buffer), "\n")
+	codeBlock := "\n```" + lang + "\n" + bufferContent + "\n```\n"
+	p.textEditor.SetValue(currentInput + codeBlock)
+	p.textEditor.SetCursor(0)
 }
 
 func (p PromptPane) IsTypingInProcess() bool {
