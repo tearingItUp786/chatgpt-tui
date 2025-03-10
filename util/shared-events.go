@@ -59,6 +59,8 @@ func GetNewFocusMode(mode ViewMode, currentFocus Pane, tw int) Pane {
 		}
 	case ZenMode:
 		focusModes = ZenFocusModes
+	case TextEditMode:
+		focusModes = ZenFocusModes
 	default:
 		Log("Invalid mode")
 		return currentFocus

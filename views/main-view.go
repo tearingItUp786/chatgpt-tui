@@ -159,7 +159,7 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			cmds = append(cmds, util.SendViewModeChangedMsg(m.viewMode))
-		case "ctrl+f":
+		case "ctrl+e":
 			if m.focused != util.PromptPane {
 				break
 			}

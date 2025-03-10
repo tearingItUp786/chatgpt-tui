@@ -111,6 +111,7 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 
 	case util.ViewModeChanged:
 		p.viewMode = msg.Mode
+		p.inputMode = util.PromptNormalMode
 
 		isTextEditMode := p.viewMode == util.TextEditMode
 		w, h := util.CalcPromptPaneSize(p.terminalWidth, p.terminalHeight, isTextEditMode)
@@ -122,11 +123,7 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 			p.input.Blur()
 			p.input.Reset()
 
-			p.inputMode = util.PromptInsertMode
-
 			p.textEditor.SetValue(currentInput)
-			p.textEditor.Focus()
-			cmds = append(cmds, p.textEditor.Cursor.BlinkCmd())
 		} else {
 			p.input.Width = w
 			currentInput := p.textEditor.Value()
