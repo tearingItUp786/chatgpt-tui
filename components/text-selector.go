@@ -1,8 +1,6 @@
 package components
 
 import (
-	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -152,42 +150,58 @@ func (s TextSelector) renderLines() string {
 		Foreground(s.colors.DefaultTextColor).
 		Background(s.colors.AccentColor)
 
-	output := ""
+	// Pre-compute selection range if active
+	var startLine, endLine int
+	if s.Selection.Active {
+		startLine = s.Selection.anchor.line
+		endLine = s.cursor.line
+		if startLine > endLine {
+			startLine, endLine = endLine, startLine
+		}
+	}
+
+	// Use string builder for better performance
+	// Might need to look into this for other functions as well
+	var sb strings.Builder
+
+	// Calculate visible range
 	start := s.scrollOffset
 	end := min(start+s.paneHeight, len(s.lines))
+
+	// Determine the average line length so we can pre-allocate memory for the string builder
+	var totalLen int
+	for i := start; i < end; i++ {
+		totalLen += len(s.lines[i])
+	}
+	avgLineLen := totalLen/(end-start) + 2 // +2 for newline and prefix/cursor
+	sb.Grow((end - start) * avgLineLen)
+
+	// Render each line
 	for i := start; i < end; i++ {
 		line := s.lines[i]
-		if s.Selection.Active {
-			startLine := s.Selection.anchor.line
-			endLine := s.cursor.line
 
-			if startLine > endLine {
-				startLine, endLine = endLine, startLine
-			}
+		switch {
+		case s.Selection.Active && i >= startLine && i <= endLine:
+			sb.WriteString(highlightStyle.Render(HighlightPrefix))
+			sb.WriteString(line)
+			sb.WriteString("\n")
 
-			if i >= startLine && i <= endLine {
-				output += highlightStyle.Render(HighlightPrefix) + fmt.Sprintf("%s\n", line)
-			} else {
-				output += line + "\n"
-			}
+		case !s.Selection.Active && i == s.cursor.line:
+			sb.WriteString(cursorStyle.Render(CursorSymbol))
+			sb.WriteString(line)
+			sb.WriteString("\n")
 
-		} else if i == s.cursor.line {
-			output += cursorStyle.Render(CursorSymbol) + fmt.Sprintf("%s\n", line)
-
-		} else {
-			output += line + "\n"
+		default:
+			sb.WriteString(line)
+			sb.WriteString("\n")
 		}
-
 	}
-	return output
+
+	return sb.String()
 }
 
 func (s TextSelector) lastLinePosition() int {
 	return len(s.lines) - 1
-}
-
-func (s TextSelector) IsSelecting() bool {
-	return s.Selection.Active
 }
 
 func (s TextSelector) firstLinePosition() int {
@@ -198,9 +212,7 @@ func (s TextSelector) handleKeyUp() TextSelector {
 	firstLinePosition := s.firstLinePosition()
 	if s.cursor.line > firstLinePosition {
 		projectedPosition := s.cursor.line - s.numberLines
-		if projectedPosition < firstLinePosition {
-			projectedPosition = firstLinePosition
-		}
+		projectedPosition = max(projectedPosition, firstLinePosition)
 
 		if s.numberLines > 0 {
 			s.cursor.line = projectedPosition
@@ -217,9 +229,7 @@ func (s TextSelector) handleKeyDown() TextSelector {
 	lastLinePosition := s.lastLinePosition()
 	if s.cursor.line < lastLinePosition {
 		projectedPosition := s.cursor.line + s.numberLines
-		if projectedPosition > lastLinePosition {
-			projectedPosition = lastLinePosition
-		}
+		projectedPosition = min(projectedPosition, lastLinePosition)
 
 		if s.numberLines > 0 {
 			s.cursor.line = projectedPosition
@@ -245,26 +255,23 @@ func (s TextSelector) handleLineJumps(keypress string, parsedNumber int) TextSel
 	return s
 }
 
-func stripAnsiCodes(str string) string {
-	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[mG]`)
-	return ansiRegex.ReplaceAllString(str, "")
-}
-
 func (s TextSelector) copySelectedLinesToClipboard() {
-	var selectedLines []string
-	if s.Selection.Active {
-		startLine := s.Selection.anchor.line
-		endLine := s.cursor.line
-		if startLine > endLine {
-			startLine, endLine = endLine, startLine
-		}
-		for i := startLine; i <= endLine; i++ {
-			filteredLine := filterLine(s.lines[i])
-			selectedLines = append(selectedLines, filteredLine)
-		}
-
+	if !s.Selection.Active {
+		return
 	}
-	linesToCopy := stripAnsiCodes(strings.Join(selectedLines, "\n"))
+
+	var selectedLines []string
+	startLine := s.Selection.anchor.line
+	endLine := s.cursor.line
+	if startLine > endLine {
+		startLine, endLine = endLine, startLine
+	}
+	for i := startLine; i <= endLine; i++ {
+		filteredLine := filterLine(s.lines[i])
+		selectedLines = append(selectedLines, filteredLine)
+	}
+
+	linesToCopy := util.StripAnsiCodes(strings.Join(selectedLines, "\n"))
 	clipboard.Write(clipboard.FmtText, []byte(linesToCopy))
 }
 
@@ -284,9 +291,7 @@ func NewTextSelector(w, h int, scrollPos int, sessionData string, colors util.Sc
 
 	viewWidth, viewHeight := util.CalcVisualModeViewSize(w, h)
 	pos := scrollPos + viewHeight/2
-	if pos < 1 {
-		pos = 1
-	}
+	pos = max(pos, 1)
 
 	if pos > len(lines) {
 		pos = len(lines) - 1

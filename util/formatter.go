@@ -1,6 +1,7 @@
 package util
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
@@ -107,4 +108,9 @@ func RenderBotMessage(msg string, width int, colors SchemeColors, isVisualMode b
 		BorderStyle(lipgloss.InnerHalfBlockBorder()).
 		BorderLeftForeground(colors.ActiveTabBorderColor).
 		Render(output)
+}
+
+func StripAnsiCodes(str string) string {
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[mG]`)
+	return ansiRegex.ReplaceAllString(str, "")
 }
