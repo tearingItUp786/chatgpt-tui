@@ -15,10 +15,17 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
+type displayMode int
+
+const (
+	normalMode displayMode = iota
+	selectionMode
+)
+
 type ChatPane struct {
 	isChatPaneReady        bool
 	chatViewReady          bool
-	IsVisualMode           bool
+	displayMode            displayMode
 	chatContent            string
 	renderedContent        string
 	isChatContainerFocused bool
@@ -66,6 +73,7 @@ func NewChatPane(ctx context.Context, w, h int) ChatPane {
 		msgChan:                msgChan,
 		terminalWidth:          util.DefaultTerminalWidth,
 		terminalHeight:         util.DefaultTerminalHeight,
+		displayMode:            normalMode,
 	}
 }
 
@@ -87,7 +95,7 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 		enableUpdateOfViewport = true
 	)
 
-	if p.IsVisualMode {
+	if p.IsSelectionMode() {
 		p.selectionView, cmd = p.selectionView.Update(msg)
 		cmds = append(cmds, cmd)
 	}
@@ -139,15 +147,15 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 			enableUpdateOfViewport = false
 		}
 
-		if p.IsVisualMode {
+		if p.IsSelectionMode() {
 			switch msg.Type {
 			case tea.KeyEsc:
-				p.IsVisualMode = false
+				p.displayMode = normalMode
 				p.chatContainer.BorderForeground(p.colors.ActiveTabBorderColor)
 			}
 		}
 
-		if p.IsVisualMode {
+		if p.IsSelectionMode() {
 			break
 		}
 
@@ -156,7 +164,7 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 			if !p.isChatContainerFocused {
 				break
 			}
-			p.IsVisualMode = true
+			p.displayMode = selectionMode
 			enableUpdateOfViewport = false
 			p.chatContainer.BorderForeground(p.colors.AccentColor)
 			p.selectionView = components.NewTextSelector(
@@ -193,6 +201,10 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 	return p, tea.Batch(cmds...)
 }
 
+func (p ChatPane) IsSelectionMode() bool {
+	return p.displayMode == selectionMode
+}
+
 func (p ChatPane) DisplayCompletion(orchestrator sessions.Orchestrator) tea.Cmd {
 	return tea.Batch(
 		orchestrator.GetCompletion(p.msgChan),
@@ -201,7 +213,7 @@ func (p ChatPane) DisplayCompletion(orchestrator sessions.Orchestrator) tea.Cmd 
 }
 
 func (p ChatPane) View() string {
-	if p.IsVisualMode {
+	if p.IsSelectionMode() {
 		return p.chatContainer.Render(p.selectionView.View())
 	}
 

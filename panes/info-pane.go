@@ -14,6 +14,8 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
+const NotificationDisplayDurationSec = 2
+
 const (
 	copiedLabelText     = "Copied"
 	idleLabelText       = "IDLE"
@@ -128,7 +130,7 @@ func (p InfoPane) Update(msg tea.Msg) (InfoPane, tea.Cmd) {
 
 	case util.CopiedToBufferMsg:
 		p.showCopyLabel = true
-		cmds = append(cmds, tickAfter2Sec())
+		cmds = append(cmds, tickAfter(NotificationDisplayDurationSec))
 
 	case tickMsg:
 		p.showCopyLabel = false
@@ -191,8 +193,8 @@ func (p InfoPane) View() string {
 		)
 }
 
-func tickAfter2Sec() tea.Cmd {
-	return tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+func tickAfter(seconds int) tea.Cmd {
+	return tea.Tick(time.Second*time.Duration(seconds), func(t time.Time) tea.Msg {
 		return tickMsg{}
 	})
 }
