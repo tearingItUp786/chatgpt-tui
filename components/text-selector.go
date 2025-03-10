@@ -1,7 +1,6 @@
 package components
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -151,34 +150,54 @@ func (s TextSelector) renderLines() string {
 		Foreground(s.colors.DefaultTextColor).
 		Background(s.colors.AccentColor)
 
-	output := ""
+	// Pre-compute selection range if active
+	var startLine, endLine int
+	if s.Selection.Active {
+		startLine = s.Selection.anchor.line
+		endLine = s.cursor.line
+		if startLine > endLine {
+			startLine, endLine = endLine, startLine
+		}
+	}
+
+	// Use string builder for better performance
+	// Might need to look into this for other functions as well
+	var sb strings.Builder
+
+	// Calculate visible range
 	start := s.scrollOffset
 	end := min(start+s.paneHeight, len(s.lines))
+
+	// Determine the average line length so we can pre-allocate memory for the string builder
+	var totalLen int
+	for i := start; i < end; i++ {
+		totalLen += len(s.lines[i])
+	}
+	avgLineLen := totalLen/(end-start) + 2 // +2 for newline and prefix/cursor
+	sb.Grow((end - start) * avgLineLen)
+
+	// Render each line
 	for i := start; i < end; i++ {
 		line := s.lines[i]
-		if s.Selection.Active {
-			startLine := s.Selection.anchor.line
-			endLine := s.cursor.line
 
-			if startLine > endLine {
-				startLine, endLine = endLine, startLine
-			}
+		switch {
+		case s.Selection.Active && i >= startLine && i <= endLine:
+			sb.WriteString(highlightStyle.Render(HighlightPrefix))
+			sb.WriteString(line)
+			sb.WriteString("\n")
 
-			if i >= startLine && i <= endLine {
-				output += highlightStyle.Render(HighlightPrefix) + fmt.Sprintf("%s\n", line)
-			} else {
-				output += line + "\n"
-			}
+		case !s.Selection.Active && i == s.cursor.line:
+			sb.WriteString(cursorStyle.Render(CursorSymbol))
+			sb.WriteString(line)
+			sb.WriteString("\n")
 
-		} else if i == s.cursor.line {
-			output += cursorStyle.Render(CursorSymbol) + fmt.Sprintf("%s\n", line)
-
-		} else {
-			output += line + "\n"
+		default:
+			sb.WriteString(line)
+			sb.WriteString("\n")
 		}
-
 	}
-	return output
+
+	return sb.String()
 }
 
 func (s TextSelector) lastLinePosition() int {
