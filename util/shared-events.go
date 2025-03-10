@@ -125,6 +125,14 @@ func MakeErrorMsg(v string) tea.Cmd {
 	}
 }
 
+type CopiedToBufferMsg struct{}
+
+func SendCopiedToBufferMsg() tea.Cmd {
+	return func() tea.Msg {
+		return CopiedToBufferMsg{}
+	}
+}
+
 type CopyLastMsg struct{}
 
 func SendCopyLastMsg() tea.Msg {

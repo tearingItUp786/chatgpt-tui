@@ -10,7 +10,7 @@ import (
 // Theses two can be used together, but `exclusion keywords` take presedence over `prefixes`
 var (
 	openAiChatModelsPrefixes = []string{"gpt-", "o1", "o3"}
-	openAiExclusionKeywords  = []string{"audio", "realtime"}
+	openAiExclusionKeywords  = []string{"audio", "realtime", "instruct"}
 
 	mistralExclusionKeywords = []string{"pixtral", "embed"}
 )
@@ -49,6 +49,26 @@ func GetFilteredModelList(apiUrl string, models []string) []string {
 	}
 
 	return modelNames
+}
+
+func GetAdditionalReqRequestHeaders(provider ApiProvider, params map[string]interface{}) map[string]interface{} {
+	switch provider {
+
+	case Local:
+		params["stream_options"] = map[string]interface{}{
+			"include_usage": true,
+		}
+		return params
+	case OpenAi:
+		params["stream_options"] = map[string]interface{}{
+			"include_usage": true,
+		}
+		return params
+	case Mistral:
+		return params
+	}
+
+	return params
 }
 
 func GetInferenceProvider(apiUrl string) ApiProvider {

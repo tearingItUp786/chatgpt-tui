@@ -27,6 +27,7 @@ type MainView struct {
 	promptPane   panes.PromptPane
 	sessionsPane panes.SessionsPane
 	settingsPane panes.SettingsPane
+	infoPane     panes.InfoPane
 	loadedDeps   []util.AsyncDependency
 
 	sessionOrchestrator sessions.Orchestrator
@@ -39,6 +40,7 @@ func NewMainView(db *sql.DB, ctx context.Context) MainView {
 	promptPane := panes.NewPromptPane(ctx)
 	sessionsPane := panes.NewSessionsPane(db, ctx)
 	settingsPane := panes.NewSettingsPane(db, ctx)
+	statusBarPane := panes.NewInfoPane(db, ctx)
 
 	w, h := util.CalcChatPaneSize(util.DefaultTerminalWidth, util.DefaultTerminalHeight, false)
 	chatPane := panes.NewChatPane(ctx, w, h)
@@ -53,6 +55,7 @@ func NewMainView(db *sql.DB, ctx context.Context) MainView {
 		promptPane:          promptPane,
 		sessionsPane:        sessionsPane,
 		settingsPane:        settingsPane,
+		infoPane:            statusBarPane,
 		chatPane:            chatPane,
 	}
 }
@@ -64,6 +67,7 @@ func (m MainView) Init() tea.Cmd {
 		m.sessionsPane.Init(),
 		m.chatPane.Init(),
 		m.settingsPane.Init(),
+		m.sessionsPane.Init(),
 	)
 }
 
@@ -74,6 +78,9 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	)
 
 	m.sessionOrchestrator, cmd = m.sessionOrchestrator.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.infoPane, cmd = m.infoPane.Update(msg)
 	cmds = append(cmds, cmd)
 
 	m.promptPane, cmd = m.promptPane.Update(msg)
@@ -138,7 +145,7 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.Type {
 		case tea.KeyTab:
-			if m.promptPane.IsTypingInProcess() || !m.viewReady {
+			if m.promptPane.IsTypingInProcess() || m.chatPane.IsSelectionMode() || !m.viewReady {
 				break
 			}
 
@@ -183,6 +190,7 @@ func (m MainView) View() string {
 		lipgloss.Left,
 		m.settingsPane.View(),
 		m.sessionsPane.View(),
+		m.infoPane.View(),
 	)
 
 	mainView := m.chatPane.View()
@@ -208,7 +216,10 @@ func (m MainView) View() string {
 	promptView := m.promptPane.View()
 
 	return lipgloss.NewStyle().Render(
-		windowViews,
-		promptView,
+		lipgloss.JoinVertical(
+			lipgloss.Left,
+			windowViews,
+			promptView,
+		),
 	)
 }

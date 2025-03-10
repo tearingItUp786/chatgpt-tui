@@ -120,10 +120,12 @@ func (m Orchestrator) Update(msg tea.Msg) (Orchestrator, tea.Cmd) {
 		latestBotMessage, err := m.GetLatestBotMessage()
 		if err == nil {
 			clipboard.WriteAll(latestBotMessage)
+			cmds = append(cmds, util.SendCopiedToBufferMsg())
 		}
 
 	case util.CopyAllMsgs:
 		clipboard.WriteAll(m.GetMessagesAsString())
+		cmds = append(cmds, util.SendCopiedToBufferMsg())
 
 	case UpdateCurrentSession:
 		m.CurrentSessionID = msg.Session.ID
@@ -306,6 +308,10 @@ func getArrayOfIDs(arr []clients.ProcessApiCompletionResponse) []int {
 
 // updates the current view with the messages coming in
 func (m *Orchestrator) handleMsgProcessing(msg clients.ProcessApiCompletionResponse) tea.Cmd {
+	if msg.Result.Usage != nil {
+		m.sessionService.UpdateSessionTokens(m.CurrentSessionID, msg.Result.Usage.Prompt, msg.Result.Usage.Completion)
+	}
+
 	m.appendAndOrderProcessResults(msg)
 	areIdsAllThere := areIDsInOrderAndComplete(getArrayOfIDs(m.ArrayOfProcessResult))
 	m.ProcessingMode = PROCESSING

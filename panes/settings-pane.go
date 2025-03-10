@@ -58,6 +58,7 @@ var settingsService *settings.SettingsService
 var settingsListHeader = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderBottom(true).
+	Bold(true).
 	MarginLeft(util.ListItemMarginLeft)
 
 var listItemHeading = lipgloss.NewStyle().
@@ -94,6 +95,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	colors := config.ColorScheme.GetColors()
 	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
 	listItemHeading = listItemHeading.Copy().Foreground(colors.MainColor)
+	settingsListHeader = settingsListHeader.Copy().Foreground(colors.DefaultTextColor)
 	spinnerStyle = spinnerStyle.Copy().Foreground(colors.AccentColor)
 	containerStyle := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder(), true).

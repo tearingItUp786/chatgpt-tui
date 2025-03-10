@@ -52,6 +52,13 @@ Additional fields:
 You can change colorscheme using the `colorScheme` field.
 Possible options are `Pink` and `Blue`. Default colorscheme is `Pink`
 
+## Cache invalidation
+
+Models list is cached for 14 days upon loading. If you need to invalidate cache use `--purge-cache` flag:
+```bash
+./chatgpt-tui --purge-cache
+```
+
 ## Demo
 
 ![tui demo](./docs/images/tui-demo.gif)
@@ -71,7 +78,26 @@ Possible options are `Pink` and `Blue`. Default colorscheme is `Pink`
 ## Chat Messages Pane
 
 - `y`: Copies the last message from ChatGPT into your clipboard.
-- `Y`: Copies all messages from the ChatGPT session into your clipboard.
+- `Shift+y`: Copies all messages from the ChatGPT session into your clipboard.
+- `v`: Enters navigation mode when chat pane is focused (allows to move accross the chat content lines)
+
+### Selection mode
+
+![selection demo](./docs/images/selection-mode.gif)
+
+Selection mode allows to navigate the chat pane and select lines to copy. Supports basic vim-motions.  
+
+<b>Navigation</b>
+ - `j`, `k` - go down and up a line
+   - Multiline jumps like `3j` (3 lines down), `99k` (99 lines up) are also supported
+ - `d`, `u`, `Ctrl+d`, `Ctrl+u` - go up or down half page
+ - `g` - go to top
+ - `Shift+g` - go to bottom
+
+<b>Selection</b>
+- `v`, `Shift+v` or `space` to enter or quit line selection mode
+- `y` to copy selected text
+- `Esc` to quit selection or navigation modes
 
 ## Settings Pane
 
@@ -83,7 +109,14 @@ Possible options are `Pink` and `Blue`. Default colorscheme is `Pink`
 
 - `Ctrl+N`: Creates a new session.
 - `d`: Deletes the currently selected session from the list.
+- `e`: Edit session name
 - `Enter`: Switches to the session that is currently selected.
+
+## Info pane
+
+Information pane displays processing state of inference (`IDLE`, `PROCESSING`) as well as token stats for the current session:
+ - `IN`: shows the total amount of input tokens LLM consumed per session
+ - `OUT`: shows the total amount of output tokens LLM produced per session
 
 Please refer to this guide as you navigate the TUI. Happy exploring!
 
