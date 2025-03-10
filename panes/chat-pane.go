@@ -218,10 +218,6 @@ func (p ChatPane) IsSelectionMode() bool {
 	return p.displayMode == selectionMode
 }
 
-func (p ChatPane) IsSelectionMode() bool {
-	return p.displayMode == selectionMode
-}
-
 func (p ChatPane) DisplayCompletion(ctx context.Context, orchestrator sessions.Orchestrator) tea.Cmd {
 	return tea.Batch(
 		orchestrator.GetCompletion(ctx, p.msgChan),
