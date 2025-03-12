@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"slices"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -16,12 +17,31 @@ import (
 
 var asyncDeps = []util.AsyncDependency{util.SettingsPaneModule, util.Orchestrator}
 
+type keyMap struct {
+	cancel     key.Binding
+	zenMode    key.Binding
+	editorMode key.Binding
+	nextPane   key.Binding
+	jumpToPane key.Binding
+	quit       key.Binding
+}
+
+var defaultKeyMap = keyMap{
+	cancel:     key.NewBinding(key.WithKeys("ctrl+b"), key.WithHelp("ctrl+b", "stop inference")),
+	zenMode:    key.NewBinding(key.WithKeys("ctrl+o"), key.WithHelp("ctrl+o", "activate/deactivate zen mode")),
+	editorMode: key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "enter/exit editor mode")),
+	quit:       key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit app")),
+	jumpToPane: key.NewBinding(key.WithKeys("1", "2", "3", "4"), key.WithHelp("1,2,3,4", "jump to specific pane")),
+	nextPane:   key.NewBinding(key.WithKeys(tea.KeyTab.String()), key.WithHelp("TAB", "move to next pane")),
+}
+
 type MainView struct {
 	viewReady        bool
 	focused          util.Pane
 	viewMode         util.ViewMode
 	error            util.ErrorEvent
 	currentSessionID string
+	keys             keyMap
 
 	chatPane     panes.ChatPane
 	promptPane   panes.PromptPane
@@ -51,6 +71,7 @@ func NewMainView(db *sql.DB, ctx context.Context) MainView {
 	orchestrator := sessions.NewOrchestrator(db, ctx)
 
 	return MainView{
+		keys:                defaultKeyMap,
 		viewMode:            util.NormalMode,
 		focused:             util.PromptPane,
 		currentSessionID:    "",
@@ -137,14 +158,15 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.viewReady {
 			break
 		}
-		switch keypress := msg.String(); keypress {
 
-		case "ctrl+b":
+		switch {
+
+		case key.Matches(msg, m.keys.cancel):
 			if m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
 				m.cancelInference()
 			}
 
-		case "ctrl+o":
+		case key.Matches(msg, m.keys.zenMode):
 			m.focused = util.PromptPane
 			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsPane))
 			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsPane))
@@ -159,7 +181,8 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			cmds = append(cmds, util.SendViewModeChangedMsg(m.viewMode))
-		case "ctrl+e":
+
+		case key.Matches(msg, m.keys.editorMode):
 			if m.focused != util.PromptPane {
 				break
 			}
@@ -172,24 +195,39 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case util.TextEditMode:
 				m.viewMode = util.NormalMode
 			}
-
 			cmds = append(cmds, util.SendViewModeChangedMsg(m.viewMode))
-		}
 
-		switch msg.Type {
-		case tea.KeyTab:
-			if m.promptPane.IsTypingInProcess() || m.chatPane.IsSelectionMode() || !m.viewReady {
+		case key.Matches(msg, m.keys.jumpToPane):
+			if !m.isFocusChangeAllowed() {
+				break
+			}
+
+			var targetPane util.Pane
+			switch msg.String() {
+			case "1":
+				targetPane = util.PromptPane
+			case "2":
+				targetPane = util.ChatPane
+			case "3":
+				targetPane = util.SettingsPane
+			case "4":
+				targetPane = util.SessionsPane
+			}
+
+			if util.IsFocusAllowed(m.viewMode, targetPane, m.terminalWidth) {
+				m.focused = targetPane
+				m.resetFocus()
+			}
+
+		case key.Matches(msg, m.keys.nextPane):
+			if !m.isFocusChangeAllowed() {
 				break
 			}
 
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
+			m.resetFocus()
 
-			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsPane))
-			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsPane))
-			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatPane))
-			m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptPane))
-
-		case tea.KeyCtrlC:
+		case key.Matches(msg, m.keys.quit):
 			return m, tea.Quit
 		}
 
@@ -249,4 +287,22 @@ func (m MainView) View() string {
 			promptView,
 		),
 	)
+}
+
+func (m *MainView) resetFocus() {
+	m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsPane))
+	m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsPane))
+	m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatPane))
+	m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptPane))
+}
+
+func (m MainView) isFocusChangeAllowed() bool {
+	if m.promptPane.IsTypingInProcess() ||
+		m.chatPane.IsSelectionMode() ||
+		!m.viewReady ||
+		m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
+		return false
+	}
+
+	return true
 }

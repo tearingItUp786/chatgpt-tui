@@ -1,6 +1,8 @@
 package util
 
 import (
+	"slices"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -43,39 +45,53 @@ const (
 )
 
 var (
-	NormalFocusModes = []Pane{SettingsPane, SessionsPane, PromptPane, ChatPane}
-	ZenFocusModes    = []Pane{PromptPane, ChatPane}
+	NormalFocusPanes = []Pane{SettingsPane, SessionsPane, PromptPane, ChatPane}
+	ZenFocusPanes    = []Pane{PromptPane, ChatPane}
 )
 
-func GetNewFocusMode(mode ViewMode, currentFocus Pane, tw int) Pane {
-	var focusModes []Pane
+func IsFocusAllowed(mode ViewMode, pane Pane, tw int) bool {
+	focusPanes := getFocuesPanes(mode, pane, tw)
 
-	switch mode {
-	case NormalMode:
-		focusModes = NormalFocusModes
-
-		if tw < WidthMinScalingLimit {
-			focusModes = ZenFocusModes
-		}
-	case ZenMode:
-		focusModes = ZenFocusModes
-	case TextEditMode:
-		focusModes = ZenFocusModes
-	default:
-		Log("Invalid mode")
-		return currentFocus
+	if slices.Contains(focusPanes, pane) {
+		return true
 	}
 
-	for i, v := range focusModes {
+	return false
+}
+
+func GetNewFocusMode(mode ViewMode, currentFocus Pane, tw int) Pane {
+	focusPanes := getFocuesPanes(mode, currentFocus, tw)
+
+	for i, v := range focusPanes {
 		if v == currentFocus {
 			// this allows for correct wrapping over the array.
 			// 3 + 1 = 4 / 4 = 0. (we're already at the last spot, so wrap around)
-			return focusModes[(i+1)%len(focusModes)]
+			return focusPanes[(i+1)%len(focusPanes)]
 		}
 	}
 
 	Log("Current focus not found in mode", currentFocus)
 	return currentFocus
+}
+
+func getFocuesPanes(mode ViewMode, pane Pane, tw int) []Pane {
+	var focusPanes []Pane
+
+	switch mode {
+	case NormalMode:
+		focusPanes = NormalFocusPanes
+		if tw < WidthMinScalingLimit {
+			focusPanes = ZenFocusPanes
+		}
+	case ZenMode:
+		focusPanes = ZenFocusPanes
+	case TextEditMode:
+		focusPanes = ZenFocusPanes
+	default:
+		focusPanes = []Pane{pane}
+	}
+
+	return focusPanes
 }
 
 var MotivationalMessage = lipgloss.NewStyle().
