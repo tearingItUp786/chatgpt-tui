@@ -16,12 +16,6 @@ require (
 )
 
 require (
-	golang.org/x/exp v0.0.0-20190731235908-ec7cb31e5a56 // indirect
-	golang.org/x/image v0.6.0 // indirect
-	golang.org/x/mobile v0.0.0-20230301163155-e0f57694e12c // indirect
-)
-
-require (
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
@@ -43,7 +37,6 @@ require (
 	github.com/yuin/goldmark v1.5.2 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.design/x/clipboard v0.7.0
 	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/term v0.15.0 // indirect

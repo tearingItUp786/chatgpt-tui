@@ -291,7 +291,7 @@ func (p SessionsPane) listItem(heading string, value string, isActive bool, widt
 
 	value = util.TrimListItem(value, widthCap)
 
-	return headingEl(" "+heading, spanEl(value))
+	return headingEl("■ "+heading, spanEl(value))
 }
 
 func (p SessionsPane) normalListView() string {

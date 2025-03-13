@@ -57,7 +57,8 @@ func GetVisualModeView(msgsToRender []MessageToSend, w int, colors SchemeColors)
 func RenderUserMessage(msg string, width int, colors SchemeColors, isVisualMode bool) string {
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithPreservedNewLines(),
-		glamour.WithStylePath(colors.RendererTheme))
+		colors.RendererThemeOption,
+	)
 	if isVisualMode {
 		msg = "\n💁 " + msg
 		userMsg, _ := renderer.Render(msg)
@@ -76,8 +77,12 @@ func RenderUserMessage(msg string, width int, colors SchemeColors, isVisualMode 
 }
 
 func RenderErrorMessage(msg string, width int, colors SchemeColors) string {
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithPreservedNewLines(),
+		colors.RendererThemeOption,
+	)
 	msg = "```json\n" + msg + "\n```"
-	errMsg, _ := glamour.Render(msg, colors.RendererTheme)
+	errMsg, _ := renderer.Render(msg)
 	output := strings.TrimSpace(errMsg)
 	return lipgloss.NewStyle().
 		BorderLeft(true).
@@ -93,15 +98,19 @@ func RenderBotMessage(msg string, width int, colors SchemeColors, isVisualMode b
 		return ""
 	}
 
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithPreservedNewLines(),
+		colors.RendererThemeOption,
+	)
 	if isVisualMode {
 		msg = "\n🤖 " + msg
-		userMsg, _ := glamour.Render(msg, colors.RendererTheme)
+		userMsg, _ := renderer.Render(msg)
 		output := strings.TrimSpace(userMsg)
 		return lipgloss.NewStyle().Render("\n" + output + "\n")
 	}
 
 	msg = "\n🤖 " + msg + "\n"
-	aiResponse, _ := glamour.Render(msg, colors.RendererTheme)
+	aiResponse, _ := renderer.Render(msg)
 	output := strings.TrimSpace(aiResponse)
 	return lipgloss.NewStyle().
 		BorderLeft(true).

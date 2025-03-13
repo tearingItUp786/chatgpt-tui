@@ -50,7 +50,11 @@ Additional fields:
 
 ### Themes
 You can change colorscheme using the `colorScheme` field.
-Possible options are `Pink` and `Blue`. Default colorscheme is `Pink`
+
+Available themes:
+ * `Pink` **default**
+ * `Blue`
+ * `Groove`
 
 ## Cache invalidation
 

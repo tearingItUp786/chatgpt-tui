@@ -88,7 +88,10 @@ func constructSystemMessage(content string) util.MessageToSend {
 
 func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []util.MessageToSend, modelSettings util.Settings) ([]byte, error) {
 	messages := []util.MessageToSend{}
-	messages = append(messages, constructSystemMessage(c.systemMessage))
+	if util.IsSystemMessageSupported(c.provider, modelSettings.Model) {
+		messages = append(messages, constructSystemMessage(c.systemMessage))
+	}
+
 	for _, singleMessage := range chatMsgs {
 		if singleMessage.Content != "" {
 			messages = append(messages, singleMessage)
@@ -103,7 +106,7 @@ func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []util.MessageT
 		"stream":            true,
 		"messages":          messages,
 	}
-	util.GetAdditionalReqRequestHeaders(c.provider, reqParams)
+	util.TransformRequestHeaders(c.provider, reqParams)
 
 	body, err := json.Marshal(reqParams)
 	if err != nil {

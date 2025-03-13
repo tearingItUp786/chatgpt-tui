@@ -4,11 +4,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/util"
-	"github.com/atotto/clipboard"
 )
 
 const (

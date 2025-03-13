@@ -71,7 +71,7 @@ func listItemRenderer(heading string, value string) string {
 	headingEl := listItemHeading.Render
 	spanEl := listItemSpan.Render
 
-	return headingEl(" "+heading, spanEl(value))
+	return headingEl("■ "+heading, spanEl(value))
 }
 
 func initSpinner() spinner.Model {
