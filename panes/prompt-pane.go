@@ -6,13 +6,13 @@ import (
 	"log"
 	"strings"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
-	"golang.design/x/clipboard"
 )
 
 const ResponseWaitingMsg = "> Please wait ..."
@@ -39,11 +39,6 @@ func NewPromptPane(ctx context.Context) PromptPane {
 	if !ok {
 		fmt.Println("No config found")
 		panic("No config found in context")
-	}
-
-	err := clipboard.Init()
-	if err != nil {
-		panic(err)
 	}
 
 	colors := config.ColorScheme.GetColors()
@@ -240,6 +235,23 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 					return p, util.SendPromptReadyMsg(promptText)
 				}
 			}
+		case tea.KeyCtrlV:
+			if p.isFocused {
+				buffer, _ := clipboard.ReadAll()
+				content := strings.TrimSpace(buffer)
+
+				if p.textEditor.Focused() {
+					prev := p.textEditor.Value()
+					p.textEditor.SetValue(prev + content)
+					p.textEditor.SetCursor(0)
+				}
+
+				if p.input.Focused() {
+					prev := p.input.Value()
+					p.input.SetValue(prev + content)
+				}
+			}
+
 		case tea.KeyCtrlS:
 			if p.isFocused && p.viewMode == util.TextEditMode && p.textEditor.Focused() {
 				p.insertBufferContentAsCodeBlock()
@@ -251,7 +263,7 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 }
 
 func (p *PromptPane) insertBufferContentAsCodeBlock() {
-	buffer := clipboard.Read(clipboard.FmtText)
+	buffer, _ := clipboard.ReadAll()
 	currentInput := p.textEditor.Value()
 	lines := strings.Split(currentInput, "\n")
 	lang := lines[len(lines)-1]

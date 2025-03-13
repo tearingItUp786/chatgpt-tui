@@ -67,13 +67,29 @@ Models list is cached for 14 days upon loading. If you need to invalidate cache 
 
 - `Tab`: \*Change focus between panes. The currently focused pane will be highlighted with a pink border.
   - You can only change focus if Prompt Pane is not in `insert mode`
+- `1`: Jump to prompt pane
+- `2`: Jump to chat pane
+- `3`: Jump to settings pane
+- `4`: Jump to sessions pane
+- `Ctrl+b`: Interrupt inference
 - `Ctrl+o`: Toggles zen mode
 - `Ctrl+c`: Exit the program
 
 ## Prompt Pane
 
 - `i`: Enters insert mode (you can now safely paste messages into the tui)
+- `Ctrl+e`: Open/Close prompt editor 
+- `Ctrl+r`: Clear prompt
+- `Ctrl+v`: Paste text from buffer
+- `Ctrl+s`: Paste text from buffer as a code block (only in editor mode)
+    * if current line contains text, that text will be used as a language for the code block
+    * Example: if a line contains `go` the result of `Ctrl+s` will be:
+
+    \```go <br>
+    {bufferContent} <br>
+    \```
 - `esc`: Exit insert mode for the prompt
+    * When in 'Prompt editor' mode, pressing `esc` second time will close editor
 
 ## Chat Messages Pane
 
