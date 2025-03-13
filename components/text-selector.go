@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/util"
-	"golang.design/x/clipboard"
+	"github.com/atotto/clipboard"
 )
 
 const (
@@ -272,7 +272,7 @@ func (s TextSelector) copySelectedLinesToClipboard() {
 	}
 
 	linesToCopy := util.StripAnsiCodes(strings.Join(selectedLines, "\n"))
-	clipboard.Write(clipboard.FmtText, []byte(linesToCopy))
+	clipboard.WriteAll(linesToCopy)
 }
 
 func filterLine(line string) string {
@@ -282,10 +282,6 @@ func filterLine(line string) string {
 }
 
 func NewTextSelector(w, h int, scrollPos int, sessionData string, colors util.SchemeColors) TextSelector {
-	err := clipboard.Init()
-	if err != nil {
-		panic(err)
-	}
 
 	lines := strings.Split(sessionData, "\n")
 
