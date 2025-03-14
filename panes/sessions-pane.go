@@ -284,6 +284,7 @@ func (p SessionsPane) listItem(heading string, value string, isActive bool, widt
 	headingEl := lipgloss.NewStyle().
 		PaddingLeft(util.ListItemPaddingLeft).
 		Foreground(lipgloss.Color(headingColor)).
+		Bold(isActive).
 		Render
 	spanEl := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(color)).

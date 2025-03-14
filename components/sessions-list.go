@@ -106,6 +106,7 @@ func NewSessionsList(items []list.Item, w, h int, colors util.SchemeColors) Sess
 	l.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render("•")
 	selectedItemStyle = selectedItemStyle.Copy().Foreground(colors.AccentColor)
 	activeItemStyle = activeItemStyle.Copy().Foreground(colors.HighlightColor)
+	itemStyle = itemStyle.Copy().Foreground(colors.DefaultTextColor)
 
 	return SessionsList{
 		list: l,

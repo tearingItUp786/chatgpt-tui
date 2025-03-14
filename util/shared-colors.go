@@ -48,7 +48,7 @@ var (
 	grooveboxPurple    = "#B16286"
 	grooveboxRed       = "#FB4934"
 	grooveboxLightGrey = "#EBDBB2"
-	grooveboxYellow    = "#d79921"
+	grooveboxYellow    = "#C0A568"
 )
 
 type SchemeColors struct {
