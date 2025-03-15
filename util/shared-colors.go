@@ -21,7 +21,10 @@ const (
 )
 
 //go:embed glamour-styles/groovebox.json
-var glamourGrooveBoxThemeBytes []byte
+var grooveBoxThemeBytes []byte
+
+//go:embed glamour-styles/pink.json
+var pinkThemeBytes []byte
 
 var (
 	pink100   = "#F2B3E8"
@@ -42,7 +45,7 @@ var (
 )
 
 var (
-	grooveboxOrange    = "#fe8019"
+	grooveboxOrange    = "#DD843B"
 	grooveboxGreen     = "#98971a"
 	grooveboxBlue      = "#458588"
 	grooveboxPurple    = "#B16286"
@@ -71,7 +74,7 @@ func (s ColorScheme) GetColors() SchemeColors {
 		ErrorColor:           lipgloss.Color(red),
 		NormalTabBorderColor: lipgloss.Color(lightGrey),
 		ActiveTabBorderColor: lipgloss.Color(pink300),
-		RendererThemeOption:  glamour.WithStylePath(GlamourDarkTheme),
+		RendererThemeOption:  glamour.WithStylesFromJSONBytes(pinkThemeBytes),
 	}
 
 	switch s {
@@ -96,7 +99,7 @@ func (s ColorScheme) GetColors() SchemeColors {
 			ErrorColor:           lipgloss.Color(grooveboxRed),
 			NormalTabBorderColor: lipgloss.Color(grooveboxYellow),
 			ActiveTabBorderColor: lipgloss.Color(grooveboxGreen),
-			RendererThemeOption:  glamour.WithStylesFromJSONBytes(glamourGrooveBoxThemeBytes),
+			RendererThemeOption:  glamour.WithStylesFromJSONBytes(grooveBoxThemeBytes),
 		}
 
 	case OriginalPink:

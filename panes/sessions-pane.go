@@ -275,7 +275,7 @@ func (p SessionsPane) listHeader(str ...string) string {
 
 func (p SessionsPane) listItem(heading string, value string, isActive bool, widthCap int) string {
 	headingColor := p.colors.MainColor
-	color := p.colors.NormalTabBorderColor
+	color := p.colors.DefaultTextColor
 	if isActive {
 		colorValue := p.colors.ActiveTabBorderColor
 		color = colorValue

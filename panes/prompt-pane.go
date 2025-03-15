@@ -17,7 +17,7 @@ import (
 
 const ResponseWaitingMsg = "> Please wait ..."
 const InitializingMsg = "Components initializing ..."
-const PlaceholderMsg = "Prompts go here"
+const PlaceholderMsg = "Press i to type. Use ctrl+e to expand/collapse editor"
 
 type keyMap struct {
 	insert    key.Binding

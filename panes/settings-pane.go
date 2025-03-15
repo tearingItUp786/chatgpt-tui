@@ -67,9 +67,9 @@ var listItemHeading = lipgloss.NewStyle().
 var listItemSpan = lipgloss.NewStyle()
 var spinnerStyle = lipgloss.NewStyle()
 
-func listItemRenderer(heading string, value string) string {
+func (p SettingsPane) listItemRenderer(heading string, value string) string {
 	headingEl := listItemHeading.Render
-	spanEl := listItemSpan.Render
+	spanEl := listItemSpan.Copy().Foreground(p.colors.DefaultTextColor).Render
 
 	return headingEl("■ "+heading, spanEl(value))
 }
@@ -207,9 +207,9 @@ func (p SettingsPane) View() string {
 		editForm = p.textInput.View()
 	}
 
-	modelRowContent := listItemRenderer("model", p.settings.Model)
+	modelRowContent := p.listItemRenderer("model", p.settings.Model)
 	if p.loading {
-		modelRowContent = listItemRenderer(p.spinner.View(), "")
+		modelRowContent = p.listItemRenderer(p.spinner.View(), "")
 	}
 
 	_, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
@@ -219,8 +219,8 @@ func (p SettingsPane) View() string {
 			lipgloss.NewStyle().Height(h).Render(
 				lipgloss.JoinVertical(lipgloss.Left,
 					modelRowContent,
-					listItemRenderer("frequency", fmt.Sprint(p.settings.Frequency)),
-					listItemRenderer("max_tokens", fmt.Sprint((p.settings.MaxTokens))),
+					p.listItemRenderer("frequency", fmt.Sprint(p.settings.Frequency)),
+					p.listItemRenderer("max_tokens", fmt.Sprint((p.settings.MaxTokens))),
 				),
 			),
 			editForm,
