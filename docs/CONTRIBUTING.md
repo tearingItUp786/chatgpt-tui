@@ -21,8 +21,8 @@ To cut a release, you need to:
 
 1. Decide if you are cutting a release candidate or stable release.
 2. Release candidate?
-   1. Add a git tag: `git tag -a v<your-version>-rc -m "Some message"`
-   2. Publish to git: `git push origin v<your-version>-rc`
+   1. Add a git tag: `git tag -a v<your-version>-rc<version-number> -m "Some message"`
+   2. Publish to git: `git push origin v<your-version>-rc<version-number>`
    3. Watch the [release workflow](https://github.com/tearingItUp786/chatgpt-tui/actions/workflows/release.yaml) run
 4. Stable release?
    1. Add a git tag: `git tag -a v<your-version> -m "Some message"`
