@@ -3,17 +3,23 @@ package views
 import (
 	"context"
 	"database/sql"
+	"os"
+	"runtime"
 	"slices"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
 
 	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/panes"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
+
+const pulsarIntervalMs = 300
 
 var asyncDeps = []util.AsyncDependency{util.SettingsPaneModule, util.Orchestrator}
 
@@ -59,6 +65,15 @@ type MainView struct {
 	terminalHeight int
 }
 
+// Windows terminal is not able to work with tea.WindowSizeMsg directly
+// Wrokaround is to constatly check if the terminal windows size changed
+// and manually triggering tea.WindowSizeMsg
+type checkDimensionsMsg int
+func dimensionsPulsar() tea.Msg {
+	time.Sleep(time.Millisecond*pulsarIntervalMs)
+	return checkDimensionsMsg(1)
+}
+
 func NewMainView(db *sql.DB, ctx context.Context) MainView {
 	promptPane := panes.NewPromptPane(ctx)
 	sessionsPane := panes.NewSessionsPane(db, ctx)
@@ -93,6 +108,7 @@ func (m MainView) Init() tea.Cmd {
 		m.chatPane.Init(),
 		m.settingsPane.Init(),
 		m.sessionsPane.Init(),
+		func() tea.Msg { return dimensionsPulsar() },
 	)
 }
 
@@ -119,6 +135,15 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+
+	case checkDimensionsMsg:
+		if runtime.GOOS == "windows" {
+			w, h, _ := term.GetSize(int(os.Stdout.Fd()))
+			if m.terminalWidth != w || m.terminalHeight != h {
+				cmds = append(cmds, func() tea.Msg { return tea.WindowSizeMsg{Width: w, Height: h} })
+			}
+			cmds = append(cmds, dimensionsPulsar)
+		}
 
 	case util.ViewModeChanged:
 		m.viewMode = msg.Mode
