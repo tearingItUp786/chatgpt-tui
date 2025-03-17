@@ -118,6 +118,7 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 		if p.isChatContainerFocused {
 			p.chatContainer.BorderForeground(p.colors.ActiveTabBorderColor)
 		} else {
+			p.displayMode = normalMode
 			p.chatContainer.BorderForeground(p.colors.NormalTabBorderColor)
 		}
 		return p, nil
@@ -216,6 +217,10 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 
 func (p ChatPane) IsSelectionMode() bool {
 	return p.displayMode == selectionMode
+}
+
+func (p ChatPane) AllowFocusChange() bool {
+	return !p.selectionView.IsSelecting()
 }
 
 func (p ChatPane) DisplayCompletion(ctx context.Context, orchestrator sessions.Orchestrator) tea.Cmd {

@@ -26,7 +26,8 @@ const (
 	// in order to properly align elements
 	SettingsPaneHeightCounterweight = 3
 	SessionsPaneHeightCounterweight = 4
-	NotificationLabelCounterweght   = 8
+	NotificationLabelCounterweight  = 8
+	ChatPaneVisualModeCounterweight = 1
 )
 
 // UI elements
@@ -88,7 +89,7 @@ func CalcPromptPaneSize(tw, th int, isTextEditMode bool) (w, h int) {
 func CalcVisualModeViewSize(tw, th int) (w, h int) {
 	chatPaneWidth, chatPaneHeight := CalcChatPaneSize(tw, th, NormalMode)
 
-	return chatPaneWidth, chatPaneHeight - 1
+	return chatPaneWidth, chatPaneHeight - ChatPaneVisualModeCounterweight
 }
 
 func CalcChatPaneSize(tw, th int, mode ViewMode) (w, h int) {

@@ -228,6 +228,10 @@ func (p SettingsPane) View() string {
 	)
 }
 
+func (p SettingsPane) AllowFocusChange() bool {
+	return p.mode == viewMode
+}
+
 func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 	var (
 		cmd  tea.Cmd

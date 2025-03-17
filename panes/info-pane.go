@@ -174,12 +174,12 @@ func (p InfoPane) View() string {
 		case util.CopiedNotification:
 			label = p.notificationLabel.
 				Background(p.colors.NormalTabBorderColor).
-				MarginLeft(paneWidth - len(copiedLabelText) - len(idleLabelText) - util.NotificationLabelCounterweght).
+				MarginLeft(paneWidth - len(copiedLabelText) - len(idleLabelText) - util.NotificationLabelCounterweight).
 				Render(copiedLabelText)
 		case util.CancelledNotification:
 			label = p.notificationLabel.
 				Background(p.colors.ErrorColor).
-				MarginLeft(paneWidth - len(cancelledLabelText) - len(idleLabelText) - util.NotificationLabelCounterweght).
+				MarginLeft(paneWidth - len(cancelledLabelText) - len(idleLabelText) - util.NotificationLabelCounterweight).
 				Render(cancelledLabelText)
 		}
 

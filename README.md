@@ -1,21 +1,6 @@
 # ChatGPT tui README
 
-My first ever terminal UI! Everything is stored locally on sqlite and written in Go!
-
-## Technologies
-
-- Go
-- [bubbletea](https://github.com/charmbracelet/bubbletea): A Go framework for
-  terminal user interfaces. It's a great framework that makes it easy to create
-  TUIs in Go.
-- [openai](https://platform.openai.com/docs/api-reference): OpenAI's REST Api
-- [sqlite](https://www.sqlite.org/): A C library that provides a lightweight
-  disk-based database that doesn't require a separate server process (perfect
-  for terminal apps, in my opinion).
-- [lipgloss](https://github.com/charmbracelet/lipgloss): Style definitions for
-  nice terminal layouts!
-- [bubbles](https://github.com/charmbracelet/bubbles): Some general use
-  components for Bubble Tea apps!
+A terminal util for chatting with LLMs
 
 ## Installation
 
@@ -127,7 +112,7 @@ Selection mode allows to navigate the chat pane and select lines to copy. Suppor
 
 ## Sessions Pane
 
-- `Ctrl+N`: Creates a new session.
+- `Ctrl+n`: Creates a new session.
 - `d`: Deletes the currently selected session from the list.
 - `e`: Edit session name
 - `Enter`: Switches to the session that is currently selected.
@@ -143,6 +128,21 @@ Please refer to this guide as you navigate the TUI. Happy exploring!
 ### Dev notes
 
 The SQL db is stored in you `your/home/directory/.chatgpt-tui`, as well as the debug log. To enable `debug` mode, `export DEBUG=1` before running the program.
+
+## Technologies
+
+- Go
+- [bubbletea](https://github.com/charmbracelet/bubbletea): A Go framework for
+  terminal user interfaces. It's a great framework that makes it easy to create
+  TUIs in Go.
+- [openai](https://platform.openai.com/docs/api-reference): OpenAI's REST Api
+- [sqlite](https://www.sqlite.org/): A C library that provides a lightweight
+  disk-based database that doesn't require a separate server process (perfect
+  for terminal apps, in my opinion).
+- [lipgloss](https://github.com/charmbracelet/lipgloss): Style definitions for
+  nice terminal layouts!
+- [bubbles](https://github.com/charmbracelet/bubbles): Some general use
+  components for Bubble Tea apps!
 
 ## Contributors
 

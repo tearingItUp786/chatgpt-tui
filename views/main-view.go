@@ -69,8 +69,9 @@ type MainView struct {
 // Wrokaround is to constatly check if the terminal windows size changed
 // and manually triggering tea.WindowSizeMsg
 type checkDimensionsMsg int
+
 func dimensionsPulsar() tea.Msg {
-	time.Sleep(time.Millisecond*pulsarIntervalMs)
+	time.Sleep(time.Millisecond * pulsarIntervalMs)
 	return checkDimensionsMsg(1)
 }
 
@@ -321,9 +322,11 @@ func (m *MainView) resetFocus() {
 	m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptPane))
 }
 
+// TODO: use event to lock/unlock allowFocusChange flag
 func (m MainView) isFocusChangeAllowed() bool {
 	if m.promptPane.IsTypingInProcess() ||
-		m.chatPane.IsSelectionMode() ||
+		!m.chatPane.AllowFocusChange() ||
+		!m.settingsPane.AllowFocusChange() ||
 		!m.viewReady ||
 		m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
 		return false

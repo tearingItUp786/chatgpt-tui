@@ -281,6 +281,10 @@ func filterLine(line string) string {
 	return line
 }
 
+func (s TextSelector) IsSelecting() bool {
+	return s.Selection.Active
+}
+
 func NewTextSelector(w, h int, scrollPos int, sessionData string, colors util.SchemeColors) TextSelector {
 
 	lines := strings.Split(sessionData, "\n")
