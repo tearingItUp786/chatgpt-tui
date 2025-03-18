@@ -327,6 +327,7 @@ func (m MainView) isFocusChangeAllowed() bool {
 	if m.promptPane.IsTypingInProcess() ||
 		!m.chatPane.AllowFocusChange() ||
 		!m.settingsPane.AllowFocusChange() ||
+		!m.sessionsPane.AllowFocusChange() ||
 		!m.viewReady ||
 		m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
 		return false

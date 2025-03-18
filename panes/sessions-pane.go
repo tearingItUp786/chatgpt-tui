@@ -387,3 +387,7 @@ func (p SessionsPane) normalListView() string {
 		MaxHeight(h).
 		Render(strings.Join(sessionListItems, "\n"))
 }
+
+func (p SessionsPane) AllowFocusChange() bool {
+	return p.operationMode == defaultMode
+}
