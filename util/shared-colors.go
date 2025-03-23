@@ -15,16 +15,14 @@ const (
 	Groovebox    ColorScheme = "Groove"
 )
 
-const (
-	GlamourDarkTheme    = "dark"
-	GlamourDraculaTheme = "dracula"
-)
-
 //go:embed glamour-styles/groovebox.json
 var grooveBoxThemeBytes []byte
 
 //go:embed glamour-styles/pink.json
 var pinkThemeBytes []byte
+
+//go:embed glamour-styles/blue.json
+var blueThemeBytes []byte
 
 var (
 	pink100   = "#F2B3E8"
@@ -87,7 +85,7 @@ func (s ColorScheme) GetColors() SchemeColors {
 			ErrorColor:           lipgloss.Color(red),
 			NormalTabBorderColor: lipgloss.Color(smoothBlue),
 			ActiveTabBorderColor: lipgloss.Color(pinkYellow),
-			RendererThemeOption:  glamour.WithStylePath(GlamourDraculaTheme),
+			RendererThemeOption:  glamour.WithStylesFromJSONBytes(blueThemeBytes),
 		}
 
 	case Groovebox:
