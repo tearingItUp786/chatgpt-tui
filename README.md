@@ -60,7 +60,7 @@ Models list is cached for 14 days upon loading. If you need to invalidate cache 
 - `2`: Jump to chat pane
 - `3`: Jump to settings pane
 - `4`: Jump to sessions pane
-- `Ctrl+b`: Interrupt inference
+- `Ctrl+b` or `Ctrl+s`: Interrupt inference
 - `Ctrl+o`: Toggles zen mode
 - `Ctrl+c`: Exit the program
 

@@ -14,11 +14,11 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
-const NotificationDisplayDurationSec = 2
+const notificationDisplayDurationSec = 2
 
 const (
-	copiedLabelText     = "Copied"
-	cancelledLabelText  = "Stopped"
+	copiedLabelText     = "Copied to clipboard"
+	cancelledLabelText  = "Inference interrupted"
 	idleLabelText       = "IDLE"
 	processingLabelText = "Processing"
 )
@@ -133,7 +133,7 @@ func (p InfoPane) Update(msg tea.Msg) (InfoPane, tea.Cmd) {
 	case util.NotificationMsg:
 		p.notification = msg.Notification
 		p.showNotification = true
-		cmds = append(cmds, tickAfter(NotificationDisplayDurationSec))
+		cmds = append(cmds, tickAfter(notificationDisplayDurationSec))
 
 	case tickMsg:
 		p.showNotification = false
@@ -167,34 +167,38 @@ func (p InfoPane) View() string {
 	completionTokensLabel := p.completionTokensLabel.Render(fmt.Sprintf("OUT: %d", p.currentSession.CompletionTokens))
 
 	firstRow := processingLabel
-
-	if p.showNotification {
-		label := ""
-		switch p.notification {
-		case util.CopiedNotification:
-			label = p.notificationLabel.
-				Background(p.colors.NormalTabBorderColor).
-				MarginLeft(paneWidth - len(copiedLabelText) - len(idleLabelText) - util.NotificationLabelCounterweight).
-				Render(copiedLabelText)
-		case util.CancelledNotification:
-			label = p.notificationLabel.
-				Background(p.colors.ErrorColor).
-				MarginLeft(paneWidth - len(cancelledLabelText) - len(idleLabelText) - util.NotificationLabelCounterweight).
-				Render(cancelledLabelText)
-		}
-
-		firstRow = lipgloss.JoinHorizontal(
-			lipgloss.Left,
-			processingLabel,
-			label,
-		)
-	}
-
 	secondRow := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		promptTokensLablel,
 		completionTokensLabel,
 	)
+
+	if p.showNotification {
+		notificationLabel := lipgloss.NewStyle()
+		notificationText := ""
+
+		switch p.notification {
+		case util.CopiedNotification:
+			notificationText = copiedLabelText
+			notificationLabel = p.notificationLabel.
+				Background(p.colors.NormalTabBorderColor).
+				Align(lipgloss.Left).
+				Width(paneWidth - 1)
+		case util.CancelledNotification:
+			notificationText = cancelledLabelText
+			notificationLabel = p.notificationLabel.
+				Background(p.colors.ErrorColor).
+				Align(lipgloss.Left).
+				Width(paneWidth - 1)
+		}
+
+		firstRow = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			notificationLabel.Render(notificationText),
+		)
+
+		secondRow = ""
+	}
 
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.ThickBorder()).

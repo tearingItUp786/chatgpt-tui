@@ -26,7 +26,6 @@ const (
 	// in order to properly align elements
 	SettingsPaneHeightCounterweight = 3
 	SessionsPaneHeightCounterweight = 4
-	NotificationLabelCounterweight  = 8
 	ChatPaneVisualModeCounterweight = 1
 )
 

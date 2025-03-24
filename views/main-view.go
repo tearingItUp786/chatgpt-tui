@@ -33,7 +33,7 @@ type keyMap struct {
 }
 
 var defaultKeyMap = keyMap{
-	cancel:     key.NewBinding(key.WithKeys("ctrl+b"), key.WithHelp("ctrl+b", "stop inference")),
+	cancel:     key.NewBinding(key.WithKeys("ctrl+s", "ctrl+b"), key.WithHelp("ctrl+b/ctrl+s", "stop inference")),
 	zenMode:    key.NewBinding(key.WithKeys("ctrl+o"), key.WithHelp("ctrl+o", "activate/deactivate zen mode")),
 	editorMode: key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "enter/exit editor mode")),
 	quit:       key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit app")),
