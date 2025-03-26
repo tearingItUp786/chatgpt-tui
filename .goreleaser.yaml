@@ -88,3 +88,5 @@ brews:
     commit_author:
       name: tearingitup786
     skip_upload: auto
+    post_install: |
+      echo "⚠︎ chatgpt-tui is deprecated and will be removed in the future. Use nekot instead."
