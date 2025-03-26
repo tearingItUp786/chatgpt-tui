@@ -34,6 +34,7 @@ type Config struct {
 	ChatGPTApiUrl string           `json:"chatGPTAPiUrl"`
 	SystemMessage string           `json:"systemMessage"`
 	DefaultModel  string           `json:"defaultModel"`
+	Provider      string           `json:"provider"`
 	ColorScheme   util.ColorScheme `json:"colorScheme"`
 }
 
@@ -82,14 +83,22 @@ func createConfig() (string, error) {
 }
 
 func validateConfig(config Config) bool {
-	// Validate the ChatAPIURL format (simple example)
-	match, _ := regexp.MatchString(`^https?://`, config.ChatGPTApiUrl)
-	if !match {
-		fmt.Println("ChatAPIURL must be a valid URL")
+	switch config.Provider {
+	case util.GeminiProviderType:
+		return true
+	case util.OpenAiProviderType:
+		// Validate the ChatAPIURL format (simple example)
+		match, _ := regexp.MatchString(`^https?://`, config.ChatGPTApiUrl)
+		if !match {
+			fmt.Println("ChatAPIURL must be a valid URL")
+			return false
+		}
+		// Add any other validation logic here
+		return true
+	default:
+		fmt.Println("Incorrect provider type. Supported values: 'openai', 'gemini'")
 		return false
 	}
-	// Add any other validation logic here
-	return true
 }
 
 func CreateAndValidateConfig() Config {
@@ -112,6 +121,7 @@ func CreateAndValidateConfig() Config {
 		fmt.Printf("Error parsing config JSON: %s", err)
 		panic(err)
 	}
+	config.setDefaults()
 
 	isValidConfig := validateConfig(config)
 	if !isValidConfig {
@@ -119,4 +129,10 @@ func CreateAndValidateConfig() Config {
 	}
 
 	return config
+}
+
+func (c *Config) setDefaults() {
+	if c.Provider == "" {
+		c.Provider = util.OpenAiProviderType
+	}
 }

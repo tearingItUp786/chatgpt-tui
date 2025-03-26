@@ -140,7 +140,7 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		if p.isFocused {
+		if p.isFocused && !p.sessionsList.IsFiltering() {
 			switch p.operationMode {
 			case defaultMode:
 				cmd := p.handleDefaultMode(msg)

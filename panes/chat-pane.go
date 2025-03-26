@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wrap"
-	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/components"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/sessions"
@@ -29,7 +28,7 @@ type ChatPane struct {
 	chatContent            string
 	renderedContent        string
 	isChatContainerFocused bool
-	msgChan                chan clients.ProcessApiCompletionResponse
+	msgChan                chan util.ProcessApiCompletionResponse
 	viewMode               util.ViewMode
 
 	terminalWidth  int
@@ -48,7 +47,7 @@ var chatContainerStyle = lipgloss.NewStyle().
 func NewChatPane(ctx context.Context, w, h int) ChatPane {
 	chatView := viewport.New(w, h)
 	chatView.SetContent(util.MotivationalMessage)
-	msgChan := make(chan clients.ProcessApiCompletionResponse)
+	msgChan := make(chan util.ProcessApiCompletionResponse)
 
 	config, ok := config.FromContext(ctx)
 	if !ok {
@@ -79,7 +78,7 @@ func NewChatPane(ctx context.Context, w, h int) ChatPane {
 	}
 }
 
-func waitForActivity(sub chan clients.ProcessApiCompletionResponse) tea.Cmd {
+func waitForActivity(sub chan util.ProcessApiCompletionResponse) tea.Cmd {
 	return func() tea.Msg {
 		someMessage := <-sub
 		return someMessage

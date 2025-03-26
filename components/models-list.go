@@ -21,9 +21,11 @@ var listItemSpan = lipgloss.NewStyle().
 var listItemSpanSelected = lipgloss.NewStyle().
 	PaddingLeft(util.ListItemPaddingLeft)
 
-type ModelsListItem string
+type ModelsListItem struct {
+	Text string
+}
 
-func (i ModelsListItem) FilterValue() string { return "" }
+func (i ModelsListItem) FilterValue() string { return i.Text }
 
 type modelItemDelegate struct{}
 
@@ -36,7 +38,7 @@ func (d modelItemDelegate) Render(w io.Writer, m list.Model, index int, listItem
 		return
 	}
 
-	str := fmt.Sprintf("%d. %s", index+1, i)
+	str := fmt.Sprintf("%d. %s", index+1, i.Text)
 	str = util.TrimListItem(str, m.Width())
 
 	fn := listItemSpan.Render
@@ -51,12 +53,21 @@ func (d modelItemDelegate) Render(w io.Writer, m list.Model, index int, listItem
 }
 
 func (l *ModelsList) View() string {
+	if l.list.FilterState() == list.Filtering {
+		l.list.SetShowStatusBar(false)
+	} else {
+		l.list.SetShowStatusBar(true)
+	}
 	return l.list.View()
 }
 
 func (l *ModelsList) GetSelectedItem() (ModelsListItem, bool) {
 	item, ok := l.list.SelectedItem().(ModelsListItem)
 	return item, ok
+}
+
+func (l ModelsList) IsFiltering() bool {
+	return l.list.SettingFilter()
 }
 
 func (l ModelsList) Update(msg tea.Msg) (ModelsList, tea.Cmd) {
@@ -66,20 +77,22 @@ func (l ModelsList) Update(msg tea.Msg) (ModelsList, tea.Cmd) {
 }
 
 func NewModelsList(items []list.Item, w, h int, colors util.SchemeColors) ModelsList {
-	newList := list.New(items, modelItemDelegate{}, w, h)
+	l := list.New(items, modelItemDelegate{}, w, h)
 
-	newList.SetStatusBarItemName("model detected", "models detected")
-	newList.SetShowTitle(false)
-	newList.SetShowHelp(false)
-	newList.SetFilteringEnabled(false)
-	newList.DisableQuitKeybindings()
+	l.SetStatusBarItemName("model detected", "models detected")
+	l.SetShowTitle(false)
+	l.SetShowHelp(false)
+	l.SetFilteringEnabled(true)
+	l.DisableQuitKeybindings()
 
-	newList.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(colors.HighlightColor).Render("■")
-	newList.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render("•")
+	l.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(colors.HighlightColor).Render("■")
+	l.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render("•")
 	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
 	listItemSpanSelected = listItemSpanSelected.Copy().Foreground(colors.AccentColor)
+	l.FilterInput.PromptStyle = l.FilterInput.PromptStyle.Copy().Foreground(colors.ActiveTabBorderColor).PaddingBottom(0).Margin(0)
+	l.FilterInput.Cursor.Style = l.FilterInput.Cursor.Style.Copy().Foreground(colors.NormalTabBorderColor)
 
 	return ModelsList{
-		list: newList,
+		list: l,
 	}
 }

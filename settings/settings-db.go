@@ -39,7 +39,7 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) t
 	)
 	err := row.Scan(&settings.ID, &settings.Model, &settings.MaxTokens, &settings.Frequency)
 
-	availableModels, modelsError := ss.GetProviderModels(cfg.ChatGPTApiUrl)
+	availableModels, modelsError := ss.GetProviderModels(cfg.Provider, cfg.ChatGPTApiUrl)
 
 	if modelsError != nil {
 		return util.ErrorEvent{Message: modelsError.Error()}
@@ -76,8 +76,8 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) t
 	}
 }
 
-func (ss *SettingsService) GetProviderModels(apiUrl string) ([]string, error) {
-	provider := util.GetInferenceProvider(apiUrl)
+func (ss *SettingsService) GetProviderModels(providerType string, apiUrl string) ([]string, error) {
+	provider := util.GetOpenAiInferenceProvider(providerType, apiUrl)
 	availableModels := []string{}
 
 	if provider != util.Local {
@@ -89,13 +89,13 @@ func (ss *SettingsService) GetProviderModels(apiUrl string) ([]string, error) {
 	}
 
 	if len(availableModels) == 0 {
-		openAiClient := clients.NewOpenAiClient(apiUrl, "")
-		modelsResponse := openAiClient.RequestModelsList()
+		llmClient := clients.ResolveLlmClient(providerType, apiUrl, "")
+		modelsResponse := llmClient.RequestModelsList()
 		if modelsResponse.Err != nil {
 			return []string{}, modelsResponse.Err
 		}
 
-		availableModels = util.GetFilteredModelList(apiUrl, modelsResponse.Result.GetModelNames())
+		availableModels = util.GetFilteredModelList(providerType, apiUrl, modelsResponse.Result.GetModelNamesFromResponse())
 
 		if provider == util.Local {
 			return availableModels, nil

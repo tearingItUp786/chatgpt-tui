@@ -47,10 +47,10 @@ type SettingsPane struct {
 
 	container lipgloss.Style
 
-	initMode     bool
-	config       *config.Config
-	openAiClient *clients.OpenAiClient
-	settings     util.Settings
+	initMode  bool
+	config    *config.Config
+	llmClient util.LlmClient
+	settings  util.Settings
 }
 
 var settingsService *settings.SettingsService
@@ -90,7 +90,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	}
 
 	settingsService = settings.NewSettingsService(db)
-	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
+	llmClient := clients.ResolveLlmClient(config.Provider, config.ChatGPTApiUrl, config.SystemMessage)
 
 	colors := config.ColorScheme.GetColors()
 	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
@@ -109,7 +109,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 		mode:            viewMode,
 		container:       containerStyle,
 		config:          config,
-		openAiClient:    openAiClient,
+		llmClient:       llmClient,
 		settingsService: settingsService,
 		spinner:         spinner,
 		initMode:        true,
@@ -158,7 +158,11 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		if p.initMode {
 			p.settings = msg.Settings
 			w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
-			p.modelPicker = components.NewModelsList([]list.Item{components.ModelsListItem(msg.Settings.Model)}, w, h, p.colors)
+			p.modelPicker = components.NewModelsList(
+				[]list.Item{components.ModelsListItem{Text: msg.Settings.Model}},
+				w,
+				h,
+				p.colors)
 			p.initMode = false
 			p.loading = false
 
@@ -187,6 +191,11 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			}
 		}
+	}
+
+	if !p.initMode && p.mode == modelMode {
+		p.modelPicker, cmd = p.modelPicker.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return p, tea.Batch(cmds...)
@@ -238,6 +247,10 @@ func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 		cmds []tea.Cmd
 	)
 
+	if p.modelPicker.IsFiltering() {
+		return tea.Batch(cmds...)
+	}
+
 	switch msg.Type {
 	case tea.KeyEsc:
 		p.mode = viewMode
@@ -246,7 +259,7 @@ func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 	case tea.KeyEnter:
 		i, ok := p.modelPicker.GetSelectedItem()
 		if ok {
-			p.settings.Model = string(i)
+			p.settings.Model = string(i.Text)
 			p.mode = viewMode
 
 			var updateError error
@@ -259,9 +272,6 @@ func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 			cmds = append(cmds, cmd)
 		}
 	}
-
-	p.modelPicker, cmd = p.modelPicker.Update(msg)
-	cmds = append(cmds, cmd)
 
 	return tea.Batch(cmds...)
 }
@@ -281,7 +291,7 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 			case ModelPickerKey:
 				p.loading = true
 				return tea.Batch(
-					func() tea.Msg { return p.loadModels(p.config.ChatGPTApiUrl) },
+					func() tea.Msg { return p.loadModels(p.config.Provider, p.config.ChatGPTApiUrl) },
 					p.spinner.Tick)
 
 			case FrequencyKey:
@@ -354,8 +364,8 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (p SettingsPane) loadModels(apiUrl string) tea.Msg {
-	availableModels, err := p.settingsService.GetProviderModels(apiUrl)
+func (p SettingsPane) loadModels(providerType string, apiUrl string) tea.Msg {
+	availableModels, err := p.settingsService.GetProviderModels(providerType, apiUrl)
 
 	if err != nil {
 		return util.ErrorEvent{Message: err.Error()}
@@ -367,7 +377,7 @@ func (p SettingsPane) loadModels(apiUrl string) tea.Msg {
 func (p *SettingsPane) updateModelsList(models []string) {
 	var modelsList []list.Item
 	for _, model := range models {
-		modelsList = append(modelsList, components.ModelsListItem(model))
+		modelsList = append(modelsList, components.ModelsListItem{Text: model})
 	}
 
 	w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)

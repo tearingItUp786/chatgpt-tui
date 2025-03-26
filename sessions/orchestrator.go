@@ -28,11 +28,11 @@ type Orchestrator struct {
 	settingsService *settings.SettingsService
 	config          config.Config
 
-	OpenAiClient         *clients.OpenAiClient
+	InferenceClient      util.LlmClient
 	Settings             util.Settings
 	CurrentSessionID     int
 	CurrentSessionName   string
-	ArrayOfProcessResult []clients.ProcessApiCompletionResponse
+	ArrayOfProcessResult []util.ProcessApiCompletionResponse
 	ArrayOfMessages      []util.MessageToSend
 	CurrentAnswer        string
 	AllSessions          []Session
@@ -54,15 +54,15 @@ func NewOrchestrator(db *sql.DB, ctx context.Context) Orchestrator {
 	}
 
 	settingsService := settings.NewSettingsService(db)
-	openAiClient := clients.NewOpenAiClient(config.ChatGPTApiUrl, config.SystemMessage)
+	llmClient := clients.ResolveLlmClient(config.Provider, config.ChatGPTApiUrl, config.SystemMessage)
 
 	return Orchestrator{
 		config:               *config,
-		ArrayOfProcessResult: []clients.ProcessApiCompletionResponse{},
+		ArrayOfProcessResult: []util.ProcessApiCompletionResponse{},
 		sessionService:       ss,
 		userService:          us,
 		settingsService:      settingsService,
-		OpenAiClient:         openAiClient,
+		InferenceClient:      llmClient,
 		ProcessingMode:       IDLE,
 	}
 }
@@ -144,7 +144,7 @@ func (m Orchestrator) Update(msg tea.Msg) (Orchestrator, tea.Cmd) {
 		m.Settings = msg.Settings
 		m.settingsReady = true
 
-	case clients.ProcessApiCompletionResponse:
+	case util.ProcessApiCompletionResponse:
 		// add the latest message to the array of messages
 		cmds = append(cmds, m.handleMsgProcessing(msg))
 		cmds = append(cmds, SendResponseChunkProcessedMsg(m.CurrentAnswer, m.ArrayOfMessages))
@@ -158,8 +158,8 @@ func (m Orchestrator) Update(msg tea.Msg) (Orchestrator, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m Orchestrator) GetCompletion(ctx context.Context, resp chan clients.ProcessApiCompletionResponse) tea.Cmd {
-	return m.OpenAiClient.RequestCompletion(ctx, m.ArrayOfMessages, m.Settings, resp)
+func (m Orchestrator) GetCompletion(ctx context.Context, resp chan util.ProcessApiCompletionResponse) tea.Cmd {
+	return m.InferenceClient.RequestCompletion(ctx, m.ArrayOfMessages, m.Settings, resp)
 }
 
 func (m Orchestrator) GetLatestBotMessage() (string, error) {
@@ -192,7 +192,7 @@ func (m Orchestrator) GetMessagesAsString() string {
 }
 
 // MIGHT BE WORTH TO MOVE TO A SEP FILE
-func (m *Orchestrator) appendAndOrderProcessResults(msg clients.ProcessApiCompletionResponse) {
+func (m *Orchestrator) appendAndOrderProcessResults(msg util.ProcessApiCompletionResponse) {
 	m.ArrayOfProcessResult = append(m.ArrayOfProcessResult, msg)
 	m.CurrentAnswer = ""
 
@@ -204,7 +204,7 @@ func (m *Orchestrator) appendAndOrderProcessResults(msg clients.ProcessApiComple
 	})
 }
 
-func (m *Orchestrator) assertChoiceContentString(choice clients.Choice) (string, tea.Cmd) {
+func (m *Orchestrator) assertChoiceContentString(choice util.Choice) (string, tea.Cmd) {
 	choiceContent, ok := choice.Delta["content"]
 
 	if !ok {
@@ -228,7 +228,7 @@ func (m *Orchestrator) assertChoiceContentString(choice clients.Choice) (string,
 	return choiceString, nil
 }
 
-func constructJsonMessage(arrayOfProcessResult []clients.ProcessApiCompletionResponse) (util.MessageToSend, error) {
+func constructJsonMessage(arrayOfProcessResult []util.ProcessApiCompletionResponse) (util.MessageToSend, error) {
 	newMessage := util.MessageToSend{Role: "assistant", Content: ""}
 
 	for _, aMessage := range arrayOfProcessResult {
@@ -275,7 +275,7 @@ func (m *Orchestrator) handleFinalChoiceMessage() tea.Cmd {
 	err = m.sessionService.UpdateSessionMessages(m.CurrentSessionID, m.ArrayOfMessages)
 	m.ProcessingMode = IDLE
 	m.CurrentAnswer = ""
-	m.ArrayOfProcessResult = []clients.ProcessApiCompletionResponse{}
+	m.ArrayOfProcessResult = []util.ProcessApiCompletionResponse{}
 
 	if err != nil {
 		util.Log("Error updating session messages", err)
@@ -299,7 +299,7 @@ func areIDsInOrderAndComplete(ids []int) bool {
 	return true
 }
 
-func getArrayOfIDs(arr []clients.ProcessApiCompletionResponse) []int {
+func getArrayOfIDs(arr []util.ProcessApiCompletionResponse) []int {
 	ids := []int{}
 	for _, msg := range arr {
 		ids = append(ids, msg.ID)
@@ -308,7 +308,7 @@ func getArrayOfIDs(arr []clients.ProcessApiCompletionResponse) []int {
 }
 
 // updates the current view with the messages coming in
-func (m *Orchestrator) handleMsgProcessing(msg clients.ProcessApiCompletionResponse) tea.Cmd {
+func (m *Orchestrator) handleMsgProcessing(msg util.ProcessApiCompletionResponse) tea.Cmd {
 	if msg.Result.Usage != nil {
 		m.sessionService.UpdateSessionTokens(m.CurrentSessionID, msg.Result.Usage.Prompt, msg.Result.Usage.Completion)
 	}
@@ -353,7 +353,7 @@ func (m *Orchestrator) handleMsgProcessing(msg clients.ProcessApiCompletionRespo
 
 func (m *Orchestrator) resetStateAndCreateError(errMsg string) tea.Cmd {
 	m.ProcessingMode = ERROR
-	m.ArrayOfProcessResult = []clients.ProcessApiCompletionResponse{}
+	m.ArrayOfProcessResult = []util.ProcessApiCompletionResponse{}
 	m.CurrentAnswer = ""
 	return util.MakeErrorMsg(errMsg)
 }

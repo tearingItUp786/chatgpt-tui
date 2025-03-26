@@ -30,7 +30,7 @@ type SessionsList struct {
 	list list.Model
 }
 
-func (i SessionListItem) FilterValue() string { return "" }
+func (i SessionListItem) FilterValue() string { return i.Text }
 
 type sessionItemDelegate struct{}
 
@@ -75,12 +75,17 @@ func (l *SessionsList) GetSelectedItem() (SessionListItem, bool) {
 }
 
 func (l *SessionsList) SetItems(items []list.Item) {
+	l.list.ResetFilter()
 	l.list.SetItems(items)
 }
 
 func (l *SessionsList) SetSize(w, h int) {
 	l.list.SetWidth(w)
 	l.list.SetHeight(h)
+}
+
+func (l SessionsList) IsFiltering() bool {
+	return l.list.SettingFilter()
 }
 
 func (l SessionsList) GetWidth() int {
@@ -98,7 +103,7 @@ func NewSessionsList(items []list.Item, w, h int, colors util.SchemeColors) Sess
 
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
+	l.SetFilteringEnabled(true)
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
 
@@ -107,6 +112,8 @@ func NewSessionsList(items []list.Item, w, h int, colors util.SchemeColors) Sess
 	selectedItemStyle = selectedItemStyle.Copy().Foreground(colors.AccentColor)
 	activeItemStyle = activeItemStyle.Copy().Foreground(colors.HighlightColor)
 	itemStyle = itemStyle.Copy().Foreground(colors.DefaultTextColor)
+	l.FilterInput.PromptStyle = l.FilterInput.PromptStyle.Copy().Foreground(colors.ActiveTabBorderColor).PaddingBottom(0).Margin(0)
+	l.FilterInput.Cursor.Style = l.FilterInput.Cursor.Style.Copy().Foreground(colors.NormalTabBorderColor)
 
 	return SessionsList{
 		list: l,
