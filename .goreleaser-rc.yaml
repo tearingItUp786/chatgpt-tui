@@ -104,4 +104,4 @@ brews:
     # Templates: allowed
     skip_upload: false
     post_install: |
-      echo "⚠︎ rc-chatgpt-tui is deprecated and will be removed in the future. Use rc-nekot instead."
+      opoo "⚠︎ rc-chatgpt-tui is deprecated and will be removed in the future. Use rc-nekot instead."
