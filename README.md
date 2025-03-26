@@ -1,6 +1,6 @@
-# ChatGPT tui README
+# nekot tui README
 
-A terminal util for chatting with LLMs
+A terminal util for chatting with LLMs. Shout out to BalanceBalls for the name!
 
 ## Installation
 
@@ -11,15 +11,15 @@ Set up your [api key](https://platform.openai.com/api-keys)
 ```bash
 export OPENAI_API_KEY="some-key" # you would want to export this in your .zshrc
 brew tap tearingitup786/tearingitup786
-brew install chatgpt-tui
-chatgpt-tui
+brew install nekot 
+nekot
 ```
 
 To get access to the release candidates, install command:
 
 ```bash
-brew install rc-chatgpt-tui
-rc-chatgpt-tui
+brew install rc-nekot
+rc-nekot
 ```
 
 ## Config
