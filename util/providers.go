@@ -51,7 +51,22 @@ func GetFilteredModelList(apiUrl string, models []string) []string {
 	return modelNames
 }
 
-func GetAdditionalReqRequestHeaders(provider ApiProvider, params map[string]interface{}) map[string]interface{} {
+func IsSystemMessageSupported(provider ApiProvider, model string) bool {
+
+	switch provider {
+	case Local:
+		return true
+	case OpenAi:
+		if isOpenAiReasoningModel(model) {
+			return false
+		}
+	case Mistral:
+		return true
+	}
+	return true
+}
+
+func TransformRequestHeaders(provider ApiProvider, params map[string]interface{}) map[string]interface{} {
 	switch provider {
 
 	case Local:
@@ -62,6 +77,10 @@ func GetAdditionalReqRequestHeaders(provider ApiProvider, params map[string]inte
 	case OpenAi:
 		params["stream_options"] = map[string]interface{}{
 			"include_usage": true,
+		}
+
+		if isOpenAiReasoningModel(params["model"].(string)) {
+			delete(params, "max_tokens")
 		}
 		return params
 	case Mistral:
@@ -117,4 +136,11 @@ func isMistralChatModel(model string) bool {
 	}
 
 	return true
+}
+
+func isOpenAiReasoningModel(model string) bool {
+	if strings.HasPrefix(model, "o") {
+		return true
+	}
+	return false
 }

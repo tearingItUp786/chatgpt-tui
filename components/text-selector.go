@@ -4,11 +4,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tearingItUp786/chatgpt-tui/util"
-	"github.com/atotto/clipboard"
 )
 
 const (
@@ -121,7 +121,7 @@ func (s TextSelector) Update(msg tea.Msg) (TextSelector, tea.Cmd) {
 			if s.Selection.Active {
 				s.copySelectedLinesToClipboard()
 				s.Selection.Active = false
-				cmds = append(cmds, util.SendCopiedToBufferMsg())
+				cmds = append(cmds, util.SendNotificationMsg(util.CopiedNotification))
 			}
 		}
 	}
@@ -279,6 +279,10 @@ func filterLine(line string) string {
 	line = strings.Replace(line, "🤖", "", -1)
 	line = strings.Replace(line, "💁", "", -1)
 	return line
+}
+
+func (s TextSelector) IsSelecting() bool {
+	return s.Selection.Active
 }
 
 func NewTextSelector(w, h int, scrollPos int, sessionData string, colors util.SchemeColors) TextSelector {

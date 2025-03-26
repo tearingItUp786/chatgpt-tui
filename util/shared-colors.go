@@ -1,18 +1,28 @@
 package util
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	_ "embed"
+
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
+)
 
 type ColorScheme string
 
 const (
 	OriginalPink ColorScheme = "Pink"
 	SmoothBlue   ColorScheme = "Blue"
+	Groovebox    ColorScheme = "Groove"
 )
 
-const (
-	GlamourDarkTheme    = "dark"
-	GlamourDraculaTheme = "dracula"
-)
+//go:embed glamour-styles/groovebox.json
+var grooveBoxThemeBytes []byte
+
+//go:embed glamour-styles/pink.json
+var pinkThemeBytes []byte
+
+//go:embed glamour-styles/blue.json
+var blueThemeBytes []byte
 
 var (
 	pink100   = "#F2B3E8"
@@ -32,6 +42,16 @@ var (
 	blue       = "#6b81c5"
 )
 
+var (
+	grooveboxOrange    = "#DD843B"
+	grooveboxGreen     = "#98971a"
+	grooveboxBlue      = "#458588"
+	grooveboxPurple    = "#B16286"
+	grooveboxRed       = "#FB4934"
+	grooveboxLightGrey = "#EBDBB2"
+	grooveboxYellow    = "#C0A568"
+)
+
 type SchemeColors struct {
 	MainColor            lipgloss.Color
 	AccentColor          lipgloss.Color
@@ -40,7 +60,7 @@ type SchemeColors struct {
 	ErrorColor           lipgloss.Color
 	NormalTabBorderColor lipgloss.Color
 	ActiveTabBorderColor lipgloss.Color
-	RendererTheme        string
+	RendererThemeOption  glamour.TermRendererOption
 }
 
 func (s ColorScheme) GetColors() SchemeColors {
@@ -52,7 +72,7 @@ func (s ColorScheme) GetColors() SchemeColors {
 		ErrorColor:           lipgloss.Color(red),
 		NormalTabBorderColor: lipgloss.Color(lightGrey),
 		ActiveTabBorderColor: lipgloss.Color(pink300),
-		RendererTheme:        GlamourDarkTheme,
+		RendererThemeOption:  glamour.WithStylesFromJSONBytes(pinkThemeBytes),
 	}
 
 	switch s {
@@ -65,11 +85,24 @@ func (s ColorScheme) GetColors() SchemeColors {
 			ErrorColor:           lipgloss.Color(red),
 			NormalTabBorderColor: lipgloss.Color(smoothBlue),
 			ActiveTabBorderColor: lipgloss.Color(pinkYellow),
-			RendererTheme:        GlamourDraculaTheme,
+			RendererThemeOption:  glamour.WithStylesFromJSONBytes(blueThemeBytes),
+		}
+
+	case Groovebox:
+		return SchemeColors{
+			MainColor:            lipgloss.Color(grooveboxOrange),
+			AccentColor:          lipgloss.Color(grooveboxGreen),
+			HighlightColor:       lipgloss.Color(grooveboxBlue),
+			DefaultTextColor:     lipgloss.Color(grooveboxLightGrey),
+			ErrorColor:           lipgloss.Color(grooveboxRed),
+			NormalTabBorderColor: lipgloss.Color(grooveboxYellow),
+			ActiveTabBorderColor: lipgloss.Color(grooveboxGreen),
+			RendererThemeOption:  glamour.WithStylesFromJSONBytes(grooveBoxThemeBytes),
 		}
 
 	case OriginalPink:
 		return defaultColors
+
 	default:
 		return defaultColors
 	}

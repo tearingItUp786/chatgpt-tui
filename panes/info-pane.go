@@ -14,10 +14,11 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
-const NotificationDisplayDurationSec = 2
+const notificationDisplayDurationSec = 2
 
 const (
-	copiedLabelText     = "Copied"
+	copiedLabelText     = "Copied to clipboard"
+	cancelledLabelText  = "Inference interrupted"
 	idleLabelText       = "IDLE"
 	processingLabelText = "Processing"
 )
@@ -41,12 +42,13 @@ type InfoPane struct {
 	processingActiveLabel lipgloss.Style
 	promptTokensLablel    lipgloss.Style
 	completionTokensLabel lipgloss.Style
-	copiedLabel           lipgloss.Style
+	notificationLabel     lipgloss.Style
 
-	showCopyLabel  bool
-	isProcessing   bool
-	terminalWidth  int
-	terminalHeight int
+	showNotification bool
+	notification     util.Notification
+	isProcessing     bool
+	terminalWidth    int
+	terminalHeight   int
 }
 
 func NewInfoPane(db *sql.DB, ctx context.Context) InfoPane {
@@ -73,7 +75,7 @@ func NewInfoPane(db *sql.DB, ctx context.Context) InfoPane {
 	completionTokensLabel := defaultLabelStyle.Copy().
 		BorderLeftForeground(colors.ActiveTabBorderColor).
 		Foreground(colors.DefaultTextColor)
-	copiedLabel := defaultLabelStyle.Copy().
+	notificationLabel := defaultLabelStyle.Copy().
 		Background(colors.NormalTabBorderColor).
 		BorderLeftForeground(colors.HighlightColor).
 		Foreground(colors.DefaultTextColor)
@@ -83,7 +85,7 @@ func NewInfoPane(db *sql.DB, ctx context.Context) InfoPane {
 		processingActiveLabel: processingActiveLabel,
 		promptTokensLablel:    promptTokensLablel,
 		completionTokensLabel: completionTokensLabel,
-		copiedLabel:           copiedLabel,
+		notificationLabel:     notificationLabel,
 
 		spinner:        spinner,
 		colors:         colors,
@@ -128,12 +130,13 @@ func (p InfoPane) Update(msg tea.Msg) (InfoPane, tea.Cmd) {
 		p.spinner, cmd = p.spinner.Update(msg)
 		cmds = append(cmds, cmd)
 
-	case util.CopiedToBufferMsg:
-		p.showCopyLabel = true
-		cmds = append(cmds, tickAfter(NotificationDisplayDurationSec))
+	case util.NotificationMsg:
+		p.notification = msg.Notification
+		p.showNotification = true
+		cmds = append(cmds, tickAfter(notificationDisplayDurationSec))
 
 	case tickMsg:
-		p.showCopyLabel = false
+		p.showNotification = false
 
 	case util.ProcessingStateChanged:
 		p.isProcessing = msg.IsProcessing
@@ -164,21 +167,38 @@ func (p InfoPane) View() string {
 	completionTokensLabel := p.completionTokensLabel.Render(fmt.Sprintf("OUT: %d", p.currentSession.CompletionTokens))
 
 	firstRow := processingLabel
-
-	if p.showCopyLabel {
-		firstRow = lipgloss.JoinHorizontal(
-			lipgloss.Left,
-			processingLabel,
-			p.copiedLabel.
-				MarginLeft(paneWidth-len(copiedLabelText)-len(idleLabelText)-util.CopiedLabelCounterweght).
-				Render(copiedLabelText))
-	}
-
 	secondRow := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		promptTokensLablel,
 		completionTokensLabel,
 	)
+
+	if p.showNotification {
+		notificationLabel := lipgloss.NewStyle()
+		notificationText := ""
+
+		switch p.notification {
+		case util.CopiedNotification:
+			notificationText = copiedLabelText
+			notificationLabel = p.notificationLabel.
+				Background(p.colors.NormalTabBorderColor).
+				Align(lipgloss.Left).
+				Width(paneWidth - 1)
+		case util.CancelledNotification:
+			notificationText = cancelledLabelText
+			notificationLabel = p.notificationLabel.
+				Background(p.colors.ErrorColor).
+				Align(lipgloss.Left).
+				Width(paneWidth - 1)
+		}
+
+		firstRow = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			notificationLabel.Render(notificationText),
+		)
+
+		secondRow = ""
+	}
 
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.ThickBorder()).

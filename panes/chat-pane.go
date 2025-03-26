@@ -30,6 +30,7 @@ type ChatPane struct {
 	renderedContent        string
 	isChatContainerFocused bool
 	msgChan                chan clients.ProcessApiCompletionResponse
+	viewMode               util.ViewMode
 
 	terminalWidth  int
 	terminalHeight int
@@ -63,6 +64,7 @@ func NewChatPane(ctx context.Context, w, h int) ChatPane {
 		BorderForeground(colors.NormalTabBorderColor)
 
 	return ChatPane{
+		viewMode:               util.NormalMode,
 		colors:                 colors,
 		chatContainer:          chatContainerStyle,
 		chatView:               chatView,
@@ -101,12 +103,22 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case util.ViewModeChanged:
+		p.viewMode = msg.Mode
+		w, h := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, p.viewMode)
+		p.chatView.Height = h
+		p.chatView.Width = w
+		p.chatContainer = p.chatContainer.
+			Width(w).
+			Height(h)
+
 	case util.FocusEvent:
 		p.isChatContainerFocused = msg.IsFocused
 
 		if p.isChatContainerFocused {
 			p.chatContainer.BorderForeground(p.colors.ActiveTabBorderColor)
 		} else {
+			p.displayMode = normalMode
 			p.chatContainer.BorderForeground(p.colors.NormalTabBorderColor)
 		}
 		return p, nil
@@ -137,10 +149,12 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
-		paneWidth, paneHeight := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
-		p.chatContainer = p.chatContainer.Height(paneHeight)
-		p.chatView.Height = p.chatContainer.GetHeight()
-		p.chatView.Width = paneWidth
+		w, h := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, p.viewMode)
+		p.chatView.Height = h
+		p.chatView.Width = w
+		p.chatContainer = p.chatContainer.
+			Width(w).
+			Height(h)
 
 	case tea.KeyMsg:
 		if !p.isChatContainerFocused {
@@ -205,9 +219,13 @@ func (p ChatPane) IsSelectionMode() bool {
 	return p.displayMode == selectionMode
 }
 
-func (p ChatPane) DisplayCompletion(orchestrator sessions.Orchestrator) tea.Cmd {
+func (p ChatPane) AllowFocusChange() bool {
+	return !p.selectionView.IsSelecting()
+}
+
+func (p ChatPane) DisplayCompletion(ctx context.Context, orchestrator sessions.Orchestrator) tea.Cmd {
 	return tea.Batch(
-		orchestrator.GetCompletion(p.msgChan),
+		orchestrator.GetCompletion(ctx, p.msgChan),
 		waitForActivity(p.msgChan),
 	)
 }
@@ -225,22 +243,6 @@ func (p ChatPane) DisplayError(error string) string {
 	return p.chatContainer.Render(util.RenderErrorMessage(error, p.chatContainer.GetWidth(), p.colors))
 }
 
-func (p ChatPane) SwitchToZenMode() {
-	w, h := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, true)
-	p.chatContainer.
-		BorderForeground(p.colors.NormalTabBorderColor).
-		Width(w).
-		Height(h)
-}
-
-func (p ChatPane) SwitchToNormalMode() {
-	w, h := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
-	p.chatContainer.
-		BorderForeground(p.colors.NormalTabBorderColor).
-		Width(w).
-		Height(h)
-}
-
 func (p ChatPane) SetPaneWitdth(w int) {
 	p.chatContainer.Width(w)
 }
@@ -254,7 +256,7 @@ func (p ChatPane) GetWidth() int {
 }
 
 func (p ChatPane) initializePane(session sessions.Session) (ChatPane, tea.Cmd) {
-	paneWidth, paneHeight := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, false)
+	paneWidth, paneHeight := util.CalcChatPaneSize(p.terminalWidth, p.terminalHeight, p.viewMode)
 	if !p.isChatPaneReady {
 		p.chatView = viewport.New(paneWidth, paneHeight)
 		p.isChatPaneReady = true

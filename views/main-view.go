@@ -3,10 +3,15 @@ package views
 import (
 	"context"
 	"database/sql"
+	"os"
+	"runtime"
 	"slices"
+	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
 
 	"github.com/tearingItUp786/chatgpt-tui/clients"
 	"github.com/tearingItUp786/chatgpt-tui/panes"
@@ -14,7 +19,27 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
+const pulsarIntervalMs = 300
+
 var asyncDeps = []util.AsyncDependency{util.SettingsPaneModule, util.Orchestrator}
+
+type keyMap struct {
+	cancel     key.Binding
+	zenMode    key.Binding
+	editorMode key.Binding
+	nextPane   key.Binding
+	jumpToPane key.Binding
+	quit       key.Binding
+}
+
+var defaultKeyMap = keyMap{
+	cancel:     key.NewBinding(key.WithKeys("ctrl+s", "ctrl+b"), key.WithHelp("ctrl+b/ctrl+s", "stop inference")),
+	zenMode:    key.NewBinding(key.WithKeys("ctrl+o"), key.WithHelp("ctrl+o", "activate/deactivate zen mode")),
+	editorMode: key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "enter/exit editor mode")),
+	quit:       key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit app")),
+	jumpToPane: key.NewBinding(key.WithKeys("1", "2", "3", "4"), key.WithHelp("1,2,3,4", "jump to specific pane")),
+	nextPane:   key.NewBinding(key.WithKeys(tea.KeyTab.String()), key.WithHelp("TAB", "move to next pane")),
+}
 
 type MainView struct {
 	viewReady        bool
@@ -22,6 +47,7 @@ type MainView struct {
 	viewMode         util.ViewMode
 	error            util.ErrorEvent
 	currentSessionID string
+	keys             keyMap
 
 	chatPane     panes.ChatPane
 	promptPane   panes.PromptPane
@@ -31,9 +57,22 @@ type MainView struct {
 	loadedDeps   []util.AsyncDependency
 
 	sessionOrchestrator sessions.Orchestrator
+	context             context.Context
+	completionContext   context.Context
+	cancelInference     context.CancelFunc
 
 	terminalWidth  int
 	terminalHeight int
+}
+
+// Windows terminal is not able to work with tea.WindowSizeMsg directly
+// Wrokaround is to constatly check if the terminal windows size changed
+// and manually triggering tea.WindowSizeMsg
+type checkDimensionsMsg int
+
+func dimensionsPulsar() tea.Msg {
+	time.Sleep(time.Millisecond * pulsarIntervalMs)
+	return checkDimensionsMsg(1)
 }
 
 func NewMainView(db *sql.DB, ctx context.Context) MainView {
@@ -42,12 +81,13 @@ func NewMainView(db *sql.DB, ctx context.Context) MainView {
 	settingsPane := panes.NewSettingsPane(db, ctx)
 	statusBarPane := panes.NewInfoPane(db, ctx)
 
-	w, h := util.CalcChatPaneSize(util.DefaultTerminalWidth, util.DefaultTerminalHeight, false)
+	w, h := util.CalcChatPaneSize(util.DefaultTerminalWidth, util.DefaultTerminalHeight, util.NormalMode)
 	chatPane := panes.NewChatPane(ctx, w, h)
 
 	orchestrator := sessions.NewOrchestrator(db, ctx)
 
 	return MainView{
+		keys:                defaultKeyMap,
 		viewMode:            util.NormalMode,
 		focused:             util.PromptPane,
 		currentSessionID:    "",
@@ -57,6 +97,7 @@ func NewMainView(db *sql.DB, ctx context.Context) MainView {
 		settingsPane:        settingsPane,
 		infoPane:            statusBarPane,
 		chatPane:            chatPane,
+		context:             ctx,
 	}
 }
 
@@ -68,6 +109,7 @@ func (m MainView) Init() tea.Cmd {
 		m.chatPane.Init(),
 		m.settingsPane.Init(),
 		m.sessionsPane.Init(),
+		func() tea.Msg { return dimensionsPulsar() },
 	)
 }
 
@@ -94,6 +136,19 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+
+	case checkDimensionsMsg:
+		if runtime.GOOS == "windows" {
+			w, h, _ := term.GetSize(int(os.Stdout.Fd()))
+			if m.terminalWidth != w || m.terminalHeight != h {
+				cmds = append(cmds, func() tea.Msg { return tea.WindowSizeMsg{Width: w, Height: h} })
+			}
+			cmds = append(cmds, dimensionsPulsar)
+		}
+
+	case util.ViewModeChanged:
+		m.viewMode = msg.Mode
+
 	case util.AsyncDependencyReady:
 		m.loadedDeps = append(m.loadedDeps, msg.Dependency)
 		for _, dependency := range asyncDeps {
@@ -115,18 +170,29 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.error = util.ErrorEvent{}
 		m.sessionOrchestrator.ArrayOfMessages = append(m.sessionOrchestrator.ArrayOfMessages, clients.ConstructUserMessage(msg.Prompt))
 		m.sessionOrchestrator.ProcessingMode = sessions.PROCESSING
+		m.viewMode = util.NormalMode
 
+		completionContext, cancelInference := context.WithCancel(m.context)
+		m.completionContext = completionContext
+		m.cancelInference = cancelInference
 		return m, tea.Batch(
 			util.SendProcessingStateChangedMsg(true),
-			m.chatPane.DisplayCompletion(m.sessionOrchestrator))
+			m.chatPane.DisplayCompletion(m.completionContext, m.sessionOrchestrator),
+			util.SendViewModeChangedMsg(m.viewMode))
 
 	case tea.KeyMsg:
 		if !m.viewReady {
 			break
 		}
-		switch keypress := msg.String(); keypress {
 
-		case "ctrl+o":
+		switch {
+
+		case key.Matches(msg, m.keys.cancel):
+			if m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
+				m.cancelInference()
+			}
+
+		case key.Matches(msg, m.keys.zenMode):
 			m.focused = util.PromptPane
 			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsPane))
 			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsPane))
@@ -136,39 +202,64 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.viewMode {
 			case util.NormalMode:
 				m.viewMode = util.ZenMode
-				m.chatPane.SwitchToZenMode()
 			case util.ZenMode:
 				m.viewMode = util.NormalMode
-				m.chatPane.SwitchToNormalMode()
 			}
-		}
 
-		switch msg.Type {
-		case tea.KeyTab:
-			if m.promptPane.IsTypingInProcess() || m.chatPane.IsSelectionMode() || !m.viewReady {
+			cmds = append(cmds, util.SendViewModeChangedMsg(m.viewMode))
+
+		case key.Matches(msg, m.keys.editorMode):
+			if m.focused != util.PromptPane {
+				break
+			}
+
+			switch m.viewMode {
+			case util.NormalMode:
+				m.viewMode = util.TextEditMode
+			case util.ZenMode:
+				m.viewMode = util.TextEditMode
+			case util.TextEditMode:
+				m.viewMode = util.NormalMode
+			}
+			cmds = append(cmds, util.SendViewModeChangedMsg(m.viewMode))
+
+		case key.Matches(msg, m.keys.jumpToPane):
+			if !m.isFocusChangeAllowed() {
+				break
+			}
+
+			var targetPane util.Pane
+			switch msg.String() {
+			case "1":
+				targetPane = util.PromptPane
+			case "2":
+				targetPane = util.ChatPane
+			case "3":
+				targetPane = util.SettingsPane
+			case "4":
+				targetPane = util.SessionsPane
+			}
+
+			if util.IsFocusAllowed(m.viewMode, targetPane, m.terminalWidth) {
+				m.focused = targetPane
+				m.resetFocus()
+			}
+
+		case key.Matches(msg, m.keys.nextPane):
+			if !m.isFocusChangeAllowed() {
 				break
 			}
 
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
+			m.resetFocus()
 
-			m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsPane))
-			m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsPane))
-			m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatPane))
-			m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptPane))
-
-		case tea.KeyCtrlC:
+		case key.Matches(msg, m.keys.quit):
 			return m, tea.Quit
 		}
 
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
-
-		isZenMode := m.viewMode == util.ZenMode
-		chatPaneWidth, chatPaneHeight := util.CalcChatPaneSize(m.terminalWidth, m.terminalHeight, isZenMode)
-
-		m.chatPane.SetPaneWitdth(chatPaneWidth)
-		m.chatPane.SetPaneHeight(chatPaneHeight)
 
 		m.chatPane, cmd = m.chatPane.Update(msg)
 		cmds = append(cmds, cmd)
@@ -222,4 +313,25 @@ func (m MainView) View() string {
 			promptView,
 		),
 	)
+}
+
+func (m *MainView) resetFocus() {
+	m.sessionsPane, _ = m.sessionsPane.Update(util.MakeFocusMsg(m.focused == util.SessionsPane))
+	m.settingsPane, _ = m.settingsPane.Update(util.MakeFocusMsg(m.focused == util.SettingsPane))
+	m.chatPane, _ = m.chatPane.Update(util.MakeFocusMsg(m.focused == util.ChatPane))
+	m.promptPane, _ = m.promptPane.Update(util.MakeFocusMsg(m.focused == util.PromptPane))
+}
+
+// TODO: use event to lock/unlock allowFocusChange flag
+func (m MainView) isFocusChangeAllowed() bool {
+	if m.promptPane.IsTypingInProcess() ||
+		!m.chatPane.AllowFocusChange() ||
+		!m.settingsPane.AllowFocusChange() ||
+		!m.sessionsPane.AllowFocusChange() ||
+		!m.viewReady ||
+		m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
+		return false
+	}
+
+	return true
 }

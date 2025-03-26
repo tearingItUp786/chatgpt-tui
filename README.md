@@ -1,21 +1,6 @@
 # ChatGPT tui README
 
-My first ever terminal UI! Everything is stored locally on sqlite and written in Go!
-
-## Technologies
-
-- Go
-- [bubbletea](https://github.com/charmbracelet/bubbletea): A Go framework for
-  terminal user interfaces. It's a great framework that makes it easy to create
-  TUIs in Go.
-- [openai](https://platform.openai.com/docs/api-reference): OpenAI's REST Api
-- [sqlite](https://www.sqlite.org/): A C library that provides a lightweight
-  disk-based database that doesn't require a separate server process (perfect
-  for terminal apps, in my opinion).
-- [lipgloss](https://github.com/charmbracelet/lipgloss): Style definitions for
-  nice terminal layouts!
-- [bubbles](https://github.com/charmbracelet/bubbles): Some general use
-  components for Bubble Tea apps!
+A terminal util for chatting with LLMs
 
 ## Installation
 
@@ -50,7 +35,11 @@ Additional fields:
 
 ### Themes
 You can change colorscheme using the `colorScheme` field.
-Possible options are `Pink` and `Blue`. Default colorscheme is `Pink`
+
+Available themes:
+ * `Pink` **default**
+ * `Blue`
+ * `Groove`
 
 ## Cache invalidation
 
@@ -67,13 +56,29 @@ Models list is cached for 14 days upon loading. If you need to invalidate cache 
 
 - `Tab`: \*Change focus between panes. The currently focused pane will be highlighted with a pink border.
   - You can only change focus if Prompt Pane is not in `insert mode`
+- `1`: Jump to prompt pane
+- `2`: Jump to chat pane
+- `3`: Jump to settings pane
+- `4`: Jump to sessions pane
+- `Ctrl+b` or `Ctrl+s`: Interrupt inference
 - `Ctrl+o`: Toggles zen mode
 - `Ctrl+c`: Exit the program
 
 ## Prompt Pane
 
 - `i`: Enters insert mode (you can now safely paste messages into the tui)
+- `Ctrl+e`: Open/Close prompt editor 
+- `Ctrl+r`: Clear prompt
+- `Ctrl+v`: Paste text from buffer
+- `Ctrl+s`: Paste text from buffer as a code block (only in editor mode)
+    * if current line contains text, that text will be used as a language for the code block
+    * Example: if a line contains `go` the result of `Ctrl+s` will be:
+
+    \```go <br>
+    {bufferContent} <br>
+    \```
 - `esc`: Exit insert mode for the prompt
+    * When in 'Prompt editor' mode, pressing `esc` second time will close editor
 
 ## Chat Messages Pane
 
@@ -107,7 +112,7 @@ Selection mode allows to navigate the chat pane and select lines to copy. Suppor
 
 ## Sessions Pane
 
-- `Ctrl+N`: Creates a new session.
+- `Ctrl+n`: Creates a new session.
 - `d`: Deletes the currently selected session from the list.
 - `e`: Edit session name
 - `Enter`: Switches to the session that is currently selected.
@@ -123,6 +128,21 @@ Please refer to this guide as you navigate the TUI. Happy exploring!
 ### Dev notes
 
 The SQL db is stored in you `your/home/directory/.chatgpt-tui`, as well as the debug log. To enable `debug` mode, `export DEBUG=1` before running the program.
+
+## Technologies
+
+- Go
+- [bubbletea](https://github.com/charmbracelet/bubbletea): A Go framework for
+  terminal user interfaces. It's a great framework that makes it easy to create
+  TUIs in Go.
+- [openai](https://platform.openai.com/docs/api-reference): OpenAI's REST Api
+- [sqlite](https://www.sqlite.org/): A C library that provides a lightweight
+  disk-based database that doesn't require a separate server process (perfect
+  for terminal apps, in my opinion).
+- [lipgloss](https://github.com/charmbracelet/lipgloss): Style definitions for
+  nice terminal layouts!
+- [bubbles](https://github.com/charmbracelet/bubbles): Some general use
+  components for Bubble Tea apps!
 
 ## Contributors
 
