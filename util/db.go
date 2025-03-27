@@ -8,33 +8,32 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
 )
 
-// originally called chatgpt-tui but changed to nekot 
 func GetAppDirName() string {
-  if envAppDir := os.Getenv("NEKOT_APP_DIR"); envAppDir != "" {
-    return envAppDir
-  }
-  return ".chatgpt-tui"
+	exePath, err := os.Executable()
+	if err != nil {
+		return ".chatgpt-tui" // fallback
+	}
+	binaryName := filepath.Base(exePath)
+	binaryName = strings.TrimSuffix(binaryName, filepath.Ext(binaryName)) // remove .exe if present
+
+	return "." + binaryName
 }
 
 func GetAppDataPath() (string, error) {
-	// Get the user's home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 
-	// Define the application-specific part of the path
 	appDirName := GetAppDirName()
-
-	// Combine them to form the full path
 	fullPath := filepath.Join(homeDir, appDirName)
 
-	// Optionally, create the directory if it doesn't already exist
 	err = os.MkdirAll(fullPath, 0755)
 	if err != nil {
 		return "", err
