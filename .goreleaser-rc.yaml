@@ -7,14 +7,14 @@ builds:
       - amd64
       - arm64
     env:
-      - pkg_config_sysroot_dir=/sysroot/macos/amd64
-      - pkg_config_path=/sysroot/macos/amd64/usr/local/lib/pkgconfig
-      - cc=o64-clang
-      - cxx=o64-clang++
+      - PKG_CONFIG_SYSROOT_DIR=/sysroot/macos/amd64
+      - PKG_CONFIG_PATH=/sysroot/macos/amd64/usr/local/lib/pkgconfig
+      - CC=o64-clang
+      - CXX=o64-clang++
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -x main.version={{.version}}
+      - -s -w -X main.version={{.Version}}
     binary: bin/rc-chatgpt-tui
     
   - id: darwin-amd64-rc-nekot
@@ -25,28 +25,28 @@ builds:
       - amd64
       - arm64
     env:
-      - pkg_config_sysroot_dir=/sysroot/macos/amd64
-      - pkg_config_path=/sysroot/macos/amd64/usr/local/lib/pkgconfig
-      - cc=o64-clang
-      - cxx=o64-clang++
+      - PKG_CONFIG_SYSROOT_DIR=/sysroot/macos/amd64
+      - PKG_CONFIG_PATH=/sysroot/macos/amd64/usr/local/lib/pkgconfig
+      - CC=o64-clang
+      - CXX=o64-clang++
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -x main.version={{.version}}
+      - -s -w -X main.version={{.Version}}
     binary: bin/rc-nekot
 
 archives:
-  - id: rc-nekot
-    builds:
-      - darwin-amd64-rc-nekot
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format: zip
-    wrap_in_directory: true
-
   - id: rc-chatgpt-tui
     builds:
       - darwin-amd64-rc-chatgpt-tui
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: zip
+    wrap_in_directory: true
+
+  - id: rc-nekot
+    builds:
+      - darwin-amd64-rc-nekot
+    name_template: "rc-nekot_{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: zip
     wrap_in_directory: true
 
