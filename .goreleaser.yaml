@@ -77,6 +77,8 @@ brews:
     commit_author:
       name: tearingitup786
     skip_upload: auto
+    environment:
+      - NEKOT_APP_DIR=.{{ .ProjectName }}
 
   - name: chatgpt-tui
     ids:

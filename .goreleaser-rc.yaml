@@ -75,7 +75,8 @@ brews:
     homepage: https://github.com/tearingItUp786/chatgpt-tui
     commit_author:
       name: tearingitup786
-
+    environment:
+      - NEKOT_APP_DIR=.{{ .ProjectName }}
     # Setting this will prevent goreleaser to actually try to commit the updated
     # formula - instead, the formula file will be stored on the dist folder only,
     # leaving the responsibility of publishing it to the user.

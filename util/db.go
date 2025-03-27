@@ -13,6 +13,14 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// originally called chatgpt-tui but changed to nekot 
+func GetAppDirName() string {
+  if envAppDir := os.Getenv("NEKOT_APP_DIR"); envAppDir != "" {
+    return envAppDir
+  }
+  return ".chatgpt-tui"
+}
+
 func GetAppDataPath() (string, error) {
 	// Get the user's home directory
 	homeDir, err := os.UserHomeDir()
@@ -21,7 +29,7 @@ func GetAppDataPath() (string, error) {
 	}
 
 	// Define the application-specific part of the path
-	appDirName := ".chatgpt-tui"
+	appDirName := GetAppDirName()
 
 	// Combine them to form the full path
 	fullPath := filepath.Join(homeDir, appDirName)
