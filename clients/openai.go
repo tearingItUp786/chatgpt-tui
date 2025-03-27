@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/nekot/util"
 )
 
 type OpenAiClient struct {

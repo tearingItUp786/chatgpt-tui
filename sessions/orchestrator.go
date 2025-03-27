@@ -8,11 +8,11 @@ import (
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tearingItUp786/chatgpt-tui/clients"
-	"github.com/tearingItUp786/chatgpt-tui/config"
-	"github.com/tearingItUp786/chatgpt-tui/settings"
-	"github.com/tearingItUp786/chatgpt-tui/user"
-	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/nekot/clients"
+	"github.com/tearingItUp786/nekot/config"
+	"github.com/tearingItUp786/nekot/settings"
+	"github.com/tearingItUp786/nekot/user"
+	"github.com/tearingItUp786/nekot/util"
 	"golang.org/x/net/context"
 )
 

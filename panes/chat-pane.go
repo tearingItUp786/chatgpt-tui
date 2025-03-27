@@ -8,11 +8,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wrap"
-	"github.com/tearingItUp786/chatgpt-tui/clients"
-	"github.com/tearingItUp786/chatgpt-tui/components"
-	"github.com/tearingItUp786/chatgpt-tui/config"
-	"github.com/tearingItUp786/chatgpt-tui/sessions"
-	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/nekot/clients"
+	"github.com/tearingItUp786/nekot/components"
+	"github.com/tearingItUp786/nekot/config"
+	"github.com/tearingItUp786/nekot/sessions"
+	"github.com/tearingItUp786/nekot/util"
 )
 
 type displayMode int

@@ -1,4 +1,4 @@
-module github.com/tearingItUp786/chatgpt-tui
+module github.com/tearingItUp786/nekot
 
 go 1.22.1
 
