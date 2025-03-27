@@ -174,6 +174,10 @@ func CalcSessionsListSize(tw, th int) (w, h int) {
 	return sessionsPaneListWidth, sessionsPaneListHeight
 }
 
+func CalcMaxSettingValueSize(containerWidth int) int {
+	return containerWidth / 5 * 4
+}
+
 func TrimListItem(value string, listWidth int) string {
 	threshold := ListItemTrimThreshold
 	if listWidth-threshold > 0 {

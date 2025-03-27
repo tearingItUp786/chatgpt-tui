@@ -35,9 +35,25 @@ func NewSettingsService(db *sql.DB) *SettingsService {
 func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) tea.Msg {
 	settings := util.Settings{}
 	row := ss.DB.QueryRow(
-		`select settings_id, settings_model, settings_max_tokens, settings_frequency from settings`,
+		`select 
+			settings_id,
+			settings_model,
+			settings_max_tokens,
+			settings_frequency,
+			system_msg,
+			top_p,
+			temperature
+		from settings`,
 	)
-	err := row.Scan(&settings.ID, &settings.Model, &settings.MaxTokens, &settings.Frequency)
+	err := row.Scan(
+		&settings.ID,
+		&settings.Model,
+		&settings.MaxTokens,
+		&settings.Frequency,
+		&settings.SystemPrompt,
+		&settings.TopP,
+		&settings.Temperature,
+	)
 
 	availableModels, modelsError := ss.GetProviderModels(cfg.Provider, cfg.ChatGPTApiUrl)
 
@@ -166,13 +182,16 @@ func (ss *SettingsService) CacheModelsForProvider(provider int, models []string)
 func (ss *SettingsService) UpdateSettings(newSettings util.Settings) (util.Settings, error) {
 	upsert := `
 		INSERT INTO settings 
-			(settings_id, settings_model, settings_max_tokens, settings_frequency)
+			(settings_id, settings_model, settings_max_tokens, settings_frequency, temperature, top_p, system_msg)
 		VALUES
-			($1, $2, $3, $4)
+			($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT(settings_id) DO UPDATE SET
 			settings_model=$2,
 			settings_max_tokens=$3,
-			settings_frequency=$4;
+			settings_frequency=$4,
+			temperature=$5,
+			top_p=$6,
+			system_msg=$7;
 	`
 
 	_, err := ss.DB.Exec(
@@ -181,6 +200,9 @@ func (ss *SettingsService) UpdateSettings(newSettings util.Settings) (util.Setti
 		newSettings.Model,
 		newSettings.MaxTokens,
 		newSettings.Frequency,
+		newSettings.Temperature,
+		newSettings.TopP,
+		newSettings.SystemPrompt,
 	)
 	if err != nil {
 		return newSettings, err

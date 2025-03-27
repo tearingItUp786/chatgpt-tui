@@ -2,6 +2,7 @@ package clients
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -9,12 +10,19 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/generative-ai-go/genai"
+	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
 const modelNamePrefix = "models/"
+
+type processedChunk struct {
+	chunk     util.CompletionChunk
+	isFinal   bool
+	citations []string
+}
 
 type GeminiClient struct {
 	systemMessage string
@@ -34,16 +42,22 @@ func (c GeminiClient) RequestCompletion(
 ) tea.Cmd {
 
 	return func() tea.Msg {
+		config, ok := config.FromContext(ctx)
+		if !ok {
+			fmt.Println("No config found")
+			panic("No config found in context")
+		}
+
 		client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
 		if err != nil {
 			return util.ErrorEvent{Message: err.Error()}
 		}
 		defer client.Close()
 
-		model := client.GenerativeModel(modelNamePrefix + modelSettings.Model)
 		log.Println("Gemini: sending message to " + modelSettings.Model)
-		model.SetMaxOutputTokens(int32(modelSettings.MaxTokens))
-		// TODO: system message
+
+		model := client.GenerativeModel(modelNamePrefix + modelSettings.Model)
+		setParams(model, *config, modelSettings)
 
 		currentPrompt := chatMsgs[len(chatMsgs)-1].Content
 		cs := model.StartChat()
@@ -52,6 +66,7 @@ func (c GeminiClient) RequestCompletion(
 		iter := cs.SendMessageStream(ctx, genai.Text(currentPrompt))
 
 		processResultID := 0
+		var citations []string
 		for {
 			resp, err := iter.Next()
 			if err == iterator.Done {
@@ -62,16 +77,28 @@ func (c GeminiClient) RequestCompletion(
 				break
 			}
 
-			result, isFinished := toCompletionChunk(resp, processResultID)
+			result, err := processResponseChunk(resp, processResultID)
+
+			if err != nil {
+				resultChan <- util.ProcessApiCompletionResponse{ID: processResultID, Err: err}
+				break
+			}
+
+			citations = append(citations, result.citations...)
+
 			resultChan <- util.ProcessApiCompletionResponse{
 				ID:     processResultID,
-				Result: result,
+				Result: result.chunk,
 				Err:    nil,
 			}
 
 			processResultID++
 
-			if isFinished {
+			if result.isFinal {
+				if len(citations) > 0 {
+					sendCitationsChunk(resultChan, processResultID, citations)
+					processResultID++
+				}
 				sendCompensationChunk(resultChan, processResultID)
 			}
 		}
@@ -111,6 +138,33 @@ func (c GeminiClient) RequestModelsList() util.ProcessModelsResponse {
 	}
 }
 
+// Gemini may include actual sources with the reponse chunks which is pretty neat
+// The citations are collected from each chunk and sent together as the last chunk
+// because displaying citations all around the repoonse is ugly
+func sendCitationsChunk(resultChan chan util.ProcessApiCompletionResponse, id int, citations []string) {
+	var chunk util.CompletionChunk
+	chunk.ID = fmt.Sprint(id)
+
+	citationsString := strings.Join(citations, "\n")
+	content := "\n`Sources`\n" + citationsString
+
+	choice := util.Choice{
+		Index: id,
+		Delta: map[string]interface{}{
+			"content": content,
+		},
+	}
+
+	chunk.Choices = []util.Choice{choice}
+	resultChan <- util.ProcessApiCompletionResponse{
+		ID:     id,
+		Result: chunk,
+		Final:  false,
+	}
+}
+
+// Since orchestrator is built for openai apis, need to mimic open ai response structure
+// Gemeni sends finish reason with the last response, and openai apis send finish reason with an empty response
 func sendCompensationChunk(resultChan chan util.ProcessApiCompletionResponse, id int) {
 	var chunk util.CompletionChunk
 	chunk.ID = fmt.Sprint(id)
@@ -124,7 +178,6 @@ func sendCompensationChunk(resultChan chan util.ProcessApiCompletionResponse, id
 	}
 
 	chunk.Choices = []util.Choice{choice}
-
 	resultChan <- util.ProcessApiCompletionResponse{
 		ID:     id,
 		Result: chunk,
@@ -132,17 +185,42 @@ func sendCompensationChunk(resultChan chan util.ProcessApiCompletionResponse, id
 	}
 }
 
-func toCompletionChunk(response *genai.GenerateContentResponse, id int) (util.CompletionChunk, bool) {
+func setParams(model *genai.GenerativeModel, cfg config.Config, settings util.Settings) {
+	model.SetMaxOutputTokens(int32(settings.MaxTokens))
+
+	if settings.TopP != nil {
+		model.SetTopP(*settings.TopP)
+	}
+
+	if settings.Temperature != nil {
+		model.SetTemperature(*settings.Temperature)
+	}
+
+	if cfg.SystemMessage != "" || settings.SystemPrompt != nil {
+		systemMsg := cfg.SystemMessage
+		if settings.SystemPrompt != nil && *settings.SystemPrompt != "" {
+			systemMsg = *settings.SystemPrompt
+		}
+		model.SystemInstruction = genai.NewUserContent(genai.Text(systemMsg))
+	}
+}
+
+// Maps gemini response model to the openai response model
+func processResponseChunk(response *genai.GenerateContentResponse, id int) (processedChunk, error) {
 	var chunk util.CompletionChunk
 	chunk.ID = fmt.Sprint(id)
 
-	isFinished := false
+	result := processedChunk{}
 	for _, candidate := range response.Candidates {
 		if candidate.Content == nil {
 			break
 		}
 
-		finishReason := handleFinishReason(candidate.FinishReason)
+		finishReason, err := handleFinishReason(candidate.FinishReason)
+
+		if err != nil {
+			return result, err
+		}
 
 		choice := util.Choice{
 			Index:        int(candidate.Index),
@@ -150,8 +228,18 @@ func toCompletionChunk(response *genai.GenerateContentResponse, id int) (util.Co
 		}
 
 		if len(candidate.Content.Parts) > 0 {
+			if candidate.CitationMetadata != nil && len(candidate.CitationMetadata.CitationSources) > 0 {
+				for _, source := range candidate.CitationMetadata.CitationSources {
+					if source.URI != nil {
+						log.Println(source.URI)
+						sourceString := fmt.Sprintf("\t* [%s](%s)", *source.URI, *source.URI)
+						result.citations = append(result.citations, sourceString)
+					}
+				}
+			}
+
 			choice.Delta = map[string]interface{}{
-				"content": fromatResponsePart(candidate.Content.Parts[0]),
+				"content": formatResponsePart(candidate.Content.Parts[0]),
 			}
 		} else {
 			choice.Delta = map[string]interface{}{
@@ -165,44 +253,49 @@ func toCompletionChunk(response *genai.GenerateContentResponse, id int) (util.Co
 				Prompt:     int(response.UsageMetadata.PromptTokenCount),
 				Completion: int(response.UsageMetadata.CandidatesTokenCount),
 			}
-			isFinished = true
+			result.isFinal = true
 		}
 
 		chunk.Choices = append(chunk.Choices, choice)
 	}
 
-	return chunk, isFinished
+	result.chunk = chunk
+	return result, nil
 }
 
-func fromatResponsePart(part genai.Part) string {
+func formatResponsePart(part genai.Part) string {
 	switch v := part.(type) {
 	case genai.Text:
 		response := string(v)
+
+		// markdown renderer glitches when code block appears on a line with different text
 		if strings.HasPrefix(response, "```") {
 			response = "\n" + response
 		}
+
 		return response
 	default:
 		panic("Only text type is supported")
 	}
 }
 
-func handleFinishReason(reason genai.FinishReason) string {
+func handleFinishReason(reason genai.FinishReason) (string, error) {
 	switch reason {
 	case genai.FinishReasonStop:
-		return "stop"
+		return "stop", nil
 	case genai.FinishReasonMaxTokens:
-		return "length"
+		return "length", nil
 	case genai.FinishReasonOther:
 	case genai.FinishReasonUnspecified:
 	case genai.FinishReasonRecitation:
-	// TODO: handle recitation
+		return "", errors.New("LLM stopped responding due to response containing copyright material")
 	case genai.FinishReasonSafety:
 	default:
 		log.Println(fmt.Sprintf("unexpected genai.FinishReason: %#v", reason))
+		return "", errors.New("GeminiAPI: unsupported finish reason")
 	}
 
-	return ""
+	return "", nil
 }
 
 func buildChatHistory(msgs []util.MessageToSend) []*genai.Content {

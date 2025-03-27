@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"strconv"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -24,12 +22,18 @@ const (
 	modelMode = iota
 	maxTokensMode
 	frequencyMode
+	tempMode
+	nucleusSamplingMode //top_p
+	systemPromptMode
 )
 
 const (
-	ModelPickerKey = "m"
-	FrequencyKey   = "f"
-	MaxTokensKey   = "t"
+	ModelPickerKey  = "m"
+	FrequencyKey    = "f"
+	MaxTokensKey    = "t"
+	TempKey         = "e"
+	TopPKey         = "p"
+	SystemPromptKey = "s"
 )
 
 type SettingsPane struct {
@@ -61,6 +65,7 @@ var settingsListHeader = lipgloss.NewStyle().
 	Bold(true).
 	MarginLeft(util.ListItemMarginLeft)
 
+var resetCommandInfo = lipgloss.NewStyle()
 var listItemHeading = lipgloss.NewStyle().
 	PaddingLeft(util.ListItemPaddingLeft)
 
@@ -96,6 +101,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
 	listItemHeading = listItemHeading.Copy().Foreground(colors.MainColor)
 	settingsListHeader = settingsListHeader.Copy().Foreground(colors.DefaultTextColor)
+	resetCommandInfo = list.DefaultStyles().NoItems.Copy().MarginLeft(util.ListItemMarginLeft)
 	spinnerStyle = spinnerStyle.Copy().Foreground(colors.AccentColor)
 	containerStyle := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder(), true).
@@ -157,12 +163,10 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 	case settings.UpdateSettingsEvent:
 		if p.initMode {
 			p.settings = msg.Settings
+			models := []list.Item{components.ModelsListItem{Text: msg.Settings.Model}}
+
 			w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
-			p.modelPicker = components.NewModelsList(
-				[]list.Item{components.ModelsListItem{Text: msg.Settings.Model}},
-				w,
-				h,
-				p.colors)
+			p.modelPicker = components.NewModelsList(models, w, h, p.colors)
 			p.initMode = false
 			p.loading = false
 
@@ -203,6 +207,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 
 func (p SettingsPane) View() string {
 	editForm := ""
+	resetTip := "ctrl+r to reset"
 	if p.mode == modelMode {
 		return p.container.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
@@ -213,25 +218,45 @@ func (p SettingsPane) View() string {
 	}
 
 	if p.mode != viewMode && p.mode != modelMode {
+		resetTip = ""
 		editForm = p.textInput.View()
 	}
 
-	modelRowContent := p.listItemRenderer("model", p.settings.Model)
+	modelName := util.TrimListItem(
+		p.settings.Model,
+		util.CalcMaxSettingValueSize(p.container.GetWidth()))
+	modelRowContent := p.listItemRenderer("(m) model", modelName)
 	if p.loading {
 		modelRowContent = p.listItemRenderer(p.spinner.View(), "")
 	}
 
+	var (
+		temp  = "not set"
+		top_p = "not set"
+	)
+
+	if p.settings.Temperature != nil {
+		temp = fmt.Sprint(*p.settings.Temperature)
+	}
+	if p.settings.TopP != nil {
+		top_p = fmt.Sprint(*p.settings.TopP)
+	}
+
 	_, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
+	listItemsHight := h - resetCommandInfo.GetHeight() - 1 // textinput height
 	return p.container.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			settingsListHeader.Render("Settings"),
-			lipgloss.NewStyle().Height(h).Render(
+			lipgloss.NewStyle().Height(listItemsHight).Render(
 				lipgloss.JoinVertical(lipgloss.Left,
 					modelRowContent,
-					p.listItemRenderer("frequency", fmt.Sprint(p.settings.Frequency)),
-					p.listItemRenderer("max_tokens", fmt.Sprint((p.settings.MaxTokens))),
+					p.listItemRenderer("(f) frequency", fmt.Sprint(p.settings.Frequency)),
+					p.listItemRenderer("(t) max_tokens", fmt.Sprint((p.settings.MaxTokens))),
+					p.listItemRenderer("(e) temperature", temp),
+					p.listItemRenderer("(p) top_p", top_p),
 				),
 			),
+			resetCommandInfo.Render(resetTip),
 			editForm,
 		),
 	)
@@ -239,147 +264,4 @@ func (p SettingsPane) View() string {
 
 func (p SettingsPane) AllowFocusChange() bool {
 	return p.mode == viewMode
-}
-
-func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
-	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
-	)
-
-	if p.modelPicker.IsFiltering() {
-		return tea.Batch(cmds...)
-	}
-
-	switch msg.Type {
-	case tea.KeyEsc:
-		p.mode = viewMode
-		return cmd
-
-	case tea.KeyEnter:
-		i, ok := p.modelPicker.GetSelectedItem()
-		if ok {
-			p.settings.Model = string(i.Text)
-			p.mode = viewMode
-
-			var updateError error
-			p.settings, updateError = settingsService.UpdateSettings(p.settings)
-			if updateError != nil {
-				return util.MakeErrorMsg(updateError.Error())
-			}
-
-			cmd = settings.MakeSettingsUpdateMsg(p.settings, nil)
-			cmds = append(cmds, cmd)
-		}
-	}
-
-	return tea.Batch(cmds...)
-}
-
-func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
-	var cmd tea.Cmd
-	switch msg.Type {
-	case tea.KeyRunes:
-		key := string(msg.Runes)
-
-		if key == ModelPickerKey || key == FrequencyKey || key == MaxTokensKey {
-			ti := textinput.New()
-			ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.DefaultElementsPadding)
-			p.textInput = ti
-
-			switch key {
-			case ModelPickerKey:
-				p.loading = true
-				return tea.Batch(
-					func() tea.Msg { return p.loadModels(p.config.Provider, p.config.ChatGPTApiUrl) },
-					p.spinner.Tick)
-
-			case FrequencyKey:
-				p.mode = frequencyMode
-				p.textInput.Placeholder = "Enter Frequency Number"
-				p.textInput.Validate = func(str string) error {
-					if _, err := strconv.ParseFloat(str, 64); err == nil {
-						log.Printf("'%s' is a floating-point number.\n", str)
-					} else {
-						log.Printf("'%s' is not a floating-point number.\n", str)
-						return err
-					}
-
-					return nil
-				}
-			case MaxTokensKey:
-				p.textInput.Placeholder = "Enter Max Tokens"
-				p.mode = maxTokensMode
-			}
-
-			p.textInput.Focus()
-		}
-	}
-
-	return cmd
-}
-
-func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
-	var cmd tea.Cmd
-	p.textInput, cmd = p.textInput.Update(msg)
-
-	switch msg.Type {
-	case tea.KeyEsc:
-		p.mode = viewMode
-		return cmd
-
-	case tea.KeyEnter:
-		inputValue := p.textInput.Value()
-
-		if inputValue == "" {
-			return cmd
-		}
-
-		switch p.mode {
-		case frequencyMode:
-			newFreq, err := strconv.Atoi(inputValue)
-			if err != nil {
-				cmd = util.MakeErrorMsg("Invalid frequency")
-			}
-			p.settings.Frequency = newFreq
-
-		case maxTokensMode:
-			newTokens, err := strconv.Atoi(inputValue)
-			if err != nil {
-				cmd = util.MakeErrorMsg("Invalid Tokens")
-			}
-			p.settings.MaxTokens = newTokens
-		}
-
-		newSettings, err := settingsService.UpdateSettings(p.settings)
-		if err != nil {
-			return util.MakeErrorMsg(err.Error())
-		}
-
-		p.settings = newSettings
-		p.mode = viewMode
-		cmd = settings.MakeSettingsUpdateMsg(p.settings, nil)
-	}
-
-	return cmd
-}
-
-func (p SettingsPane) loadModels(providerType string, apiUrl string) tea.Msg {
-	availableModels, err := p.settingsService.GetProviderModels(providerType, apiUrl)
-
-	if err != nil {
-		return util.ErrorEvent{Message: err.Error()}
-	}
-
-	return util.ModelsLoaded{Models: availableModels}
-}
-
-func (p *SettingsPane) updateModelsList(models []string) {
-	var modelsList []list.Item
-	for _, model := range models {
-		modelsList = append(modelsList, components.ModelsListItem{Text: model})
-	}
-
-	w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
-	p.modelPicker = components.NewModelsList(modelsList, w, h, p.colors)
 }

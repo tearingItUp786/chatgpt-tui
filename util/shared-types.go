@@ -1,10 +1,13 @@
 package util
 
 type Settings struct {
-	ID        int
-	Model     string
-	MaxTokens int
-	Frequency int
+	ID           int
+	Model        string
+	MaxTokens    int
+	Frequency    float32
+	SystemPrompt *string
+	TopP         *float32
+	Temperature  *float32
 }
 
 type MessageToSend struct {

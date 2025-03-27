@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
@@ -45,7 +46,13 @@ func (c OpenAiClient) RequestCompletion(
 	processResultID := 0 // Initialize a counter for ProcessResult IDs
 
 	return func() tea.Msg {
-		body, err := c.constructCompletionRequestPayload(chatMsgs, modelSettings)
+		config, ok := config.FromContext(ctx)
+		if !ok {
+			fmt.Println("No config found")
+			panic("No config found in context")
+		}
+
+		body, err := c.constructCompletionRequestPayload(chatMsgs, *config, modelSettings)
 		if err != nil {
 			return util.ErrorEvent{Message: err.Error()}
 		}
@@ -86,11 +93,18 @@ func constructSystemMessage(content string) util.MessageToSend {
 	}
 }
 
-func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []util.MessageToSend, modelSettings util.Settings) ([]byte, error) {
+func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []util.MessageToSend, cfg config.Config, settings util.Settings) ([]byte, error) {
 	messages := []util.MessageToSend{}
-	log.Println(chatMsgs)
-	if util.IsSystemMessageSupported(c.provider, modelSettings.Model) {
-		messages = append(messages, constructSystemMessage(c.systemMessage))
+
+	if util.IsSystemMessageSupported(c.provider, settings.Model) {
+		if cfg.SystemMessage != "" || settings.SystemPrompt != nil {
+			systemMsg := cfg.SystemMessage
+			if settings.SystemPrompt != nil && *settings.SystemPrompt != "" {
+				systemMsg = *settings.SystemPrompt
+			}
+
+			messages = append(messages, constructSystemMessage(systemMsg))
+		}
 	}
 
 	for _, singleMessage := range chatMsgs {
@@ -98,15 +112,25 @@ func (c OpenAiClient) constructCompletionRequestPayload(chatMsgs []util.MessageT
 			messages = append(messages, singleMessage)
 		}
 	}
-	log.Println("Constructing message: ", modelSettings.Model)
+
+	log.Println("Constructing message: ", settings.Model)
 
 	reqParams := map[string]interface{}{
-		"model":             modelSettings.Model, // Use string literals for keys
-		"frequency_penalty": modelSettings.Frequency,
-		"max_tokens":        modelSettings.MaxTokens,
+		"model":             settings.Model, // Use string literals for keys
+		"frequency_penalty": settings.Frequency,
+		"max_tokens":        settings.MaxTokens,
 		"stream":            true,
 		"messages":          messages,
 	}
+
+	if settings.Temperature != nil {
+		reqParams["temperature"] = *settings.Temperature
+	}
+
+	if settings.TopP != nil {
+		reqParams["top_p"] = *settings.TopP
+	}
+
 	util.TransformRequestHeaders(c.provider, reqParams)
 
 	body, err := json.Marshal(reqParams)
