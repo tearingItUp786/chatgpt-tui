@@ -49,15 +49,6 @@ var defaultSettingsKeyMap = settingsKeyMap{
 	reset:         key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "reset settings to default")),
 }
 
-const (
-	ModelPickerKey  = "m"
-	FrequencyKey    = "f"
-	MaxTokensKey    = "t"
-	TempKey         = "e"
-	TopPKey         = "p"
-	SystemPromptKey = "s"
-)
-
 type SettingsPane struct {
 	terminalWidth   int
 	terminalHeight  int
@@ -272,7 +263,15 @@ func (p SettingsPane) View() string {
 
 	_, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
 	tipsHiehgt := len(strings.Split(tips, "\n"))
-	listItemsHight := h - tipsHiehgt - 1 // textinput height
+
+	listItemsHight := h - tipsHiehgt
+
+	lowerRows := commandTips.Render(tips) + "\n" + editForm
+	if p.terminalHeight < util.HeightMinScalingLimit || p.mode != viewMode {
+		lowerRows = editForm
+		listItemsHight = h
+	}
+
 	return p.container.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			settingsListHeader.Render("Settings"),
@@ -285,8 +284,7 @@ func (p SettingsPane) View() string {
 					p.listItemRenderer("(p) top_p", top_p),
 				),
 			),
-			commandTips.Render(tips),
-			editForm,
+			lowerRows,
 		),
 	)
 }
