@@ -138,9 +138,9 @@ func (c GeminiClient) RequestModelsList() util.ProcessModelsResponse {
 	}
 }
 
-// Gemini may include actual sources with the reponse chunks which is pretty neat
+// Gemini may include actual sources with the response chunks which is pretty neat
 // The citations are collected from each chunk and sent together as the last chunk
-// because displaying citations all around the repoonse is ugly
+// because displaying citations all around the response is ugly
 func sendCitationsChunk(resultChan chan util.ProcessApiCompletionResponse, id int, citations []string) {
 	var chunk util.CompletionChunk
 	chunk.ID = fmt.Sprint(id)

@@ -1,9 +1,9 @@
 package panes
 
 import (
-	"slices"
 	"strconv"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,10 +12,6 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
-
-var editModeKeys = []string{
-	ModelPickerKey, FrequencyKey, MaxTokensKey, TempKey, TopPKey,
-}
 
 func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 	var (
@@ -55,45 +51,52 @@ func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
 
-	switch msg.Type {
-	case tea.KeyRunes:
-		key := string(msg.Runes)
+	switch {
 
-		if slices.Contains(editModeKeys, key) {
-			ti := textinput.New()
-			ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.DefaultElementsPadding)
-			p.textInput = ti
+	case key.Matches(msg, p.keyMap.changeModel):
+		p.loading = true
+		return tea.Batch(
+			func() tea.Msg { return p.loadModels(p.config.Provider, p.config.ChatGPTApiUrl) },
+			p.spinner.Tick)
 
-			switch key {
-			case ModelPickerKey:
-				p.loading = true
-				return tea.Batch(
-					func() tea.Msg { return p.loadModels(p.config.Provider, p.config.ChatGPTApiUrl) },
-					p.spinner.Tick)
-
-			case FrequencyKey:
-				p.textInput.Placeholder = "Enter Frequency Number"
-				p.textInput.Validate = util.FrequencyValidator
-				p.mode = frequencyMode
-			case TempKey:
-				p.textInput.Placeholder = "Enter Temperature Number"
-				p.textInput.Validate = util.TemperatureValidator
-				p.mode = tempMode
-			case TopPKey:
-				p.textInput.Placeholder = "Enter TopP Number"
-				p.textInput.Validate = util.TopPValidator
-				p.mode = nucleusSamplingMode
-			case MaxTokensKey:
-				p.textInput.Placeholder = "Enter Max Tokens"
-				p.textInput.Validate = util.MaxTokensValidator
-				p.mode = maxTokensMode
-			}
-
-			p.textInput.Focus()
+	case key.Matches(msg, p.keyMap.reset):
+		var updErr error
+		p.settings, updErr = p.settingsService.ResetToDefault(p.settings)
+		if updErr != nil {
+			return util.MakeErrorMsg(updErr.Error())
 		}
+		cmd = settings.MakeSettingsUpdateMsg(p.settings, nil)
+
+	case key.Matches(msg, p.keyMap.editFrequency):
+		p.initInputField()
+		p.textInput.Placeholder = "Enter Frequency Number"
+		p.textInput.Validate = util.FrequencyValidator
+		p.mode = frequencyMode
+	case key.Matches(msg, p.keyMap.editTemp):
+		p.initInputField()
+		p.textInput.Placeholder = "Enter Temperature Number"
+		p.textInput.Validate = util.TemperatureValidator
+		p.mode = tempMode
+	case key.Matches(msg, p.keyMap.editTopP):
+		p.initInputField()
+		p.textInput.Placeholder = "Enter TopP Number"
+		p.textInput.Validate = util.TopPValidator
+		p.mode = nucleusSamplingMode
+	case key.Matches(msg, p.keyMap.editMaxTokens):
+		p.initInputField()
+		p.textInput.Placeholder = "Enter Max Tokens"
+		p.textInput.Validate = util.MaxTokensValidator
+		p.mode = maxTokensMode
 	}
 
 	return cmd
+}
+
+func (p *SettingsPane) initInputField() {
+	ti := textinput.New()
+	ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.DefaultElementsPadding)
+	p.textInput = ti
+	p.textInput.Focus()
 }
 
 func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {

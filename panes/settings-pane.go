@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -27,6 +29,26 @@ const (
 	systemPromptMode
 )
 
+type settingsKeyMap struct {
+	editTemp      key.Binding
+	editFrequency key.Binding
+	editTopP      key.Binding
+	editSysPrompt key.Binding
+	editMaxTokens key.Binding
+	changeModel   key.Binding
+	reset         key.Binding
+}
+
+var defaultSettingsKeyMap = settingsKeyMap{
+	editTemp:      key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "change temperature")),
+	editFrequency: key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "change frequency")),
+	editTopP:      key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "change top_p")),
+	editSysPrompt: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "change system prompt")),
+	editMaxTokens: key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "change max_tokens")),
+	changeModel:   key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "change current model")),
+	reset:         key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "reset settings to default")),
+}
+
 const (
 	ModelPickerKey  = "m"
 	FrequencyKey    = "f"
@@ -46,6 +68,7 @@ type SettingsPane struct {
 	spinner         spinner.Model
 	loading         bool
 	colors          util.SchemeColors
+	keyMap          settingsKeyMap
 
 	modelPicker components.ModelsList
 
@@ -65,7 +88,7 @@ var settingsListHeader = lipgloss.NewStyle().
 	Bold(true).
 	MarginLeft(util.ListItemMarginLeft)
 
-var resetCommandInfo = lipgloss.NewStyle()
+var commandTips = lipgloss.NewStyle()
 var listItemHeading = lipgloss.NewStyle().
 	PaddingLeft(util.ListItemPaddingLeft)
 
@@ -101,7 +124,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
 	listItemHeading = listItemHeading.Copy().Foreground(colors.MainColor)
 	settingsListHeader = settingsListHeader.Copy().Foreground(colors.DefaultTextColor)
-	resetCommandInfo = list.DefaultStyles().NoItems.Copy().MarginLeft(util.ListItemMarginLeft)
+	commandTips = list.DefaultStyles().NoItems.Copy().MarginLeft(util.ListItemMarginLeft)
 	spinnerStyle = spinnerStyle.Copy().Foreground(colors.AccentColor)
 	containerStyle := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder(), true).
@@ -110,6 +133,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	spinner := initSpinner()
 
 	return SettingsPane{
+		keyMap:          defaultSettingsKeyMap,
 		colors:          colors,
 		terminalWidth:   util.DefaultTerminalWidth,
 		mode:            viewMode,
@@ -207,7 +231,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 
 func (p SettingsPane) View() string {
 	editForm := ""
-	resetTip := "ctrl+r to reset"
+	tips := "'ctrl+r' reset to defaults\n's' edit system prompt"
 	if p.mode == modelMode {
 		return p.container.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
@@ -218,8 +242,12 @@ func (p SettingsPane) View() string {
 	}
 
 	if p.mode != viewMode && p.mode != modelMode {
-		resetTip = ""
+		tips = ""
 		editForm = p.textInput.View()
+	}
+
+	if p.terminalHeight < util.HeightMinScalingLimit {
+		tips = ""
 	}
 
 	modelName := util.TrimListItem(
@@ -243,7 +271,8 @@ func (p SettingsPane) View() string {
 	}
 
 	_, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
-	listItemsHight := h - resetCommandInfo.GetHeight() - 1 // textinput height
+	tipsHiehgt := len(strings.Split(tips, "\n"))
+	listItemsHight := h - tipsHiehgt - 1 // textinput height
 	return p.container.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			settingsListHeader.Render("Settings"),
@@ -256,7 +285,7 @@ func (p SettingsPane) View() string {
 					p.listItemRenderer("(p) top_p", top_p),
 				),
 			),
-			resetCommandInfo.Render(resetTip),
+			commandTips.Render(tips),
 			editForm,
 		),
 	)

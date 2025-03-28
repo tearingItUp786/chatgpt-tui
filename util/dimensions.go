@@ -36,7 +36,8 @@ const (
 	ListItemMarginLeft  = 2
 	ListItemPaddingLeft = 2
 
-	WidthMinScalingLimit = 120
+	WidthMinScalingLimit  = 120
+	HeightMinScalingLimit = 45
 
 	ListItemTrimThreshold  = 10
 	ListItemTrimCharAmount = 14
