@@ -34,6 +34,7 @@ const (
 const (
 	CopiedNotification Notification = iota
 	CancelledNotification
+	SysPromptChangedNotifiaction
 )
 
 type ViewMode int
@@ -42,6 +43,13 @@ const (
 	ZenMode ViewMode = iota
 	TextEditMode
 	NormalMode
+)
+
+type Operation int
+
+const (
+	NoOperaton Operation = iota
+	SystemMessageEditing
 )
 
 var (
@@ -180,4 +188,40 @@ func SendViewModeChangedMsg(mode ViewMode) tea.Cmd {
 	return func() tea.Msg {
 		return ViewModeChanged{Mode: mode}
 	}
+}
+
+type SwitchToPaneMsg struct {
+	Target Pane
+}
+
+type OpenTextEditorMsg struct {
+	Content   string
+	Operation Operation
+}
+
+type SystemPromptUpdatedMsg struct {
+	SystemPrompt string
+}
+
+func UpdateSystemPrompt(prompt string) tea.Cmd {
+	return func() tea.Msg {
+		return SystemPromptUpdatedMsg{SystemPrompt: prompt}
+	}
+}
+
+func SwitchToEditor(content string, op Operation) tea.Cmd {
+	openEditorMsg := func() tea.Msg {
+		return OpenTextEditorMsg{Content: content, Operation: op}
+	}
+
+	switchFocus := func() tea.Msg {
+		return SwitchToPaneMsg{Target: PromptPane}
+	}
+
+	switchMode := func() tea.Msg {
+		return ViewModeChanged{Mode: TextEditMode}
+	}
+
+	// order matters, messages are queued sequentially
+	return tea.Batch(switchFocus, switchMode, openEditorMsg)
 }

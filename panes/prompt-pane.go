@@ -45,6 +45,7 @@ type PromptPane struct {
 	colors     util.SchemeColors
 	keys       keyMap
 
+	operation      util.Operation
 	viewMode       util.ViewMode
 	isSessionIdle  bool
 	isFocused      bool
@@ -88,6 +89,7 @@ func NewPromptPane(ctx context.Context) PromptPane {
 		MarginTop(util.PromptPaneMarginTop)
 
 	return PromptPane{
+		operation:      util.NoOperaton,
 		keys:           defaultKeyMap,
 		viewMode:       util.NormalMode,
 		colors:         colors,
@@ -123,6 +125,10 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+
+	case util.OpenTextEditorMsg:
+		p.textEditor.SetValue(msg.Content)
+		p.operation = msg.Operation
 
 	case util.ViewModeChanged:
 		p.viewMode = msg.Mode
@@ -217,6 +223,7 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 				case util.TextEditMode:
 					if !p.textEditor.Focused() {
 						p.textEditor.Reset()
+						p.operation = util.NoOperaton
 						cmds = append(cmds, util.SendViewModeChangedMsg(util.NormalMode))
 					} else {
 						p.textEditor.Blur()
@@ -239,6 +246,19 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 						promptText := p.textEditor.Value()
 						p.textEditor.SetValue("")
 						p.textEditor.Blur()
+
+						if p.operation == util.SystemMessageEditing {
+							p.operation = util.NoOperaton
+
+							return p, tea.Batch(
+								util.UpdateSystemPrompt(promptText),
+								util.SendViewModeChangedMsg(util.NormalMode),
+								func() tea.Msg {
+									return util.SwitchToPaneMsg{Target: util.SettingsPane}
+								},
+							)
+						}
+
 						return p, tea.Batch(
 							util.SendPromptReadyMsg(promptText),
 							util.SendViewModeChangedMsg(util.NormalMode))
@@ -285,8 +305,16 @@ func (p *PromptPane) insertBufferContentAsCodeBlock() {
 	p.textEditor.SetCursor(0)
 }
 
-func (p PromptPane) IsTypingInProcess() bool {
-	return p.isFocused && p.inputMode == util.PromptInsertMode
+func (p PromptPane) AllowFocusChange() bool {
+	if p.isFocused && p.inputMode == util.PromptInsertMode {
+		return false
+	}
+
+	if p.operation == util.SystemMessageEditing {
+		return false
+	}
+
+	return true
 }
 
 func (p PromptPane) Enable() PromptPane {

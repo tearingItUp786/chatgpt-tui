@@ -145,8 +145,9 @@ func sendCitationsChunk(resultChan chan util.ProcessApiCompletionResponse, id in
 	var chunk util.CompletionChunk
 	chunk.ID = fmt.Sprint(id)
 
+	citations = util.RemoveDuplicates(citations)
 	citationsString := strings.Join(citations, "\n")
-	content := "\n`Sources`\n" + citationsString
+	content := "\n\n`Sources`\n" + citationsString
 
 	choice := util.Choice{
 		Index: id,

@@ -67,6 +67,13 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 		}
 		cmd = settings.MakeSettingsUpdateMsg(p.settings, nil)
 
+	case key.Matches(msg, p.keyMap.editSysPrompt):
+		content := ""
+		if p.settings.SystemPrompt != nil {
+			content = *p.settings.SystemPrompt
+		}
+		cmd = util.SwitchToEditor(content, util.SystemMessageEditing)
+
 	case key.Matches(msg, p.keyMap.editFrequency):
 		p.initInputField()
 		p.textInput.Placeholder = "Enter Frequency Number"

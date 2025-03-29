@@ -149,6 +149,12 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case util.ViewModeChanged:
 		m.viewMode = msg.Mode
 
+	case util.SwitchToPaneMsg:
+		if util.IsFocusAllowed(m.viewMode, msg.Target, m.terminalWidth) {
+			m.focused = msg.Target
+			m.resetFocus()
+		}
+
 	case util.AsyncDependencyReady:
 		m.loadedDeps = append(m.loadedDeps, msg.Dependency)
 		for _, dependency := range asyncDeps {
@@ -324,7 +330,7 @@ func (m *MainView) resetFocus() {
 
 // TODO: use event to lock/unlock allowFocusChange flag
 func (m MainView) isFocusChangeAllowed() bool {
-	if m.promptPane.IsTypingInProcess() ||
+	if !m.promptPane.AllowFocusChange() ||
 		!m.chatPane.AllowFocusChange() ||
 		!m.settingsPane.AllowFocusChange() ||
 		!m.sessionsPane.AllowFocusChange() ||

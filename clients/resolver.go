@@ -11,6 +11,4 @@ func ResolveLlmClient(apiType string, apiUrl string, systemMessage string) util.
 	default:
 		panic("Api type not supported: " + apiType)
 	}
-
-	return nil
 }

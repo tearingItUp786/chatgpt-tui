@@ -149,6 +149,17 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 
 	switch msg := msg.(type) {
 
+	case util.SystemPromptUpdatedMsg:
+		p.settings.SystemPrompt = &msg.SystemPrompt
+		var updErr error
+		p.settings, updErr = p.settingsService.UpdateSettings(p.settings)
+		if updErr != nil {
+			cmds = append(cmds, util.MakeErrorMsg(updErr.Error()))
+			break
+		}
+		cmds = append(cmds, settings.MakeSettingsUpdateMsg(p.settings, nil))
+		cmds = append(cmds, util.SendNotificationMsg(util.SysPromptChangedNotifiaction))
+
 	case util.FocusEvent:
 		p.isFocused = msg.IsFocused
 		p.mode = viewMode
