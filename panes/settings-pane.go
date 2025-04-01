@@ -22,6 +22,8 @@ import (
 const (
 	viewMode  = -1
 	modelMode = iota
+	presetMode
+	presetSaveMode
 	maxTokensMode
 	frequencyMode
 	tempMode
@@ -37,6 +39,8 @@ type settingsKeyMap struct {
 	editMaxTokens key.Binding
 	changeModel   key.Binding
 	reset         key.Binding
+	savePreset    key.Binding
+	presetsMenu   key.Binding
 }
 
 var defaultSettingsKeyMap = settingsKeyMap{
@@ -46,7 +50,9 @@ var defaultSettingsKeyMap = settingsKeyMap{
 	editSysPrompt: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "'s' edit system prompt")),
 	editMaxTokens: key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "change max_tokens")),
 	changeModel:   key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "change current model")),
+	savePreset:    key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "'ctrl+p' save preset")),
 	reset:         key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "'ctrl+r' reset to default")),
+	presetsMenu:   key.NewBinding(key.WithKeys("]", "l", tea.KeyRight.String()), key.WithHelp("], l, ->", "presets menu")),
 }
 
 type SettingsPane struct {
@@ -61,7 +67,8 @@ type SettingsPane struct {
 	colors          util.SchemeColors
 	keyMap          settingsKeyMap
 
-	modelPicker components.ModelsList
+	modelPicker  components.ModelsList
+	presetPicker components.PresetsList
 
 	container lipgloss.Style
 
@@ -73,15 +80,25 @@ type SettingsPane struct {
 
 var settingsService *settings.SettingsService
 
-var settingsListHeader = lipgloss.NewStyle().
+var activeHeader = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderBottom(true).
+	Bold(true).
+	MarginLeft(util.ListItemMarginLeft)
+
+var inactiveHeader = list.DefaultStyles().
+	NoItems.
+	Copy().
 	Bold(true).
 	MarginLeft(util.ListItemMarginLeft)
 
 var commandTips = lipgloss.NewStyle()
 var listItemHeading = lipgloss.NewStyle().
 	PaddingLeft(util.ListItemPaddingLeft)
+
+var presetItemHeading = lipgloss.NewStyle().
+	PaddingLeft(util.ListItemPaddingLeft).
+	Bold(true)
 
 var listItemSpan = lipgloss.NewStyle()
 var spinnerStyle = lipgloss.NewStyle()
@@ -91,6 +108,13 @@ func (p SettingsPane) listItemRenderer(heading string, value string) string {
 	spanEl := listItemSpan.Copy().Foreground(p.colors.DefaultTextColor).Render
 
 	return headingEl("■ "+heading, spanEl(value))
+}
+
+func (p SettingsPane) presetItemRenderer(value string) string {
+	headingEl := presetItemHeading.Render
+	spanEl := listItemSpan.Copy().Bold(true).Foreground(p.colors.DefaultTextColor).Render
+
+	return headingEl("■ Preset:", spanEl(value))
 }
 
 func initSpinner() spinner.Model {
@@ -114,7 +138,8 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	colors := config.ColorScheme.GetColors()
 	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
 	listItemHeading = listItemHeading.Copy().Foreground(colors.MainColor)
-	settingsListHeader = settingsListHeader.Copy().Foreground(colors.DefaultTextColor)
+	presetItemHeading = presetItemHeading.Copy().Foreground(colors.AccentColor)
+	activeHeader = activeHeader.Copy().Foreground(colors.DefaultTextColor)
 	commandTips = list.DefaultStyles().NoItems.Copy().MarginLeft(util.ListItemMarginLeft)
 	spinnerStyle = spinnerStyle.Copy().Foreground(colors.AccentColor)
 	containerStyle := lipgloss.NewStyle().
@@ -139,7 +164,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 }
 
 func (p *SettingsPane) Init() tea.Cmd {
-	settingsLoader := func() tea.Msg { return p.settingsService.GetSettings(nil, *p.config) }
+	settingsLoader := func() tea.Msg { return p.settingsService.GetSettings(nil, util.DefaultSettingsId, *p.config) }
 	return tea.Batch(p.spinner.Tick, settingsLoader)
 }
 
@@ -216,6 +241,9 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 			} else if p.mode == modelMode {
 				cmd = p.handleModelMode(msg)
 				cmds = append(cmds, cmd)
+			} else if p.mode == presetMode {
+				cmd = p.handlePresetMode(msg)
+				cmds = append(cmds, cmd)
 			} else {
 				cmd = p.handleEditMode(msg)
 				cmds = append(cmds, cmd)
@@ -228,22 +256,45 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
+	if !p.initMode && p.mode == presetMode {
+		p.presetPicker, cmd = p.presetPicker.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
 	return p, tea.Batch(cmds...)
 }
 
 func (p SettingsPane) View() string {
-
+	defaultHeader := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		activeHeader.Render("Settings"),
+		inactiveHeader.Render("Presets"),
+	)
 	if p.mode == modelMode {
 		return p.container.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
-				settingsListHeader.Render("Settings"),
+				defaultHeader,
 				p.modelPicker.View(),
+			),
+		)
+	}
+
+	if p.mode == presetMode {
+		return p.container.Render(
+			lipgloss.JoinVertical(lipgloss.Left,
+				lipgloss.JoinHorizontal(
+					lipgloss.Left,
+					inactiveHeader.Render("Settings"),
+					activeHeader.Render("Presets"),
+				),
+				p.presetPicker.View(),
 			),
 		)
 	}
 
 	editForm := ""
 	tips := strings.Join([]string{
+		p.keyMap.savePreset.Help().Desc,
 		p.keyMap.reset.Help().Desc,
 		p.keyMap.editSysPrompt.Help().Desc}, "\n")
 
@@ -292,9 +343,10 @@ func (p SettingsPane) View() string {
 
 	return p.container.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
-			settingsListHeader.Render("Settings"),
+			defaultHeader,
 			lipgloss.NewStyle().Height(listItemsHight).Render(
 				lipgloss.JoinVertical(lipgloss.Left,
+					p.presetItemRenderer(p.settings.PresetName),
 					modelRowContent,
 					p.listItemRenderer("(t) max_tokens", fmt.Sprint((p.settings.MaxTokens))),
 					p.listItemRenderer("(e) temperature", temp),

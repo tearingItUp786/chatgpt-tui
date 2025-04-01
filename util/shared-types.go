@@ -8,6 +8,7 @@ type Settings struct {
 	SystemPrompt *string
 	TopP         *float32
 	Temperature  *float32
+	PresetName   string
 }
 
 type MessageToSend struct {

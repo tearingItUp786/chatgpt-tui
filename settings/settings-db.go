@@ -34,7 +34,7 @@ func NewSettingsService(db *sql.DB) *SettingsService {
 	}
 }
 
-func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) tea.Msg {
+func (ss *SettingsService) GetPreset(id int) (util.Settings, error) {
 	settings := util.Settings{}
 	row := ss.DB.QueryRow(
 		`select 
@@ -44,8 +44,10 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) t
 			settings_frequency,
 			system_msg,
 			top_p,
-			temperature
-		from settings`,
+			temperature,
+			preset_name
+		from settings where settings_id=$1`,
+		id,
 	)
 	err := row.Scan(
 		&settings.ID,
@@ -55,6 +57,40 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) t
 		&settings.SystemPrompt,
 		&settings.TopP,
 		&settings.Temperature,
+		&settings.PresetName,
+	)
+
+	if err != nil {
+		return settings, err
+	}
+
+	return settings, nil
+}
+
+func (ss *SettingsService) GetSettings(ctx context.Context, id int, cfg config.Config) tea.Msg {
+	settings := util.Settings{}
+	row := ss.DB.QueryRow(
+		`select 
+			settings_id,
+			settings_model,
+			settings_max_tokens,
+			settings_frequency,
+			system_msg,
+			top_p,
+			temperature,
+			preset_name
+		from settings where settings_id=$1`,
+		id,
+	)
+	err := row.Scan(
+		&settings.ID,
+		&settings.Model,
+		&settings.MaxTokens,
+		&settings.Frequency,
+		&settings.SystemPrompt,
+		&settings.TopP,
+		&settings.Temperature,
+		&settings.PresetName,
 	)
 
 	availableModels, modelsError := ss.GetProviderModels(cfg.Provider, cfg.ChatGPTApiUrl)
@@ -180,6 +216,34 @@ func (ss *SettingsService) CacheModelsForProvider(provider int, models []string)
 	return err
 }
 
+func (ss *SettingsService) GetPresetsList() ([]util.Settings, error) {
+	rows, err := ss.DB.Query(
+		`select 
+			settings_id,
+			settings_model,
+			settings_max_tokens,
+			settings_frequency,
+			system_msg,
+			top_p,
+			temperature,
+			preset_name
+		from settings`,
+	)
+
+	if err != nil {
+		return []util.Settings{}, err
+	}
+	presets := []util.Settings{}
+	for rows.Next() {
+		preset := util.Settings{}
+		rows.Scan(&preset.ID, &preset.Model, &preset.MaxTokens, &preset.Frequency, &preset.SystemPrompt, &preset.TopP, &preset.Temperature, &preset.PresetName)
+		presets = append(presets, preset)
+	}
+	defer rows.Close()
+
+	return presets, nil
+}
+
 func (ss *SettingsService) ResetToDefault(current util.Settings) (util.Settings, error) {
 	defaultSettings := util.Settings{
 		ID:           current.ID,
@@ -200,19 +264,44 @@ func (ss *SettingsService) ResetToDefault(current util.Settings) (util.Settings,
 	return defaultSettings, nil
 }
 
+func (ss *SettingsService) SavePreset(newSettings util.Settings) (util.Settings, error) {
+	upsert := `
+		INSERT INTO settings 
+			(settings_model, settings_max_tokens, settings_frequency, temperature, top_p, system_msg, preset_name)
+		VALUES
+			($1, $2, $3, $4, $5, $6, $7)
+	`
+
+	_, err := ss.DB.Exec(
+		upsert,
+		newSettings.Model,
+		newSettings.MaxTokens,
+		newSettings.Frequency,
+		newSettings.Temperature,
+		newSettings.TopP,
+		newSettings.SystemPrompt,
+		newSettings.PresetName,
+	)
+	if err != nil {
+		return newSettings, err
+	}
+	return newSettings, nil
+}
+
 func (ss *SettingsService) UpdateSettings(newSettings util.Settings) (util.Settings, error) {
 	upsert := `
 		INSERT INTO settings 
-			(settings_id, settings_model, settings_max_tokens, settings_frequency, temperature, top_p, system_msg)
+			(settings_id, settings_model, settings_max_tokens, settings_frequency, temperature, top_p, system_msg, preset_name)
 		VALUES
-			($1, $2, $3, $4, $5, $6, $7)
+			($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT(settings_id) DO UPDATE SET
 			settings_model=$2,
 			settings_max_tokens=$3,
 			settings_frequency=$4,
 			temperature=$5,
 			top_p=$6,
-			system_msg=$7;
+			system_msg=$7,
+			preset_name=$8;
 	`
 
 	_, err := ss.DB.Exec(
@@ -224,6 +313,7 @@ func (ss *SettingsService) UpdateSettings(newSettings util.Settings) (util.Setti
 		newSettings.Temperature,
 		newSettings.TopP,
 		newSettings.SystemPrompt,
+		newSettings.PresetName,
 	)
 	if err != nil {
 		return newSettings, err

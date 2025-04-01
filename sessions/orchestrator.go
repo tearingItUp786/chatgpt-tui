@@ -74,7 +74,7 @@ func (m Orchestrator) Init() tea.Cmd {
 	// Need to load the latest session as the current session  (select recently created)
 	// OR we need to create a brand new session for the user with a random name (insert new and return)
 
-	settingsData := func() tea.Msg { return m.settingsService.GetSettings(nil, m.config) }
+	settingsData := func() tea.Msg { return m.settingsService.GetSettings(nil, util.DefaultSettingsId, m.config) }
 
 	dbData := func() tea.Msg {
 		mostRecentSession, err := m.sessionService.GetMostRecessionSessionOrCreateOne()

@@ -20,6 +20,7 @@ const (
 	copiedLabelText           = "Copied to clipboard"
 	cancelledLabelText        = "Inference interrupted"
 	sysPromptChangedLabelText = "System prompt updated"
+	presetSavedLabelText      = "Preset saved"
 	idleLabelText             = "IDLE"
 	processingLabelText       = "Processing"
 )
@@ -180,6 +181,11 @@ func (p InfoPane) View() string {
 		notificationText := ""
 
 		switch p.notification {
+		case util.PresetSavedNotification:
+			notificationText = presetSavedLabelText
+			notificationLabel = p.notificationLabel.
+				Background(p.colors.AccentColor).
+				Width(paneWidth - 1)
 		case util.SysPromptChangedNotifiaction:
 			notificationText = sysPromptChangedLabelText
 			notificationLabel = p.notificationLabel.

@@ -13,6 +13,43 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
+func (p *SettingsPane) handlePresetMode(msg tea.KeyMsg) tea.Cmd {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	if p.presetPicker.IsFiltering() {
+		return tea.Batch(cmds...)
+	}
+
+	switch msg.Type {
+	case tea.KeyEsc:
+		p.mode = viewMode
+		return cmd
+
+	case tea.KeyEnter:
+		i, ok := p.presetPicker.GetSelectedItem()
+		if ok {
+			presetId := int(i.Id)
+			preset, err := p.settingsService.GetPreset(presetId)
+
+			if err != nil {
+				return util.MakeErrorMsg(err.Error())
+			}
+
+			preset.Model = p.settings.Model
+			p.mode = viewMode
+			p.settings = preset
+
+			cmd = settings.MakeSettingsUpdateMsg(p.settings, nil)
+			cmds = append(cmds, cmd)
+		}
+	}
+
+	return tea.Batch(cmds...)
+}
+
 func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 	var (
 		cmd  tea.Cmd
@@ -52,6 +89,19 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
 
 	switch {
+	case key.Matches(msg, p.keyMap.presetsMenu):
+		p.mode = presetMode
+		presets, err := p.loadPresets()
+		if err != nil {
+			return util.MakeErrorMsg(err.Error())
+		}
+		p.updatePresetsList(presets)
+
+	case key.Matches(msg, p.keyMap.savePreset):
+		p.configureInput(
+			"Enter name for a preset",
+			func(str string) error { return nil },
+			presetSaveMode)
 
 	case key.Matches(msg, p.keyMap.changeModel):
 		p.loading = true
@@ -99,6 +149,8 @@ func (p *SettingsPane) configureInput(title string, validator func(str string) e
 
 func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	p.textInput, cmd = p.textInput.Update(msg)
 
 	switch msg.Type {
@@ -114,10 +166,17 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 		}
 
 		switch p.mode {
+		case presetSaveMode:
+			newPreset := p.settings
+			newPreset.PresetName = inputValue
+			newPreset.ID = 0
+			p.settingsService.SavePreset(newPreset)
+			cmds = append(cmds, util.SendNotificationMsg(util.PresetSavedNotification))
+
 		case frequencyMode:
 			value, err := strconv.ParseFloat(inputValue, 8)
 			if err != nil {
-				cmd = util.MakeErrorMsg("Invalid frequency")
+				return util.MakeErrorMsg(err.Error())
 			}
 			newFreq := float32(value)
 			p.settings.Frequency = &newFreq
@@ -125,14 +184,14 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 		case maxTokensMode:
 			newTokens, err := strconv.Atoi(inputValue)
 			if err != nil {
-				cmd = util.MakeErrorMsg("Invalid Tokens")
+				return util.MakeErrorMsg(err.Error())
 			}
 			p.settings.MaxTokens = newTokens
 
 		case tempMode:
 			value, err := strconv.ParseFloat(inputValue, 8)
 			if err != nil {
-				cmd = util.MakeErrorMsg("Invalid Temperature")
+				return util.MakeErrorMsg(err.Error())
 			}
 			temp := float32(value)
 			p.settings.Temperature = &temp
@@ -140,7 +199,7 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 		case nucleusSamplingMode:
 			value, err := strconv.ParseFloat(inputValue, 8)
 			if err != nil {
-				cmd = util.MakeErrorMsg("Invalid TopP")
+				return util.MakeErrorMsg(err.Error())
 			}
 			topp := float32(value)
 			p.settings.TopP = &topp
@@ -153,10 +212,10 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 
 		p.settings = newSettings
 		p.mode = viewMode
-		cmd = settings.MakeSettingsUpdateMsg(p.settings, nil)
+		cmds = append(cmds, settings.MakeSettingsUpdateMsg(p.settings, nil))
 	}
 
-	return cmd
+	return tea.Batch(cmds...)
 }
 
 func (p SettingsPane) loadModels(providerType string, apiUrl string) tea.Msg {
@@ -169,6 +228,16 @@ func (p SettingsPane) loadModels(providerType string, apiUrl string) tea.Msg {
 	return util.ModelsLoaded{Models: availableModels}
 }
 
+func (p SettingsPane) loadPresets() ([]util.Settings, error) {
+	availablePresets, err := p.settingsService.GetPresetsList()
+
+	if err != nil {
+		return availablePresets, err
+	}
+
+	return availablePresets, nil
+}
+
 func (p *SettingsPane) updateModelsList(models []string) {
 	var modelsList []list.Item
 	for _, model := range models {
@@ -177,4 +246,14 @@ func (p *SettingsPane) updateModelsList(models []string) {
 
 	w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
 	p.modelPicker = components.NewModelsList(modelsList, w, h, p.colors)
+}
+
+func (p *SettingsPane) updatePresetsList(presets []util.Settings) {
+	var presetsList []list.Item
+	for _, preset := range presets {
+		presetsList = append(presetsList, components.PresetsListItem{Id: preset.ID, Text: preset.PresetName})
+	}
+
+	w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
+	p.presetPicker = components.NewPresetsList(presetsList, w, h, p.colors)
 }

@@ -35,6 +35,7 @@ const (
 	CopiedNotification Notification = iota
 	CancelledNotification
 	SysPromptChangedNotifiaction
+	PresetSavedNotification
 )
 
 type ViewMode int
