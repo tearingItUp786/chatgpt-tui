@@ -43,10 +43,10 @@ var defaultSettingsKeyMap = settingsKeyMap{
 	editTemp:      key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "change temperature")),
 	editFrequency: key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "change frequency")),
 	editTopP:      key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "change top_p")),
-	editSysPrompt: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "change system prompt")),
+	editSysPrompt: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "'s' edit system prompt")),
 	editMaxTokens: key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "change max_tokens")),
 	changeModel:   key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "change current model")),
-	reset:         key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "reset settings to default")),
+	reset:         key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "'ctrl+r' reset to default")),
 }
 
 type SettingsPane struct {
@@ -232,8 +232,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 }
 
 func (p SettingsPane) View() string {
-	editForm := ""
-	tips := "'ctrl+r' reset to defaults\n's' edit system prompt"
+
 	if p.mode == modelMode {
 		return p.container.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
@@ -243,7 +242,12 @@ func (p SettingsPane) View() string {
 		)
 	}
 
-	if p.mode != viewMode && p.mode != modelMode {
+	editForm := ""
+	tips := strings.Join([]string{
+		p.keyMap.reset.Help().Desc,
+		p.keyMap.editSysPrompt.Help().Desc}, "\n")
+
+	if p.mode != viewMode {
 		tips = ""
 		editForm = p.textInput.View()
 	}
@@ -261,8 +265,9 @@ func (p SettingsPane) View() string {
 	}
 
 	var (
-		temp  = "not set"
-		top_p = "not set"
+		temp      = "not set"
+		top_p     = "not set"
+		frequency = "not set"
 	)
 
 	if p.settings.Temperature != nil {
@@ -271,10 +276,12 @@ func (p SettingsPane) View() string {
 	if p.settings.TopP != nil {
 		top_p = fmt.Sprint(*p.settings.TopP)
 	}
+	if p.settings.Frequency != nil {
+		frequency = fmt.Sprint(*p.settings.Frequency)
+	}
 
 	_, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
 	tipsHiehgt := len(strings.Split(tips, "\n"))
-
 	listItemsHight := h - tipsHiehgt
 
 	lowerRows := commandTips.Render(tips) + "\n" + editForm
@@ -289,9 +296,9 @@ func (p SettingsPane) View() string {
 			lipgloss.NewStyle().Height(listItemsHight).Render(
 				lipgloss.JoinVertical(lipgloss.Left,
 					modelRowContent,
-					p.listItemRenderer("(f) frequency", fmt.Sprint(p.settings.Frequency)),
 					p.listItemRenderer("(t) max_tokens", fmt.Sprint((p.settings.MaxTokens))),
 					p.listItemRenderer("(e) temperature", temp),
+					p.listItemRenderer("(f) frequency", frequency),
 					p.listItemRenderer("(p) top_p", top_p),
 				),
 			),

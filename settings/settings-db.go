@@ -22,7 +22,6 @@ const ModelsCacheTtl = time.Hour * 24 * 14 // 14 days
 const ModelsSeparator = ";"
 const DateLayout = "2006-01-02 15:04:05"
 
-const defaultFrequency = 0
 const defaultMaxTokens = 3000
 
 type SettingsService struct {
@@ -74,7 +73,6 @@ func (ss *SettingsService) GetSettings(ctx context.Context, cfg config.Config) t
 		settings = util.Settings{
 			Model:     availableModels[0],
 			MaxTokens: 3000,
-			Frequency: 0,
 		}
 
 		// if default model is set in config.json - use it instead
@@ -187,7 +185,7 @@ func (ss *SettingsService) ResetToDefault(current util.Settings) (util.Settings,
 		ID:           current.ID,
 		Model:        current.Model,
 		MaxTokens:    defaultMaxTokens,
-		Frequency:    defaultFrequency,
+		Frequency:    nil,
 		SystemPrompt: current.SystemPrompt,
 		TopP:         nil,
 		Temperature:  nil,

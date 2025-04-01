@@ -106,6 +106,9 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 
 	switch msg := msg.(type) {
 
+	case util.AddNewSessionMsg:
+		cmds = append(cmds, p.addNewSession())
+
 	case sessions.LoadDataFromDB:
 		p.currentSession = msg.Session
 		p.sessionsListData = msg.AllSessions
@@ -197,14 +200,7 @@ func (p *SessionsPane) handleDefaultMode(msg tea.KeyMsg) tea.Cmd {
 	switch {
 
 	case key.Matches(msg, p.keyMap.addNew):
-
-		currentTime := time.Now()
-		formattedTime := currentTime.Format(time.ANSIC)
-		defaultSessionName := fmt.Sprintf("%s", formattedTime)
-		newSession, _ := p.sessionService.InsertNewSession(defaultSessionName, []util.MessageToSend{})
-
-		cmd = p.handleUpdateCurrentSession(newSession)
-		p.updateSessionsList()
+		cmd = p.addNewSession()
 
 	case key.Matches(msg, p.keyMap.apply):
 		i, ok := p.sessionsList.GetSelectedItem()
@@ -244,12 +240,24 @@ func (p *SessionsPane) handleDefaultMode(msg tea.KeyMsg) tea.Cmd {
 		if ok {
 			p.operationTargetId = i.Id
 			p.textInput.Placeholder = "Delete session? y/n"
+			p.textInput.Validate = util.DeleteSessionValidator
 		}
 
 		p.textInput.Focus()
 		p.textInput.CharLimit = 1
 	}
 
+	return cmd
+}
+
+func (p *SessionsPane) addNewSession() tea.Cmd {
+	currentTime := time.Now()
+	formattedTime := currentTime.Format(time.ANSIC)
+	defaultSessionName := fmt.Sprintf("%s", formattedTime)
+	newSession, _ := p.sessionService.InsertNewSession(defaultSessionName, []util.MessageToSend{})
+
+	cmd := p.handleUpdateCurrentSession(newSession)
+	p.updateSessionsList()
 	return cmd
 }
 

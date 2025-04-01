@@ -78,14 +78,12 @@ func (c GeminiClient) RequestCompletion(
 			}
 
 			result, err := processResponseChunk(resp, processResultID)
-
 			if err != nil {
 				resultChan <- util.ProcessApiCompletionResponse{ID: processResultID, Err: err}
 				break
 			}
 
 			citations = append(citations, result.citations...)
-
 			resultChan <- util.ProcessApiCompletionResponse{
 				ID:     processResultID,
 				Result: result.chunk,
@@ -93,7 +91,6 @@ func (c GeminiClient) RequestCompletion(
 			}
 
 			processResultID++
-
 			if result.isFinal {
 				if len(citations) > 0 {
 					sendCitationsChunk(resultChan, processResultID, citations)
@@ -268,12 +265,6 @@ func formatResponsePart(part genai.Part) string {
 	switch v := part.(type) {
 	case genai.Text:
 		response := string(v)
-
-		// markdown renderer glitches when code block appears on a line with different text
-		if strings.HasPrefix(response, "```") {
-			response = "\n" + response
-		}
-
 		return response
 	default:
 		panic("Only text type is supported")

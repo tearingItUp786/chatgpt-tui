@@ -4,7 +4,7 @@ type Settings struct {
 	ID           int
 	Model        string
 	MaxTokens    int
-	Frequency    float32
+	Frequency    *float32
 	SystemPrompt *string
 	TopP         *float32
 	Temperature  *float32

@@ -225,3 +225,9 @@ func SwitchToEditor(content string, op Operation) tea.Cmd {
 	// order matters, messages are queued sequentially
 	return tea.Batch(switchFocus, switchMode, openEditorMsg)
 }
+
+type AddNewSessionMsg struct{}
+
+func AddNewSession() tea.Cmd {
+	return func() tea.Msg { return AddNewSessionMsg{} }
+}

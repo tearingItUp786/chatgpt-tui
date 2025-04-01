@@ -75,35 +75,26 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 		cmd = util.SwitchToEditor(content, util.SystemMessageEditing)
 
 	case key.Matches(msg, p.keyMap.editFrequency):
-		p.initInputField()
-		p.textInput.Placeholder = "Enter Frequency Number"
-		p.textInput.Validate = util.FrequencyValidator
-		p.mode = frequencyMode
+		p.configureInput("Enter Frequency Number", util.FrequencyValidator, frequencyMode)
 	case key.Matches(msg, p.keyMap.editTemp):
-		p.initInputField()
-		p.textInput.Placeholder = "Enter Temperature Number"
-		p.textInput.Validate = util.TemperatureValidator
-		p.mode = tempMode
+		p.configureInput("Enter Temperature Number", util.TemperatureValidator, tempMode)
 	case key.Matches(msg, p.keyMap.editTopP):
-		p.initInputField()
-		p.textInput.Placeholder = "Enter TopP Number"
-		p.textInput.Validate = util.TopPValidator
-		p.mode = nucleusSamplingMode
+		p.configureInput("Enter TopP Number", util.TopPValidator, nucleusSamplingMode)
 	case key.Matches(msg, p.keyMap.editMaxTokens):
-		p.initInputField()
-		p.textInput.Placeholder = "Enter Max Tokens"
-		p.textInput.Validate = util.MaxTokensValidator
-		p.mode = maxTokensMode
+		p.configureInput("Enter Max Tokens", util.MaxTokensValidator, maxTokensMode)
 	}
 
 	return cmd
 }
 
-func (p *SettingsPane) initInputField() {
+func (p *SettingsPane) configureInput(title string, validator func(str string) error, mode int) {
 	ti := textinput.New()
 	ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.DefaultElementsPadding)
 	p.textInput = ti
 	p.textInput.Focus()
+	p.textInput.Placeholder = title
+	p.textInput.Validate = validator
+	p.mode = mode
 }
 
 func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
@@ -129,7 +120,7 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 				cmd = util.MakeErrorMsg("Invalid frequency")
 			}
 			newFreq := float32(value)
-			p.settings.Frequency = newFreq
+			p.settings.Frequency = &newFreq
 
 		case maxTokensMode:
 			newTokens, err := strconv.Atoi(inputValue)

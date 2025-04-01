@@ -29,6 +29,7 @@ type keyMap struct {
 	editorMode key.Binding
 	nextPane   key.Binding
 	jumpToPane key.Binding
+	newSession key.Binding
 	quit       key.Binding
 }
 
@@ -39,6 +40,7 @@ var defaultKeyMap = keyMap{
 	quit:       key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit app")),
 	jumpToPane: key.NewBinding(key.WithKeys("1", "2", "3", "4"), key.WithHelp("1,2,3,4", "jump to specific pane")),
 	nextPane:   key.NewBinding(key.WithKeys(tea.KeyTab.String()), key.WithHelp("TAB", "move to next pane")),
+	newSession: key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "add new session")),
 }
 
 type MainView struct {
@@ -192,6 +194,13 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
+
+		case key.Matches(msg, m.keys.newSession):
+			cmds = append(cmds, util.AddNewSession())
+			if util.IsFocusAllowed(m.viewMode, util.PromptPane, m.terminalWidth) {
+				m.focused = util.PromptPane
+				m.resetFocus()
+			}
 
 		case key.Matches(msg, m.keys.cancel):
 			if m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {

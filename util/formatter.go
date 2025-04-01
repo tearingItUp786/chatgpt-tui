@@ -102,6 +102,12 @@ func RenderBotMessage(msg string, width int, colors SchemeColors, isVisualMode b
 		glamour.WithPreservedNewLines(),
 		colors.RendererThemeOption,
 	)
+
+	// markdown renderer glitches when code block appears on a line with different text
+	if strings.HasPrefix(msg, "```") {
+		msg = "\n" + msg
+	}
+
 	if isVisualMode {
 		msg = "\n🤖 " + msg
 		userMsg, _ := renderer.Render(msg)

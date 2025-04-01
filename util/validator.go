@@ -1,15 +1,24 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
+	"slices"
 	"strconv"
 )
 
 const multiplier = 100000
 const negativeSignCode = -9999999999
 
+var DeleteSessionValidator = func(input string) error {
+	allowed := []string{"y", "n"}
+	if len(input) > 1 || !slices.Contains(allowed, input) {
+		return errors.New("Invalid input")
+	}
+	return nil
+}
 var FrequencyValidator = func(input string) error {
 	return validateRangedFloat(input, -2.0, 2.0, false, true)
 }
