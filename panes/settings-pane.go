@@ -41,6 +41,8 @@ type settingsKeyMap struct {
 	reset         key.Binding
 	savePreset    key.Binding
 	presetsMenu   key.Binding
+	goBack        key.Binding
+	choose        key.Binding
 }
 
 var defaultSettingsKeyMap = settingsKeyMap{
@@ -50,9 +52,11 @@ var defaultSettingsKeyMap = settingsKeyMap{
 	editSysPrompt: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "'s' edit system prompt")),
 	editMaxTokens: key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "change max_tokens")),
 	changeModel:   key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "change current model")),
-	savePreset:    key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "'ctrl+p' save preset")),
+	savePreset:    key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "'ctrl+p' new preset")),
 	reset:         key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "'ctrl+r' reset to default")),
-	presetsMenu:   key.NewBinding(key.WithKeys("]", "l", tea.KeyRight.String()), key.WithHelp("], l, ->", "presets menu")),
+	presetsMenu:   key.NewBinding(key.WithKeys("]", tea.KeyRight.String()), key.WithHelp("]", "presets menu")),
+	goBack:        key.NewBinding(key.WithKeys(tea.KeyEsc.String(), "["), key.WithHelp("esc, [", "go back")),
+	choose:        key.NewBinding(key.WithKeys(tea.KeyEnter.String())),
 }
 
 type SettingsPane struct {

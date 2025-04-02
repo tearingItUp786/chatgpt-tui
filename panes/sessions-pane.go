@@ -199,9 +199,6 @@ func (p *SessionsPane) handleDefaultMode(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 
-	case key.Matches(msg, p.keyMap.addNew):
-		cmd = p.addNewSession()
-
 	case key.Matches(msg, p.keyMap.apply):
 		i, ok := p.sessionsList.GetSelectedItem()
 		if ok {

@@ -23,12 +23,12 @@ func (p *SettingsPane) handlePresetMode(msg tea.KeyMsg) tea.Cmd {
 		return tea.Batch(cmds...)
 	}
 
-	switch msg.Type {
-	case tea.KeyEsc:
+	switch {
+	case key.Matches(msg, p.keyMap.goBack):
 		p.mode = viewMode
 		return cmd
 
-	case tea.KeyEnter:
+	case key.Matches(msg, p.keyMap.choose):
 		i, ok := p.presetPicker.GetSelectedItem()
 		if ok {
 			presetId := int(i.Id)
@@ -154,6 +154,7 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 	p.textInput, cmd = p.textInput.Update(msg)
 
 	switch msg.Type {
+
 	case tea.KeyEsc:
 		p.mode = viewMode
 		return cmd
@@ -255,5 +256,5 @@ func (p *SettingsPane) updatePresetsList(presets []util.Settings) {
 	}
 
 	w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
-	p.presetPicker = components.NewPresetsList(presetsList, w, h, p.colors)
+	p.presetPicker = components.NewPresetsList(presetsList, w, h, p.settings.ID, p.colors, p.settingsService)
 }

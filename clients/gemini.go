@@ -70,15 +70,19 @@ func (c GeminiClient) RequestCompletion(
 		for {
 			resp, err := iter.Next()
 			if err == iterator.Done {
+				log.Println("Iterator done")
+				sendCompensationChunk(resultChan, processResultID)
 				break
 			}
 			if err != nil {
+				log.Println("Encountered error during iterations:", err.Error())
 				resultChan <- util.ProcessApiCompletionResponse{ID: processResultID, Err: err}
 				break
 			}
 
 			result, err := processResponseChunk(resp, processResultID)
 			if err != nil {
+				log.Println("Encountered error during chunks processing:", err)
 				resultChan <- util.ProcessApiCompletionResponse{ID: processResultID, Err: err}
 				break
 			}

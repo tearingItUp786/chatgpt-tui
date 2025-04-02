@@ -3,16 +3,21 @@ package components
 import (
 	"fmt"
 	"io"
+	"log"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tearingItUp786/chatgpt-tui/settings"
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
 type PresetsList struct {
-	list list.Model
+	currentPresetId    int
+	list               list.Model
+	service            *settings.SettingsService
+	confirmationActive bool
 }
 
 var presetItemSpan = lipgloss.NewStyle().
@@ -59,7 +64,11 @@ func (l *PresetsList) View() string {
 	} else {
 		l.list.SetShowStatusBar(true)
 	}
-	return l.list.View()
+	view := l.list.View()
+	if l.confirmationActive {
+		view += "\n Remove preset? y/n"
+	}
+	return view
 }
 
 func (l *PresetsList) GetSelectedItem() (PresetsListItem, bool) {
@@ -71,13 +80,67 @@ func (l PresetsList) IsFiltering() bool {
 	return l.list.SettingFilter()
 }
 
+func (l PresetsList) getCurrentPreset() (PresetsListItem, int) {
+	presets := l.list.Items()
+	currentIdx := l.list.Index()
+	preset := presets[currentIdx].(PresetsListItem)
+	return preset, currentIdx
+}
+
+func (l *PresetsList) hideConfirmation() {
+	l.list.SetHeight(l.list.Height() + 1)
+	l.confirmationActive = false
+}
+
+func (l *PresetsList) showConfirmation() {
+	l.confirmationActive = true
+	l.list.SetHeight(l.list.Height() - 1)
+}
+
+func (l *PresetsList) removePreset() {
+	preset, idx := l.getCurrentPreset()
+	err := l.service.RemovePreset(preset.Id)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	l.list.RemoveItem(idx)
+}
+
 func (l PresetsList) Update(msg tea.Msg) (PresetsList, tea.Cmd) {
 	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		key := msg.String()
+		switch key {
+		case "d":
+			preset, _ := l.getCurrentPreset()
+			if preset.Id != l.currentPresetId && preset.Id != util.DefaultSettingsId {
+				l.showConfirmation()
+			}
+		case "y":
+			if !l.confirmationActive {
+				break
+			}
+			l.removePreset()
+			l.hideConfirmation()
+		case "n":
+			if !l.confirmationActive {
+				break
+			}
+			l.hideConfirmation()
+		default:
+			if l.confirmationActive {
+				return l, cmd
+			}
+		}
+	}
 	l.list, cmd = l.list.Update(msg)
 	return l, cmd
 }
 
-func NewPresetsList(items []list.Item, w, h int, colors util.SchemeColors) PresetsList {
+func NewPresetsList(items []list.Item, w, h int, currentId int, colors util.SchemeColors, service *settings.SettingsService) PresetsList {
 	l := list.New(items, presetsItemDelegate{}, w, h)
 
 	l.SetStatusBarItemName("preset found", "presets found")
@@ -94,6 +157,8 @@ func NewPresetsList(items []list.Item, w, h int, colors util.SchemeColors) Prese
 	l.FilterInput.Cursor.Style = l.FilterInput.Cursor.Style.Copy().Foreground(colors.NormalTabBorderColor)
 
 	return PresetsList{
-		list: l,
+		currentPresetId: currentId,
+		list:            l,
+		service:         service,
 	}
 }

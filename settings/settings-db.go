@@ -253,6 +253,7 @@ func (ss *SettingsService) ResetToDefault(current util.Settings) (util.Settings,
 		SystemPrompt: current.SystemPrompt,
 		TopP:         nil,
 		Temperature:  nil,
+		PresetName:   current.PresetName,
 	}
 
 	_, err := ss.UpdateSettings(defaultSettings)
@@ -286,6 +287,11 @@ func (ss *SettingsService) SavePreset(newSettings util.Settings) (util.Settings,
 		return newSettings, err
 	}
 	return newSettings, nil
+}
+
+func (ss *SettingsService) RemovePreset(id int) error {
+	_, err := ss.DB.Exec(`delete from settings where settings_id=$1;`, id)
+	return err
 }
 
 func (ss *SettingsService) UpdateSettings(newSettings util.Settings) (util.Settings, error) {

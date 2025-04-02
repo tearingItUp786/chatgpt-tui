@@ -198,8 +198,10 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.newSession):
 			cmds = append(cmds, util.AddNewSession())
 			if util.IsFocusAllowed(m.viewMode, util.PromptPane, m.terminalWidth) {
-				m.focused = util.PromptPane
-				m.resetFocus()
+				if m.focused != util.SessionsPane {
+					m.focused = util.PromptPane
+					m.resetFocus()
+				}
 			}
 
 		case key.Matches(msg, m.keys.cancel):
