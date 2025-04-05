@@ -12,6 +12,7 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"github.com/tearingItUp786/chatgpt-tui/config"
 	"github.com/tearingItUp786/chatgpt-tui/util"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
@@ -70,19 +71,25 @@ func (c GeminiClient) RequestCompletion(
 		for {
 			resp, err := iter.Next()
 			if err == iterator.Done {
-				log.Println("Iterator done")
+				log.Println("Gemini: Iterator done")
 				sendCompensationChunk(resultChan, processResultID)
 				break
 			}
+
 			if err != nil {
-				log.Println("Encountered error during iterations:", err.Error())
-				resultChan <- util.ProcessApiCompletionResponse{ID: processResultID, Err: err}
+				var apiErr *googleapi.Error
+				if errors.As(err, &apiErr) {
+					log.Println("Gemini: Encountered error while receiving response:", apiErr.Body)
+					resultChan <- util.ProcessApiCompletionResponse{ID: processResultID, Err: apiErr}
+				} else {
+					resultChan <- util.ProcessApiCompletionResponse{ID: processResultID, Err: err}
+				}
 				break
 			}
 
 			result, err := processResponseChunk(resp, processResultID)
 			if err != nil {
-				log.Println("Encountered error during chunks processing:", err)
+				log.Println("Gemini: Encountered error during chunks processing:", err)
 				resultChan <- util.ProcessApiCompletionResponse{ID: processResultID, Err: err}
 				break
 			}
@@ -198,7 +205,7 @@ func setParams(model *genai.GenerativeModel, cfg config.Config, settings util.Se
 		model.SetTemperature(*settings.Temperature)
 	}
 
-	if cfg.SystemMessage != "" || settings.SystemPrompt != nil {
+	if cfg.SystemMessage != "" || (settings.SystemPrompt != nil && *settings.SystemPrompt != "") {
 		systemMsg := cfg.SystemMessage
 		if settings.SystemPrompt != nil && *settings.SystemPrompt != "" {
 			systemMsg = *settings.SystemPrompt

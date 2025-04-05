@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand/v2"
 	"slices"
@@ -265,15 +266,16 @@ func (ss *SettingsService) ResetToDefault(current util.Settings) (util.Settings,
 	return defaultSettings, nil
 }
 
-func (ss *SettingsService) SavePreset(newSettings util.Settings) (util.Settings, error) {
+func (ss *SettingsService) SavePreset(newSettings util.Settings) (int, error) {
 	upsert := `
 		INSERT INTO settings 
 			(settings_model, settings_max_tokens, settings_frequency, temperature, top_p, system_msg, preset_name)
 		VALUES
 			($1, $2, $3, $4, $5, $6, $7)
+		RETURNING settings_id
 	`
 
-	_, err := ss.DB.Exec(
+	result, err := ss.DB.Exec(
 		upsert,
 		newSettings.Model,
 		newSettings.MaxTokens,
@@ -283,10 +285,16 @@ func (ss *SettingsService) SavePreset(newSettings util.Settings) (util.Settings,
 		newSettings.SystemPrompt,
 		newSettings.PresetName,
 	)
+
+	errId := -999999
 	if err != nil {
-		return newSettings, err
+		return errId, err
 	}
-	return newSettings, nil
+	newId, err := result.LastInsertId()
+	if err != nil {
+		return errId, fmt.Errorf("Failed to get last inserted id")
+	}
+	return int(newId), nil
 }
 
 func (ss *SettingsService) RemovePreset(id int) error {

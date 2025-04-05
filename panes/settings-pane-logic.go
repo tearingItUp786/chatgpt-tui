@@ -13,6 +13,8 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
+const floatPrescision = 32
+
 func (p *SettingsPane) handlePresetMode(msg tea.KeyMsg) tea.Cmd {
 	var (
 		cmd  tea.Cmd
@@ -25,7 +27,7 @@ func (p *SettingsPane) handlePresetMode(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, p.keyMap.goBack):
-		p.mode = viewMode
+		p.viewMode = defaultView
 		return cmd
 
 	case key.Matches(msg, p.keyMap.choose):
@@ -39,7 +41,7 @@ func (p *SettingsPane) handlePresetMode(msg tea.KeyMsg) tea.Cmd {
 			}
 
 			preset.Model = p.settings.Model
-			p.mode = viewMode
+			p.viewMode = defaultView
 			p.settings = preset
 
 			cmd = settings.MakeSettingsUpdateMsg(p.settings, nil)
@@ -62,14 +64,14 @@ func (p *SettingsPane) handleModelMode(msg tea.KeyMsg) tea.Cmd {
 
 	switch msg.Type {
 	case tea.KeyEsc:
-		p.mode = viewMode
+		p.viewMode = defaultView
 		return cmd
 
 	case tea.KeyEnter:
 		i, ok := p.modelPicker.GetSelectedItem()
 		if ok {
 			p.settings.Model = string(i.Text)
-			p.mode = viewMode
+			p.viewMode = defaultView
 
 			var updateError error
 			p.settings, updateError = settingsService.UpdateSettings(p.settings)
@@ -90,7 +92,7 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, p.keyMap.presetsMenu):
-		p.mode = presetMode
+		p.viewMode = presetsView
 		presets, err := p.loadPresets()
 		if err != nil {
 			return util.MakeErrorMsg(err.Error())
@@ -98,10 +100,10 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 		p.updatePresetsList(presets)
 
 	case key.Matches(msg, p.keyMap.savePreset):
-		p.configureInput(
+		cmd = p.configureInput(
 			"Enter name for a preset",
 			func(str string) error { return nil },
-			presetSaveMode)
+			presetChange)
 
 	case key.Matches(msg, p.keyMap.changeModel):
 		p.loading = true
@@ -125,85 +127,79 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 		cmd = util.SwitchToEditor(content, util.SystemMessageEditing)
 
 	case key.Matches(msg, p.keyMap.editFrequency):
-		p.configureInput("Enter Frequency Number", util.FrequencyValidator, frequencyMode)
+		cmd = p.configureInput("Enter Frequency Number", util.FrequencyValidator, frequencyChange)
 	case key.Matches(msg, p.keyMap.editTemp):
-		p.configureInput("Enter Temperature Number", util.TemperatureValidator, tempMode)
+		cmd = p.configureInput("Enter Temperature Number", util.TemperatureValidator, tempChange)
 	case key.Matches(msg, p.keyMap.editTopP):
-		p.configureInput("Enter TopP Number", util.TopPValidator, nucleusSamplingMode)
+		cmd = p.configureInput("Enter TopP Number", util.TopPValidator, topPChange)
 	case key.Matches(msg, p.keyMap.editMaxTokens):
-		p.configureInput("Enter Max Tokens", util.MaxTokensValidator, maxTokensMode)
+		cmd = p.configureInput("Enter Max Tokens", util.MaxTokensValidator, maxTokensChange)
 	}
 
 	return cmd
 }
 
-func (p *SettingsPane) configureInput(title string, validator func(str string) error, mode int) {
+func (p *SettingsPane) configureInput(title string, validator func(str string) error, mode settingsChangeMode) tea.Cmd {
 	ti := textinput.New()
 	ti.PromptStyle = lipgloss.NewStyle().PaddingLeft(util.DefaultElementsPadding)
 	p.textInput = ti
 	p.textInput.Focus()
 	p.textInput.Placeholder = title
 	p.textInput.Validate = validator
-	p.mode = mode
+	p.changeMode = mode
+	return p.textInput.Cursor.BlinkCmd()
 }
 
-func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
+func (p *SettingsPane) handleSettingsUpdate(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
-
-	p.textInput, cmd = p.textInput.Update(msg)
 
 	switch msg.Type {
 
 	case tea.KeyEsc:
-		p.mode = viewMode
+		p.viewMode = defaultView
+		p.changeMode = inactive
 		return cmd
 
 	case tea.KeyEnter:
 		inputValue := p.textInput.Value()
-
 		if inputValue == "" {
 			return cmd
 		}
 
-		switch p.mode {
-		case presetSaveMode:
-			newPreset := p.settings
-			newPreset.PresetName = inputValue
-			newPreset.ID = 0
-			p.settingsService.SavePreset(newPreset)
+		switch p.changeMode {
+		case presetChange:
+			err := p.updatePresetName(inputValue)
+			if err != nil {
+				return util.MakeErrorMsg(err.Error())
+			}
 			cmds = append(cmds, util.SendNotificationMsg(util.PresetSavedNotification))
+			cmds = append(cmds, settings.MakeSettingsUpdateMsg(p.settings, nil))
+			return tea.Batch(cmds...)
 
-		case frequencyMode:
-			value, err := strconv.ParseFloat(inputValue, 8)
+		case frequencyChange:
+			err := p.updateFrequency(inputValue)
 			if err != nil {
 				return util.MakeErrorMsg(err.Error())
 			}
-			newFreq := float32(value)
-			p.settings.Frequency = &newFreq
 
-		case maxTokensMode:
-			newTokens, err := strconv.Atoi(inputValue)
+		case maxTokensChange:
+			err := p.updateMaxTokens(inputValue)
 			if err != nil {
 				return util.MakeErrorMsg(err.Error())
 			}
-			p.settings.MaxTokens = newTokens
 
-		case tempMode:
-			value, err := strconv.ParseFloat(inputValue, 8)
+		case tempChange:
+			err := p.updateTemperature(inputValue)
 			if err != nil {
 				return util.MakeErrorMsg(err.Error())
 			}
-			temp := float32(value)
-			p.settings.Temperature = &temp
 
-		case nucleusSamplingMode:
-			value, err := strconv.ParseFloat(inputValue, 8)
+		case topPChange:
+			err := p.updateTopP(inputValue)
 			if err != nil {
 				return util.MakeErrorMsg(err.Error())
 			}
-			topp := float32(value)
-			p.settings.TopP = &topp
 		}
 
 		newSettings, err := settingsService.UpdateSettings(p.settings)
@@ -212,10 +208,12 @@ func (p *SettingsPane) handleEditMode(msg tea.KeyMsg) tea.Cmd {
 		}
 
 		p.settings = newSettings
-		p.mode = viewMode
+		p.viewMode = defaultView
+		p.changeMode = inactive
 		cmds = append(cmds, settings.MakeSettingsUpdateMsg(p.settings, nil))
 	}
 
+	cmds = append(cmds, p.textInput.Cursor.BlinkCmd())
 	return tea.Batch(cmds...)
 }
 
@@ -257,4 +255,68 @@ func (p *SettingsPane) updatePresetsList(presets []util.Settings) {
 
 	w, h := util.CalcModelsListSize(p.terminalWidth, p.terminalHeight)
 	p.presetPicker = components.NewPresetsList(presetsList, w, h, p.settings.ID, p.colors, p.settingsService)
+}
+
+func (p *SettingsPane) updatePresetName(inputValue string) error {
+	newPreset := util.Settings{
+		Model:        p.settings.Model,
+		MaxTokens:    p.settings.MaxTokens,
+		Frequency:    p.settings.Frequency,
+		SystemPrompt: p.settings.SystemPrompt,
+		TopP:         p.settings.TopP,
+		Temperature:  p.settings.Temperature,
+		PresetName:   inputValue,
+	}
+	newId, err := p.settingsService.SavePreset(newPreset)
+	if err != nil {
+		return err
+	}
+	newPreset.ID = newId
+	p.settings = newPreset
+	p.viewMode = defaultView
+	p.changeMode = inactive
+	return nil
+}
+
+func (p *SettingsPane) updateFrequency(inputValue string) error {
+	value, err := strconv.ParseFloat(inputValue, floatPrescision)
+	if err != nil {
+		return err
+	}
+	newFreq := float32(value)
+	p.settings.Frequency = &newFreq
+	p.changeMode = inactive
+	return nil
+}
+
+func (p *SettingsPane) updateMaxTokens(inputValue string) error {
+	newTokens, err := strconv.Atoi(inputValue)
+	if err != nil {
+		return err
+	}
+	p.settings.MaxTokens = newTokens
+	p.changeMode = inactive
+	return nil
+}
+
+func (p *SettingsPane) updateTemperature(inputValue string) error {
+	value, err := strconv.ParseFloat(inputValue, floatPrescision)
+	if err != nil {
+		return err
+	}
+	temp := float32(value)
+	p.settings.Temperature = &temp
+	p.changeMode = inactive
+	return nil
+}
+
+func (p *SettingsPane) updateTopP(inputValue string) error {
+	value, err := strconv.ParseFloat(inputValue, floatPrescision)
+	if err != nil {
+		return err
+	}
+	topp := float32(value)
+	p.settings.TopP = &topp
+	p.changeMode = inactive
+	return nil
 }

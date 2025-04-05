@@ -190,7 +190,7 @@ func processModelsListResponse(resp *http.Response) util.ProcessModelsResponse {
 		if err != nil {
 			return util.ProcessModelsResponse{Err: err}
 		}
-		return util.ProcessModelsResponse{Err: fmt.Errorf(string(bodyBytes))}
+		return util.ProcessModelsResponse{Err: fmt.Errorf("%s", string(bodyBytes))}
 	}
 
 	resBody, err := io.ReadAll(resp.Body)
@@ -222,7 +222,7 @@ func (c OpenAiClient) processCompletionResponse(
 			resultChan <- util.ProcessApiCompletionResponse{ID: *processResultID, Err: err}
 			return
 		}
-		resultChan <- util.ProcessApiCompletionResponse{ID: *processResultID, Err: fmt.Errorf(string(bodyBytes))}
+		resultChan <- util.ProcessApiCompletionResponse{ID: *processResultID, Err: fmt.Errorf("%s", string(bodyBytes))}
 		return
 	}
 
@@ -231,13 +231,16 @@ func (c OpenAiClient) processCompletionResponse(
 		line, err := scanner.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				log.Println("OpenAI: scanner returned EOF", err)
 				break // End of the stream
 			}
-			resultChan <- util.ProcessApiCompletionResponse{ID: *processResultID, Err: err}
+			log.Println("OpenAI: Encountered error during receiving respone: ", err)
+			resultChan <- util.ProcessApiCompletionResponse{ID: *processResultID, Err: err, Final: true}
 			return
 		}
 
 		if line == "data: [DONE]\n" {
+			log.Println("OpenAI: Received [DONE]")
 			resultChan <- util.ProcessApiCompletionResponse{ID: *processResultID, Err: nil, Final: true}
 			return
 		}

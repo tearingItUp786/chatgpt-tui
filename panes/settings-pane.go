@@ -19,16 +19,24 @@ import (
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
 
+type settingsViewMode int
+
 const (
-	viewMode  = -1
-	modelMode = iota
-	presetMode
-	presetSaveMode
-	maxTokensMode
-	frequencyMode
-	tempMode
-	nucleusSamplingMode //top_p
-	systemPromptMode
+	defaultView settingsViewMode = iota
+	modelsView
+	presetsView
+)
+
+type settingsChangeMode int
+
+const (
+	inactive settingsChangeMode = iota
+	presetChange
+	maxTokensChange
+	frequencyChange
+	tempChange
+	topPChange
+	systemPromptChange
 )
 
 type settingsKeyMap struct {
@@ -63,7 +71,8 @@ type SettingsPane struct {
 	terminalWidth   int
 	terminalHeight  int
 	isFocused       bool
-	mode            int
+	viewMode        settingsViewMode
+	changeMode      settingsChangeMode
 	textInput       textinput.Model
 	settingsService *settings.SettingsService
 	spinner         spinner.Model
@@ -156,7 +165,8 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 		keyMap:          defaultSettingsKeyMap,
 		colors:          colors,
 		terminalWidth:   util.DefaultTerminalWidth,
-		mode:            viewMode,
+		viewMode:        defaultView,
+		changeMode:      inactive,
 		container:       containerStyle,
 		config:          config,
 		llmClient:       llmClient,
@@ -191,7 +201,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 
 	case util.FocusEvent:
 		p.isFocused = msg.IsFocused
-		p.mode = viewMode
+		p.viewMode = defaultView
 
 		borderColor := p.colors.NormalTabBorderColor
 		if p.isFocused {
@@ -213,7 +223,8 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 
 	case util.ErrorEvent:
 		p.loading = false
-		p.mode = viewMode
+		p.viewMode = defaultView
+		p.changeMode = inactive
 
 	case settings.UpdateSettingsEvent:
 		if p.initMode {
@@ -230,7 +241,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 
 	case util.ModelsLoaded:
 		p.loading = false
-		p.mode = modelMode
+		p.viewMode = modelsView
 		p.updateModelsList(msg.Models)
 
 	case tea.KeyMsg:
@@ -239,28 +250,36 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		}
 
 		if p.isFocused {
-			if p.mode == viewMode {
-				cmd = p.handleViewMode(msg)
-				cmds = append(cmds, cmd)
-			} else if p.mode == modelMode {
-				cmd = p.handleModelMode(msg)
-				cmds = append(cmds, cmd)
-			} else if p.mode == presetMode {
-				cmd = p.handlePresetMode(msg)
+			if p.changeMode != inactive {
+				cmd = p.handleSettingsUpdate(msg)
 				cmds = append(cmds, cmd)
 			} else {
-				cmd = p.handleEditMode(msg)
-				cmds = append(cmds, cmd)
+				switch p.viewMode {
+				case defaultView:
+					cmd = p.handleViewMode(msg)
+					cmds = append(cmds, cmd)
+				case modelsView:
+					cmd = p.handleModelMode(msg)
+					cmds = append(cmds, cmd)
+				case presetsView:
+					cmd = p.handlePresetMode(msg)
+					cmds = append(cmds, cmd)
+				}
 			}
 		}
 	}
 
-	if !p.initMode && p.mode == modelMode {
+	if p.changeMode != inactive {
+		p.textInput, cmd = p.textInput.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	if !p.initMode && p.viewMode == modelsView {
 		p.modelPicker, cmd = p.modelPicker.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
-	if !p.initMode && p.mode == presetMode {
+	if !p.initMode && p.viewMode == presetsView {
 		p.presetPicker, cmd = p.presetPicker.Update(msg)
 		cmds = append(cmds, cmd)
 	}
@@ -274,7 +293,7 @@ func (p SettingsPane) View() string {
 		activeHeader.Render("Settings"),
 		inactiveHeader.Render("Presets"),
 	)
-	if p.mode == modelMode {
+	if p.viewMode == modelsView {
 		return p.container.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
 				defaultHeader,
@@ -283,7 +302,7 @@ func (p SettingsPane) View() string {
 		)
 	}
 
-	if p.mode == presetMode {
+	if p.viewMode == presetsView {
 		return p.container.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
 				lipgloss.JoinHorizontal(
@@ -302,7 +321,7 @@ func (p SettingsPane) View() string {
 		p.keyMap.reset.Help().Desc,
 		p.keyMap.editSysPrompt.Help().Desc}, "\n")
 
-	if p.mode != viewMode {
+	if p.changeMode != inactive {
 		tips = ""
 		editForm = p.textInput.View()
 	}
@@ -336,23 +355,23 @@ func (p SettingsPane) View() string {
 	}
 
 	_, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
-	tipsHiehgt := len(strings.Split(tips, "\n"))
-	listItemsHight := h - tipsHiehgt
+	tipsHeihgt := len(strings.Split(tips, "\n"))
+	listItemsHeight := h - tipsHeihgt
 
 	lowerRows := commandTips.Render(tips) + "\n" + editForm
-	if p.terminalHeight < util.HeightMinScalingLimit || p.mode != viewMode {
+	if p.terminalHeight < util.HeightMinScalingLimit || p.viewMode != defaultView {
 		lowerRows = editForm
-		listItemsHight = h
+		listItemsHeight = h
 	}
 
 	return p.container.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			defaultHeader,
-			lipgloss.NewStyle().Height(listItemsHight).Render(
+			lipgloss.NewStyle().Height(listItemsHeight).Render(
 				lipgloss.JoinVertical(lipgloss.Left,
 					p.presetItemRenderer(p.settings.PresetName),
 					modelRowContent,
-					p.listItemRenderer("(t) max_tokens", fmt.Sprint((p.settings.MaxTokens))),
+					p.listItemRenderer("(t) max_tokens", fmt.Sprint(p.settings.MaxTokens)),
 					p.listItemRenderer("(e) temperature", temp),
 					p.listItemRenderer("(f) frequency", frequency),
 					p.listItemRenderer("(p) top_p", top_p),
@@ -364,5 +383,5 @@ func (p SettingsPane) View() string {
 }
 
 func (p SettingsPane) AllowFocusChange() bool {
-	return p.mode == viewMode
+	return p.viewMode == defaultView && p.changeMode == inactive
 }

@@ -173,6 +173,7 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 		}
 
 		switch keypress := msg.String(); keypress {
+		// todo add space key binding as well
 		case "v":
 			if !p.isChatContainerFocused {
 				break
