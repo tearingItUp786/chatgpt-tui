@@ -343,10 +343,11 @@ func (p *SessionsPane) updateSessionsList() {
 
 func (p SessionsPane) listHeader(str ...string) string {
 	return lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.ThickBorder()).
 		BorderBottom(true).
 		Bold(true).
 		Foreground(p.colors.DefaultTextColor).
+		BorderForeground(p.colors.DefaultTextColor).
 		MarginLeft(util.ListItemMarginLeft).
 		Render(str...)
 }

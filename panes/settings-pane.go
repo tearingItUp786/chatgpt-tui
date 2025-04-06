@@ -94,7 +94,7 @@ type SettingsPane struct {
 var settingsService *settings.SettingsService
 
 var activeHeader = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
+	BorderStyle(lipgloss.ThickBorder()).
 	BorderBottom(true).
 	Bold(true).
 	MarginLeft(util.ListItemMarginLeft)
@@ -152,7 +152,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
 	listItemHeading = listItemHeading.Copy().Foreground(colors.MainColor)
 	presetItemHeading = presetItemHeading.Copy().Foreground(colors.AccentColor)
-	activeHeader = activeHeader.Copy().Foreground(colors.DefaultTextColor)
+	activeHeader = activeHeader.Copy().Foreground(colors.DefaultTextColor).BorderForeground(colors.DefaultTextColor)
 	commandTips = list.DefaultStyles().NoItems.Copy().MarginLeft(util.ListItemMarginLeft)
 	spinnerStyle = spinnerStyle.Copy().Foreground(colors.AccentColor)
 	containerStyle := lipgloss.NewStyle().
@@ -290,7 +290,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 func (p SettingsPane) View() string {
 	defaultHeader := lipgloss.JoinHorizontal(
 		lipgloss.Left,
-		activeHeader.Render("Settings"),
+		activeHeader.Render("[Settings]"),
 		inactiveHeader.Render("Presets"),
 	)
 	if p.viewMode == modelsView {
@@ -308,7 +308,7 @@ func (p SettingsPane) View() string {
 				lipgloss.JoinHorizontal(
 					lipgloss.Left,
 					inactiveHeader.Render("Settings"),
-					activeHeader.Render("Presets"),
+					activeHeader.Render("[Presets]"),
 				),
 				p.presetPicker.View(),
 			),
@@ -317,6 +317,7 @@ func (p SettingsPane) View() string {
 
 	editForm := ""
 	tips := strings.Join([]string{
+		"']', '[' switch tabs",
 		p.keyMap.savePreset.Help().Desc,
 		p.keyMap.reset.Help().Desc,
 		p.keyMap.editSysPrompt.Help().Desc}, "\n")

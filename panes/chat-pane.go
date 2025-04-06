@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,6 +22,20 @@ const (
 	selectionMode
 )
 
+type chatPaneKeyMap struct {
+	selectionMode key.Binding
+	exit          key.Binding
+	copyLast      key.Binding
+	copyAll       key.Binding
+}
+
+var defaultChatPaneKeyMap = chatPaneKeyMap{
+	exit:          key.NewBinding(key.WithKeys(tea.KeyEsc.String()), key.WithHelp("esc", "exit insert mode or editor mode")),
+	copyLast:      key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy last message from chat to clipboard")),
+	copyAll:       key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy all chat to clipboard")),
+	selectionMode: key.NewBinding(key.WithKeys(tea.KeySpace.String(), "v", "V"), key.WithHelp("<space>, v, V", "enter selection mode")),
+}
+
 type ChatPane struct {
 	isChatPaneReady        bool
 	chatViewReady          bool
@@ -34,6 +49,7 @@ type ChatPane struct {
 	terminalWidth  int
 	terminalHeight int
 
+	keyMap        chatPaneKeyMap
 	colors        util.SchemeColors
 	chatContainer lipgloss.Style
 	chatView      viewport.Model
@@ -63,6 +79,7 @@ func NewChatPane(ctx context.Context, w, h int) ChatPane {
 		BorderForeground(colors.NormalTabBorderColor)
 
 	return ChatPane{
+		keyMap:                 defaultChatPaneKeyMap,
 		viewMode:               util.NormalMode,
 		colors:                 colors,
 		chatContainer:          chatContainerStyle,
@@ -161,10 +178,11 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 		}
 
 		if p.IsSelectionMode() {
-			switch msg.Type {
-			case tea.KeyEsc:
+			switch {
+			case key.Matches(msg, p.keyMap.exit):
 				p.displayMode = normalMode
 				p.chatContainer.BorderForeground(p.colors.ActiveTabBorderColor)
+				p.selectionView.Reset()
 			}
 		}
 
@@ -172,9 +190,8 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 			break
 		}
 
-		switch keypress := msg.String(); keypress {
-		// todo add space key binding as well
-		case "v":
+		switch {
+		case key.Matches(msg, p.keyMap.selectionMode):
 			if !p.isChatContainerFocused {
 				break
 			}
@@ -189,7 +206,7 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 				p.colors)
 			p.selectionView.AdjustScroll()
 
-		case "y":
+		case key.Matches(msg, p.keyMap.copyLast):
 			if p.isChatContainerFocused {
 				copyLast := func() tea.Msg {
 					return util.SendCopyLastMsg()
@@ -197,7 +214,7 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 				cmds = append(cmds, copyLast)
 			}
 
-		case "Y":
+		case key.Matches(msg, p.keyMap.copyAll):
 			if p.isChatContainerFocused {
 				copyAll := func() tea.Msg {
 					return util.SendCopyAllMsgs()

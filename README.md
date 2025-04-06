@@ -63,6 +63,7 @@ Models list is cached for 14 days upon loading. If you need to invalidate cache 
 - `Ctrl+b` or `Ctrl+s`: Interrupt inference
 - `Ctrl+o`: Toggles zen mode
 - `Ctrl+c`: Exit the program
+- `Ctrl+n`: Create new session
 
 ## Prompt Pane
 
@@ -84,7 +85,7 @@ Models list is cached for 14 days upon loading. If you need to invalidate cache 
 
 - `y`: Copies the last message from ChatGPT into your clipboard.
 - `Shift+y`: Copies all messages from the ChatGPT session into your clipboard.
-- `v`: Enters navigation mode when chat pane is focused (allows to move accross the chat content lines)
+- `v`, `Shift+v` or `space`: Enters navigation mode when chat pane is focused (allows to move accross the chat content lines)
 
 ### Selection mode
 
@@ -94,21 +95,35 @@ Selection mode allows to navigate the chat pane and select lines to copy. Suppor
 
 <b>Navigation</b>
  - `j`, `k` - go down and up a line
-   - Multiline jumps like `3j` (3 lines down), `99k` (99 lines up) are also supported
  - `d`, `u`, `Ctrl+d`, `Ctrl+u` - go up or down half page
  - `g` - go to top
  - `Shift+g` - go to bottom
 
 <b>Selection</b>
+ - `d`, `u`, `Ctrl+d`, `Ctrl+u` - go up or down half page
+ - `j`, `k` - go down and up a line
+   - Multiline jumps like `3j` (3 lines down), `99k` (99 lines up) are also supported
 - `v`, `Shift+v` or `space` to enter or quit line selection mode
 - `y` to copy selected text
 - `Esc` to quit selection or navigation modes
 
 ## Settings Pane
 
+- `[` and `]`: switch between presets and settings tabs
+ 
+### Settings tab
 - `m`: Opens a model picker to change the model. (use `j` to go up and `k` to go down the list)
-- `f`: Opens an input dialog to change the frequency of updates.
-- `t`: Opens an input dialog to set the maximum number of tokens per message.
+- `f`: Change the frequency value
+- `t`: Change the maximum number of tokens per message
+- `e`: Change the temperature value
+- `p`: Change the top_p value (nucleus sampling)
+- `s`: Opens a text editor to edit system prompt
+- `Ctrl+r`: resets current settings preset to default values
+- `Ctrl+p`: creates new preset with a specified name from the current preset 
+
+### Presets tab
+- `d`: remove preset (default and current selected presets cannot be removed)
+- `enter`: select preset as the current one
 
 ## Sessions Pane
 

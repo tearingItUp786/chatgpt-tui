@@ -281,6 +281,10 @@ func filterLine(line string) string {
 	return line
 }
 
+func (s *TextSelector) Reset() {
+	s.Selection.Active = false
+}
+
 func (s TextSelector) IsSelecting() bool {
 	return s.Selection.Active
 }
