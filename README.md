@@ -1,37 +1,111 @@
-# ChatGPT tui README
+# ChatGPT tui 
 
 A terminal util for chatting with LLMs
 
-## Installation
+## Features
+ * **Support for OpenAI compatible APIs** (ChatGPT, Mistral, Ollama, LMStudio, and more)
+ * **Support for Gemini API**
+ * **Chat sessions** management
+ * **Settings presets** (configure different personas with unique settings)
+ * **Convenient text selection** tool (vim-like line selection)
+ * **Crossplatform** - support for MacOS, Windows and Linux
+ * **Multiple themes**
 
-Please make sure that you expose a `OPENAI_API_KEY` inside of your environment; we require it to make api calls!
+## Demo
 
-Set up your [api key](https://platform.openai.com/api-keys)
+![tui demo](./docs/images/tui-demo.gif)
+
+## Installation manual
+
+### Setting API keys
+
+To use the app, you will need to set `OPENAI_API_KEY` or/and `GEMINI_API_KEY` env variables depending on your needs
+
+<details>
+
+<summary>API keys guide</summary>
+
+#### OpenAI APIs
+
+<i>For local models the key still needs to be set (`OPENAI_API_KEY=1` will do).</i>
+
+Set up your openai api key:
+* ChatGPT: [how to get an api key](https://platform.openai.com/api-keys)
+* Mistral: [how to get an api key](https://docs.mistral.ai/getting-started/quickstart/#account-setup)
 
 ```bash
 export OPENAI_API_KEY="some-key" # you would want to export this in your .zshrc
+```
+
+#### Gemini API
+
+Set up your api key - [how to get an api key](https://aistudio.google.com/apikey)
+
+```bash
+export  GEMINI_API_KEY="some-key" # you would want to export this in your .zshrc
+```
+</details>
+
+### App installation
+
+After API keys are set, proceed to installtion
+
+#### Homebrew
+
+```bash
 brew tap tearingitup786/tearingitup786
 brew install chatgpt-tui
 chatgpt-tui
 ```
 
-To get access to the release candidates, install command:
+#### Manual (Mac,Windows,Linux)
 
+* Install go - [manual](https://go.dev/doc/install)
+* Clone repo and cd into the directory
 ```bash
-brew install rc-chatgpt-tui
-rc-chatgpt-tui
+git clone https://github.com/tearingItUp786/chatgpt-tui.git
+cd ./chatgpt-tui
 ```
+To install as a go binary:
+* Run `go install`
+
+To build a binary:
+* Build binary `go build .`
+* Allow execution of the binary `chmod +x ./chatgpt-tui` (if needed)
+* Run binary `./chatgpt-tui` . For windows `./chatgpt-tui.exe`
+
 
 ## Config
 
 We provide a `config.json` file within your directory for easy access to essential settings.
-On most Macs, the path is `~/.chatgpt-tui/config.json`.
-This file includes the URL used for network calls to the TUI,
-specified as `chatGPTApiUrl: "https://api.openai.com"`.
-The url can be anything that follows OpenAI API standard ( [ollama](https://ollama.com/), [lmstudio](https://lmstudio.ai/), etc)
-Additional fields:
- - `systemMessage` field is available for customizing system prompt messages.
- - `defaultModel` field sets the default model 
+- On **MacOS & Linux**, the path is `~/.chatgpt-tui/config.json`.
+- On **Windows**, the path is `\Users\%UserName%\.chatgpt-tui\config.json`
+
+### Example
+```json
+{
+  "chatGPTApiUrl": "https://api.openai.com", // Or ollama http://localhost:1143, or any other OpenAi compatible API
+  "systemMessage": "",
+  "defaultModel": "",
+  "colorScheme": "Groove", // Pink, Blue, Groove
+  "provider": "openai" // openai, gemini
+}
+```
+
+ - `chatGPTApiUrl`: The url can be anything that follows OpenAI API standard ( [ollama](https://ollama.com/), [lmstudio](https://lmstudio.ai/), etc)
+ - `systemMessage` field is available for customizing system prompt messages. **Better to set it from the app**
+ - `defaultModel` field sets the default model.  **Better to set it from the app**
+
+### Providers
+
+You can change API provider using the `provider` field.
+
+Available providers:
+ * `openai` **default**
+ * `gemini`
+
+To use **GeminiAPI**, just set `"provider": "gemini"` (make sure to set GEMINI_API_KEY env variable).
+When using the `gemini` provider, `chatGPTApiUrl` param is not used.
 
 ### Themes
 You can change colorscheme using the `colorScheme` field.
@@ -48,18 +122,10 @@ Models list is cached for 14 days upon loading. If you need to invalidate cache 
 ./chatgpt-tui --purge-cache
 ```
 
-## Demo
-
-![tui demo](./docs/images/tui-demo.gif)
-
 ## Global Keybindings
 
-- `Tab`: \*Change focus between panes. The currently focused pane will be highlighted with a pink border.
-  - You can only change focus if Prompt Pane is not in `insert mode`
-- `1`: Jump to prompt pane
-- `2`: Jump to chat pane
-- `3`: Jump to settings pane
-- `4`: Jump to sessions pane
+- `Tab`: Change focus between panes. The currently focused pane will be highlighted
+- `1-4` pane jumps: `1` **prompt** pane, `2`, **chat** pane, `3` **settings** pane, `4` **sessions** pane
 - `Ctrl+b` or `Ctrl+s`: Interrupt inference
 - `Ctrl+o`: Toggles zen mode
 - `Ctrl+c`: Exit the program
@@ -112,7 +178,7 @@ Selection mode allows to navigate the chat pane and select lines to copy. Suppor
 - `[` and `]`: switch between presets and settings tabs
  
 ### Settings tab
-- `m`: Opens a model picker to change the model. (use `j` to go up and `k` to go down the list)
+- `m`: Opens a model picker to change the model. (use `/` to set filter)
 - `f`: Change the frequency value
 - `t`: Change the maximum number of tokens per message
 - `e`: Change the temperature value
@@ -124,6 +190,7 @@ Selection mode allows to navigate the chat pane and select lines to copy. Suppor
 ### Presets tab
 - `d`: remove preset (default and current selected presets cannot be removed)
 - `enter`: select preset as the current one
+- `/`: filter presets
 
 ## Sessions Pane
 
@@ -131,6 +198,7 @@ Selection mode allows to navigate the chat pane and select lines to copy. Suppor
 - `d`: Deletes the currently selected session from the list.
 - `e`: Edit session name
 - `Enter`: Switches to the session that is currently selected.
+- `/`: filter sessions
 
 ## Info pane
 
@@ -143,6 +211,13 @@ Please refer to this guide as you navigate the TUI. Happy exploring!
 ### Dev notes
 
 The SQL db is stored in you `your/home/directory/.chatgpt-tui`, as well as the debug log. To enable `debug` mode, `export DEBUG=1` before running the program.
+
+To get access to the release candidates, install command:
+
+```bash
+brew install rc-chatgpt-tui
+rc-chatgpt-tui
+```
 
 ## Technologies
 

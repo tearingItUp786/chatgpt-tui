@@ -28,3 +28,4 @@ debug.log
 dist
 vendor
 .release-env
+chatgpt-tui
