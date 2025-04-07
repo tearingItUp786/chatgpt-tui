@@ -130,13 +130,8 @@ func (p ChatPane) Update(msg tea.Msg) (ChatPane, tea.Cmd) {
 
 	case util.FocusEvent:
 		p.isChatContainerFocused = msg.IsFocused
+		p.displayMode = normalMode
 
-		if p.isChatContainerFocused {
-			p.chatContainer.BorderForeground(p.colors.ActiveTabBorderColor)
-		} else {
-			p.displayMode = normalMode
-			p.chatContainer.BorderForeground(p.colors.NormalTabBorderColor)
-		}
 		return p, nil
 
 	case sessions.LoadDataFromDB:
@@ -253,7 +248,11 @@ func (p ChatPane) View() string {
 	}
 
 	viewportContent := p.chatView.View()
-	return p.chatContainer.Render(viewportContent)
+	borderColor := p.colors.NormalTabBorderColor
+	if p.isChatContainerFocused {
+		borderColor = p.colors.ActiveTabBorderColor
+	}
+	return p.chatContainer.BorderForeground(borderColor).Render(viewportContent)
 }
 
 func (p ChatPane) DisplayError(error string) string {

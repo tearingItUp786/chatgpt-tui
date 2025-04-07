@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 
 	"github.com/atotto/clipboard"
@@ -234,6 +235,7 @@ func constructJsonMessage(arrayOfProcessResult []util.ProcessApiCompletionRespon
 	for _, aMessage := range arrayOfProcessResult {
 		if aMessage.Final {
 			util.Log("Hit final in construct", aMessage.Result)
+			log.Println("Hit final in construct", aMessage.Result)
 			break
 		}
 
@@ -242,6 +244,7 @@ func constructJsonMessage(arrayOfProcessResult []util.ProcessApiCompletionRespon
 			// TODO: we need a helper for this
 			if choice.FinishReason == "stop" || choice.FinishReason == "length" {
 				util.Log("Hit stop or length in construct")
+				log.Println("Hit stop or length in construct", choice.FinishReason)
 				break
 			}
 
@@ -262,6 +265,10 @@ func constructJsonMessage(arrayOfProcessResult []util.ProcessApiCompletionRespon
 func (m *Orchestrator) handleFinalChoiceMessage() tea.Cmd {
 	// if the json for whatever reason is malformed, bail out
 	jsonMessages, err := constructJsonMessage(m.ArrayOfProcessResult)
+	if err != nil {
+		log.Println("Failed to construct json message. Processing stopped.", err)
+		return m.resetStateAndCreateError(err.Error())
+	}
 
 	m.ArrayOfMessages = append(
 		m.ArrayOfMessages,

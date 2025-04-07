@@ -203,12 +203,6 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		p.isFocused = msg.IsFocused
 		p.viewMode = defaultView
 
-		borderColor := p.colors.NormalTabBorderColor
-		if p.isFocused {
-			borderColor = p.colors.ActiveTabBorderColor
-		}
-		p.container.BorderForeground(borderColor)
-
 		return p, nil
 
 	case tea.WindowSizeMsg:
@@ -288,13 +282,14 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 }
 
 func (p SettingsPane) View() string {
+	w, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
 	defaultHeader := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		activeHeader.Render("[Settings]"),
 		inactiveHeader.Render("Presets"),
 	)
 	if p.viewMode == modelsView {
-		return p.container.Render(
+		return p.container.Width(w).Render(
 			lipgloss.JoinVertical(lipgloss.Left,
 				defaultHeader,
 				p.modelPicker.View(),
@@ -303,7 +298,7 @@ func (p SettingsPane) View() string {
 	}
 
 	if p.viewMode == presetsView {
-		return p.container.Render(
+		return p.container.Width(w).Render(
 			lipgloss.JoinVertical(lipgloss.Left,
 				lipgloss.JoinHorizontal(
 					lipgloss.Left,
@@ -355,7 +350,6 @@ func (p SettingsPane) View() string {
 		frequency = fmt.Sprint(*p.settings.Frequency)
 	}
 
-	_, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
 	tipsHeihgt := len(strings.Split(tips, "\n"))
 	listItemsHeight := h - tipsHeihgt
 
@@ -365,7 +359,12 @@ func (p SettingsPane) View() string {
 		listItemsHeight = h
 	}
 
-	return p.container.Render(
+	borderColor := p.colors.NormalTabBorderColor
+	if p.isFocused {
+		borderColor = p.colors.ActiveTabBorderColor
+	}
+
+	return p.container.Width(w).BorderForeground(borderColor).Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			defaultHeader,
 			lipgloss.NewStyle().Height(listItemsHeight).Render(
