@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -57,11 +58,11 @@ var defaultSettingsKeyMap = settingsKeyMap{
 	editTemp:      key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "change temperature")),
 	editFrequency: key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "change frequency")),
 	editTopP:      key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "change top_p")),
-	editSysPrompt: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "'s' edit system prompt")),
+	editSysPrompt: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "s - edit sys prompt")),
 	editMaxTokens: key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "change max_tokens")),
 	changeModel:   key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "change current model")),
-	savePreset:    key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "'ctrl+p' new preset")),
-	reset:         key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "'ctrl+r' reset to default")),
+	savePreset:    key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "ctrl+p - new preset")),
+	reset:         key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "ctrl+r - reset preset")),
 	presetsMenu:   key.NewBinding(key.WithKeys("]", tea.KeyRight.String()), key.WithHelp("]", "presets menu")),
 	goBack:        key.NewBinding(key.WithKeys(tea.KeyEsc.String(), "["), key.WithHelp("esc, [", "go back")),
 	choose:        key.NewBinding(key.WithKeys(tea.KeyEnter.String())),
@@ -89,6 +90,7 @@ type SettingsPane struct {
 	config    *config.Config
 	llmClient util.LlmClient
 	settings  util.Settings
+	mainCtx   context.Context
 }
 
 var settingsService *settings.SettingsService
@@ -101,7 +103,6 @@ var activeHeader = lipgloss.NewStyle().
 
 var inactiveHeader = list.DefaultStyles().
 	NoItems.
-	Copy().
 	Bold(true).
 	MarginLeft(util.ListItemMarginLeft)
 
@@ -118,14 +119,14 @@ var spinnerStyle = lipgloss.NewStyle()
 
 func (p SettingsPane) listItemRenderer(heading string, value string) string {
 	headingEl := listItemHeading.Render
-	spanEl := listItemSpan.Copy().Foreground(p.colors.DefaultTextColor).Render
+	spanEl := listItemSpan.Foreground(p.colors.DefaultTextColor).Render
 
 	return headingEl("■ "+heading, spanEl(value))
 }
 
 func (p SettingsPane) presetItemRenderer(value string) string {
 	headingEl := presetItemHeading.Render
-	spanEl := listItemSpan.Copy().Bold(true).Foreground(p.colors.DefaultTextColor).Render
+	spanEl := listItemSpan.Bold(true).Foreground(p.colors.DefaultTextColor).Render
 
 	return headingEl("■ Preset:", spanEl(value))
 }
@@ -149,12 +150,11 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	llmClient := clients.ResolveLlmClient(config.Provider, config.ChatGPTApiUrl, config.SystemMessage)
 
 	colors := config.ColorScheme.GetColors()
-	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
-	listItemHeading = listItemHeading.Copy().Foreground(colors.MainColor)
-	presetItemHeading = presetItemHeading.Copy().Foreground(colors.AccentColor)
-	activeHeader = activeHeader.Copy().Foreground(colors.DefaultTextColor).BorderForeground(colors.DefaultTextColor)
-	commandTips = list.DefaultStyles().NoItems.Copy().MarginLeft(util.ListItemMarginLeft)
-	spinnerStyle = spinnerStyle.Copy().Foreground(colors.AccentColor)
+	listItemSpan = listItemSpan.Foreground(colors.DefaultTextColor)
+	listItemHeading = listItemHeading.Foreground(colors.MainColor)
+	presetItemHeading = presetItemHeading.Foreground(colors.AccentColor)
+	activeHeader = activeHeader.Foreground(colors.DefaultTextColor).BorderForeground(colors.DefaultTextColor)
+	spinnerStyle = spinnerStyle.Foreground(colors.AccentColor)
 	containerStyle := lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder(), true).
 		BorderForeground(colors.NormalTabBorderColor)
@@ -162,6 +162,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	spinner := initSpinner()
 
 	return SettingsPane{
+		mainCtx:         ctx,
 		keyMap:          defaultSettingsKeyMap,
 		colors:          colors,
 		terminalWidth:   util.DefaultTerminalWidth,
@@ -178,7 +179,14 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 }
 
 func (p *SettingsPane) Init() tea.Cmd {
-	settingsLoader := func() tea.Msg { return p.settingsService.GetSettings(nil, util.DefaultSettingsId, *p.config) }
+	initCtx, cancel := context.
+		WithTimeout(p.mainCtx, time.Duration(util.DefaultRequestTimeOutSec*time.Second))
+
+	settingsLoader := func() tea.Msg {
+		defer cancel()
+		return p.settingsService.GetSettings(initCtx, util.DefaultSettingsId, *p.config)
+	}
+
 	return tea.Batch(p.spinner.Tick, settingsLoader)
 }
 
@@ -187,6 +195,11 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+
+	case util.ErrorEvent:
+		p.loading = false
+		p.viewMode = defaultView
+		p.changeMode = inactive
 
 	case util.SystemPromptUpdatedMsg:
 		p.settings.SystemPrompt = &msg.SystemPrompt
@@ -215,12 +228,11 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		p.spinner, cmd = p.spinner.Update(msg)
 		cmds = append(cmds, cmd)
 
-	case util.ErrorEvent:
-		p.loading = false
-		p.viewMode = defaultView
-		p.changeMode = inactive
-
 	case settings.UpdateSettingsEvent:
+		if msg.Err != nil {
+			return p, util.MakeErrorMsg(msg.Err.Error())
+		}
+
 		if p.initMode {
 			p.settings = msg.Settings
 			models := []list.Item{components.ModelsListItem{Text: msg.Settings.Model}}
@@ -312,7 +324,7 @@ func (p SettingsPane) View() string {
 
 	editForm := ""
 	tips := strings.Join([]string{
-		"']', '[' switch tabs",
+		"] [ - switch tabs",
 		p.keyMap.savePreset.Help().Desc,
 		p.keyMap.reset.Help().Desc,
 		p.keyMap.editSysPrompt.Help().Desc}, "\n")
@@ -353,8 +365,8 @@ func (p SettingsPane) View() string {
 	tipsHeihgt := len(strings.Split(tips, "\n"))
 	listItemsHeight := h - tipsHeihgt
 
-	lowerRows := commandTips.Render(tips) + "\n" + editForm
-	if p.terminalHeight < util.HeightMinScalingLimit || p.viewMode != defaultView {
+	lowerRows := util.HelpStyle.Render(tips) + "\n" + editForm
+	if p.terminalHeight < util.HeightMinScalingLimit || p.viewMode != defaultView || !p.isFocused {
 		lowerRows = editForm
 		listItemsHeight = h
 	}

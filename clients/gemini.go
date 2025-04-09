@@ -51,7 +51,7 @@ func (c GeminiClient) RequestCompletion(
 
 		client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
 		if err != nil {
-			return util.ErrorEvent{Message: err.Error()}
+			return util.MakeErrorMsg(err.Error())
 		}
 		defer client.Close()
 
@@ -115,8 +115,7 @@ func (c GeminiClient) RequestCompletion(
 	}
 }
 
-func (c GeminiClient) RequestModelsList() util.ProcessModelsResponse {
-	ctx := context.Background()
+func (c GeminiClient) RequestModelsList(ctx context.Context) util.ProcessModelsResponse {
 	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
 	if err != nil {
 		return util.ProcessModelsResponse{Err: err}
@@ -124,6 +123,10 @@ func (c GeminiClient) RequestModelsList() util.ProcessModelsResponse {
 	defer client.Close()
 
 	modelsIter := client.ListModels(ctx)
+
+	if ctx.Err() == context.DeadlineExceeded {
+		return util.ProcessModelsResponse{Err: errors.New("Timedout during fetching models")}
+	}
 
 	var modelsList []util.ModelDescription
 	for {

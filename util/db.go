@@ -117,15 +117,3 @@ func PurgeModelsCache(db *sql.DB) error {
 	_, err := db.Exec("delete from models")
 	return err
 }
-
-func saveSystemMessage(db *sql.DB, sysMsg string) error {
-	_, err := db.Exec("update settings set system_msg = $1 where id = 0", sysMsg)
-	return err
-}
-
-func checkErr(err error) {
-	if err != nil {
-		Log(err)
-		panic(err)
-	}
-}

@@ -79,18 +79,18 @@ func (l ModelsList) Update(msg tea.Msg) (ModelsList, tea.Cmd) {
 func NewModelsList(items []list.Item, w, h int, colors util.SchemeColors) ModelsList {
 	l := list.New(items, modelItemDelegate{}, w, h)
 
-	l.SetStatusBarItemName("model detected", "models detected")
+	l.SetStatusBarItemName("fetched", "fetched")
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
 	l.DisableQuitKeybindings()
 
-	l.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(colors.HighlightColor).Render("■")
-	l.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render("•")
-	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
-	listItemSpanSelected = listItemSpanSelected.Copy().Foreground(colors.AccentColor)
-	l.FilterInput.PromptStyle = l.FilterInput.PromptStyle.Copy().Foreground(colors.ActiveTabBorderColor).PaddingBottom(0).Margin(0)
-	l.FilterInput.Cursor.Style = l.FilterInput.Cursor.Style.Copy().Foreground(colors.NormalTabBorderColor)
+	l.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(colors.HighlightColor).Render(util.ActiveDot)
+	l.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render(util.InactiveDot)
+	listItemSpan = listItemSpan.Foreground(colors.DefaultTextColor)
+	listItemSpanSelected = listItemSpanSelected.Foreground(colors.AccentColor)
+	l.FilterInput.PromptStyle = l.FilterInput.PromptStyle.Foreground(colors.ActiveTabBorderColor).PaddingBottom(0).Margin(0)
+	l.FilterInput.Cursor.Style = l.FilterInput.Cursor.Style.Foreground(colors.NormalTabBorderColor)
 
 	return ModelsList{
 		list: l,

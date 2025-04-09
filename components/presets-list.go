@@ -67,6 +67,8 @@ func (l *PresetsList) View() string {
 	view := l.list.View()
 	if l.confirmationActive {
 		view += "\n Remove preset? y/n"
+	} else {
+		view += util.HelpStyle.Render("\n d delete • / filter")
 	}
 	return view
 }
@@ -88,13 +90,13 @@ func (l PresetsList) getCurrentPreset() (PresetsListItem, int) {
 }
 
 func (l *PresetsList) hideConfirmation() {
-	l.list.SetHeight(l.list.Height() + 1)
+	// l.list.SetHeight(l.list.Height() + 1)
 	l.confirmationActive = false
 }
 
 func (l *PresetsList) showConfirmation() {
 	l.confirmationActive = true
-	l.list.SetHeight(l.list.Height() - 1)
+	// l.list.SetHeight(l.list.Height() - 1)
 }
 
 func (l *PresetsList) removePreset() {
@@ -140,21 +142,27 @@ func (l PresetsList) Update(msg tea.Msg) (PresetsList, tea.Cmd) {
 	return l, cmd
 }
 
-func NewPresetsList(items []list.Item, w, h int, currentId int, colors util.SchemeColors, service *settings.SettingsService) PresetsList {
-	l := list.New(items, presetsItemDelegate{}, w, h)
+func NewPresetsList(
+	items []list.Item,
+	w, h int,
+	currentId int,
+	colors util.SchemeColors,
+	service *settings.SettingsService,
+) PresetsList {
+	l := list.New(items, presetsItemDelegate{}, w, h-1)
 
-	l.SetStatusBarItemName("preset found", "presets found")
+	l.SetStatusBarItemName("found", "found")
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
 	l.DisableQuitKeybindings()
 
-	l.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(colors.HighlightColor).Render("■")
-	l.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render("•")
-	listItemSpan = listItemSpan.Copy().Foreground(colors.DefaultTextColor)
-	listItemSpanSelected = listItemSpanSelected.Copy().Foreground(colors.AccentColor)
-	l.FilterInput.PromptStyle = l.FilterInput.PromptStyle.Copy().Foreground(colors.ActiveTabBorderColor).PaddingBottom(0).Margin(0)
-	l.FilterInput.Cursor.Style = l.FilterInput.Cursor.Style.Copy().Foreground(colors.NormalTabBorderColor)
+	l.Paginator.ActiveDot = lipgloss.NewStyle().Foreground(colors.HighlightColor).Render(util.ActiveDot)
+	l.Paginator.InactiveDot = lipgloss.NewStyle().Foreground(colors.DefaultTextColor).Render(util.InactiveDot)
+	listItemSpan = listItemSpan.Foreground(colors.DefaultTextColor)
+	listItemSpanSelected = listItemSpanSelected.Foreground(colors.AccentColor)
+	l.FilterInput.PromptStyle = l.FilterInput.PromptStyle.Foreground(colors.ActiveTabBorderColor).PaddingBottom(0).Margin(0)
+	l.FilterInput.Cursor.Style = l.FilterInput.Cursor.Style.Foreground(colors.NormalTabBorderColor)
 
 	return PresetsList{
 		currentPresetId: currentId,

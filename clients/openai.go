@@ -54,12 +54,12 @@ func (c OpenAiClient) RequestCompletion(
 
 		body, err := c.constructCompletionRequestPayload(chatMsgs, *config, modelSettings)
 		if err != nil {
-			return util.ErrorEvent{Message: err.Error()}
+			return util.MakeErrorMsg(err.Error())
 		}
 
 		resp, err := c.postOpenAiAPI(ctx, apiKey, path, body)
 		if err != nil {
-			return util.ErrorEvent{Message: err.Error()}
+			return util.MakeErrorMsg(err.Error())
 		}
 
 		c.processCompletionResponse(resp, resultChan, &processResultID)
@@ -67,12 +67,14 @@ func (c OpenAiClient) RequestCompletion(
 	}
 }
 
-func (c OpenAiClient) RequestModelsList() util.ProcessModelsResponse {
+func (c OpenAiClient) RequestModelsList(ctx context.Context) util.ProcessModelsResponse {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	path := "v1/models"
 
-	resp, err := c.getOpenAiAPI(apiKey, path)
+	resp, err := c.getOpenAiAPI(ctx, apiKey, path)
+
 	if err != nil {
+		log.Println("OpenAI: models request error: ", err)
 		return util.ProcessModelsResponse{Err: err}
 	}
 
@@ -151,11 +153,12 @@ func getBaseUrl(configUrl string) string {
 	return baseUrl
 }
 
-func (c OpenAiClient) getOpenAiAPI(apiKey string, path string) (*http.Response, error) {
+func (c OpenAiClient) getOpenAiAPI(ctx context.Context, apiKey string, path string) (*http.Response, error) {
 	baseUrl := getBaseUrl(c.apiUrl)
 	requestUrl := fmt.Sprintf("%s/%s", baseUrl, path)
 
-	req, err := http.NewRequest("GET", requestUrl, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", requestUrl, nil)
+
 	if err != nil {
 		return nil, err
 	}

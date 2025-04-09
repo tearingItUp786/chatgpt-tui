@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"time"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,6 +43,7 @@ type Orchestrator struct {
 	settingsReady bool
 	dataLoaded    bool
 	initialized   bool
+	mainCtx       context.Context
 }
 
 func NewOrchestrator(db *sql.DB, ctx context.Context) Orchestrator {
@@ -58,6 +60,7 @@ func NewOrchestrator(db *sql.DB, ctx context.Context) Orchestrator {
 	llmClient := clients.ResolveLlmClient(config.Provider, config.ChatGPTApiUrl, config.SystemMessage)
 
 	return Orchestrator{
+		mainCtx:              ctx,
 		config:               *config,
 		ArrayOfProcessResult: []util.ProcessApiCompletionResponse{},
 		sessionService:       ss,
@@ -75,7 +78,13 @@ func (m Orchestrator) Init() tea.Cmd {
 	// Need to load the latest session as the current session  (select recently created)
 	// OR we need to create a brand new session for the user with a random name (insert new and return)
 
-	settingsData := func() tea.Msg { return m.settingsService.GetSettings(nil, util.DefaultSettingsId, m.config) }
+	initCtx, cancel := context.
+		WithTimeout(m.mainCtx, time.Duration(util.DefaultRequestTimeOutSec*time.Second))
+
+	settingsData := func() tea.Msg {
+		defer cancel()
+		return m.settingsService.GetSettings(initCtx, util.DefaultSettingsId, m.config)
+	}
 
 	dbData := func() tea.Msg {
 		mostRecentSession, err := m.sessionService.GetMostRecessionSessionOrCreateOne()
@@ -142,6 +151,9 @@ func (m Orchestrator) Update(msg tea.Msg) (Orchestrator, tea.Cmd) {
 		m.dataLoaded = true
 
 	case settings.UpdateSettingsEvent:
+		if msg.Err != nil {
+			return m, util.MakeErrorMsg(msg.Err.Error())
+		}
 		m.Settings = msg.Settings
 		m.settingsReady = true
 

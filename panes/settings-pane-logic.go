@@ -1,7 +1,9 @@
 package panes
 
 import (
+	"context"
 	"strconv"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -218,10 +220,14 @@ func (p *SettingsPane) handleSettingsUpdate(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (p SettingsPane) loadModels(providerType string, apiUrl string) tea.Msg {
-	availableModels, err := p.settingsService.GetProviderModels(providerType, apiUrl)
+	ctx, cancel := context.
+		WithTimeout(p.mainCtx, time.Duration(util.DefaultRequestTimeOutSec*time.Second))
+	defer cancel()
+
+	availableModels, err := p.settingsService.GetProviderModels(ctx, providerType, apiUrl)
 
 	if err != nil {
-		return util.ErrorEvent{Message: err.Error()}
+		return util.MakeErrorMsg(err.Error())
 	}
 
 	return util.ModelsLoaded{Models: availableModels}

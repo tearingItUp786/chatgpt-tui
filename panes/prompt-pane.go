@@ -52,6 +52,7 @@ type PromptPane struct {
 	terminalWidth  int
 	terminalHeight int
 	ready          bool
+	mainCtx        context.Context
 }
 
 func NewPromptPane(ctx context.Context) PromptPane {
@@ -89,6 +90,7 @@ func NewPromptPane(ctx context.Context) PromptPane {
 		MarginTop(util.PromptPaneMarginTop)
 
 	return PromptPane{
+		mainCtx:        ctx,
 		operation:      util.NoOperaton,
 		keys:           defaultKeyMap,
 		viewMode:       util.NormalMode,

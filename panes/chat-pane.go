@@ -54,6 +54,7 @@ type ChatPane struct {
 	chatContainer lipgloss.Style
 	chatView      viewport.Model
 	selectionView components.TextSelector
+	mainCtx       context.Context
 }
 
 var chatContainerStyle = lipgloss.NewStyle().
@@ -73,12 +74,12 @@ func NewChatPane(ctx context.Context, w, h int) ChatPane {
 	colors := config.ColorScheme.GetColors()
 
 	chatContainerStyle = chatContainerStyle.
-		Copy().
 		Width(w).
 		Height(h).
 		BorderForeground(colors.NormalTabBorderColor)
 
 	return ChatPane{
+		mainCtx:                ctx,
 		keyMap:                 defaultChatPaneKeyMap,
 		viewMode:               util.NormalMode,
 		colors:                 colors,

@@ -94,17 +94,23 @@ func (ss *SettingsService) GetSettings(ctx context.Context, id int, cfg config.C
 		&settings.PresetName,
 	)
 
-	availableModels, modelsError := ss.GetProviderModels(cfg.Provider, cfg.ChatGPTApiUrl)
+	availableModels, modelsError := ss.GetProviderModels(ctx, cfg.Provider, cfg.ChatGPTApiUrl)
 
 	if modelsError != nil {
-		return util.ErrorEvent{Message: modelsError.Error()}
+		return UpdateSettingsEvent{
+			Settings: settings,
+			Err:      modelsError,
+		}
 	}
 
 	isModelFromSettingsAvailable := slices.Contains(availableModels, settings.Model)
 
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			return util.ErrorEvent{Message: err.Error()}
+			return UpdateSettingsEvent{
+				Settings: settings,
+				Err:      err,
+			}
 		}
 
 		settings = util.Settings{
@@ -130,7 +136,7 @@ func (ss *SettingsService) GetSettings(ctx context.Context, id int, cfg config.C
 	}
 }
 
-func (ss *SettingsService) GetProviderModels(providerType string, apiUrl string) ([]string, error) {
+func (ss *SettingsService) GetProviderModels(ctx context.Context, providerType string, apiUrl string) ([]string, error) {
 	provider := util.GetOpenAiInferenceProvider(providerType, apiUrl)
 	availableModels := []string{}
 
@@ -144,7 +150,7 @@ func (ss *SettingsService) GetProviderModels(providerType string, apiUrl string)
 
 	if len(availableModels) == 0 {
 		llmClient := clients.ResolveLlmClient(providerType, apiUrl, "")
-		modelsResponse := llmClient.RequestModelsList()
+		modelsResponse := llmClient.RequestModelsList(ctx)
 		if modelsResponse.Err != nil {
 			return []string{}, modelsResponse.Err
 		}
@@ -298,7 +304,17 @@ func (ss *SettingsService) SavePreset(newSettings util.Settings) (int, error) {
 }
 
 func (ss *SettingsService) RemovePreset(id int) error {
-	_, err := ss.DB.Exec(`delete from settings where settings_id=$1;`, id)
+	existing, err := ss.GetPresetsList()
+
+	if err != nil {
+		return err
+	}
+
+	if len(existing) == 1 {
+		return errors.New("Cannot remove the only settings preset")
+	}
+
+	_, err = ss.DB.Exec(`delete from settings where settings_id=$1;`, id)
 	return err
 }
 

@@ -110,7 +110,6 @@ func (m MainView) Init() tea.Cmd {
 		m.sessionsPane.Init(),
 		m.chatPane.Init(),
 		m.settingsPane.Init(),
-		m.sessionsPane.Init(),
 		func() tea.Msg { return dimensionsPulsar() },
 	)
 }
@@ -138,6 +137,12 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+
+	case util.ErrorEvent:
+		m.sessionOrchestrator.ProcessingMode = sessions.IDLE
+		m.error = msg
+		m.viewReady = true
+		cmds = append(cmds, util.SendProcessingStateChangedMsg(false))
 
 	case checkDimensionsMsg:
 		if runtime.GOOS == "windows" {
@@ -167,13 +172,6 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.promptPane = m.promptPane.Enable()
 
-	case util.ErrorEvent:
-		util.Log("Error: ", msg.Message)
-		m.sessionOrchestrator.ProcessingMode = sessions.IDLE
-		m.error = msg
-		m.viewReady = true
-		cmds = append(cmds, util.SendProcessingStateChangedMsg(false))
-
 	case util.PromptReady:
 		m.error = util.ErrorEvent{}
 		m.sessionOrchestrator.ArrayOfMessages = append(m.sessionOrchestrator.ArrayOfMessages, clients.ConstructUserMessage(msg.Prompt))
@@ -189,6 +187,10 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			util.SendViewModeChangedMsg(m.viewMode))
 
 	case tea.KeyMsg:
+		if key.Matches(msg, m.keys.quit) {
+			return m, tea.Quit
+		}
+
 		if !m.viewReady {
 			break
 		}
@@ -269,9 +271,6 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
 			m.resetFocus()
-
-		case key.Matches(msg, m.keys.quit):
-			return m, tea.Quit
 		}
 
 	case tea.WindowSizeMsg:

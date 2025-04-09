@@ -3,6 +3,7 @@ package sessions
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/tearingItUp786/chatgpt-tui/util"
 )
@@ -191,12 +192,22 @@ func (ss *SessionService) InsertNewSession(name string, messages []util.MessageT
 }
 
 func (ss *SessionService) DeleteSession(id int) error {
-	_, err := ss.DB.Exec(`
+	existing, err := ss.GetAllSessions()
+
+	if err != nil {
+		return err
+	}
+
+	if len(existing) == 1 {
+		return errors.New("Cannot remove the only session")
+	}
+
+	_, err = ss.DB.Exec(`
 		DELETE FROM sessions
 		WHERE sessions_id = $1
 	`, id)
 	if err != nil {
-		return (err)
+		return err
 	}
 
 	return nil

@@ -15,7 +15,7 @@ type LlmClient interface {
 		modelSettings Settings,
 		resultChan chan ProcessApiCompletionResponse,
 	) tea.Cmd
-	RequestModelsList() ProcessModelsResponse
+	RequestModelsList(ctx context.Context) ProcessModelsResponse
 }
 
 // `Exclusion keywords` filter out models that contain any of the specified in their names

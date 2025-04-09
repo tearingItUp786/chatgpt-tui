@@ -38,11 +38,11 @@ type sessionsKeyMap struct {
 }
 
 var defaultSessionsKeyMap = sessionsKeyMap{
-	delete: key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete session")),
-	rename: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "rename session")),
+	delete: key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "d delete")),
+	rename: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "e edit")),
 	cancel: key.NewBinding(key.WithKeys(tea.KeyEsc.String()), key.WithHelp("esc", "cancel action")),
 	apply:  key.NewBinding(key.WithKeys(tea.KeyEnter.String()), key.WithHelp("esc", "switch to session/apply renaming")),
-	addNew: key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "add new session")),
+	addNew: key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "ctrl+n add new")),
 }
 
 type SessionsPane struct {
@@ -64,6 +64,7 @@ type SessionsPane struct {
 	isFocused          bool
 	terminalWidth      int
 	terminalHeight     int
+	mainCtx            context.Context
 }
 
 func NewSessionsPane(db *sql.DB, ctx context.Context) SessionsPane {
@@ -78,6 +79,7 @@ func NewSessionsPane(db *sql.DB, ctx context.Context) SessionsPane {
 	colors := config.ColorScheme.GetColors()
 
 	return SessionsPane{
+		mainCtx:           ctx,
 		operationMode:     defaultMode,
 		operationTargetId: NoTargetSession,
 		keyMap:            defaultSessionsKeyMap,
@@ -168,28 +170,44 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 
 func (p SessionsPane) View() string {
 	listView := p.normalListView()
-
-	if p.isFocused {
-		_, paneHeight := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
-		listView = p.sessionsList.EditListView(paneHeight)
-	}
-
-	editForm := ""
-	if p.operationTargetId != NoTargetSession {
-		editForm = p.textInput.View()
-	}
-
 	borderColor := p.colors.NormalTabBorderColor
-
-	if p.isFocused {
-		borderColor = p.colors.ActiveTabBorderColor
+	if !p.isFocused {
+		return p.container.BorderForeground(borderColor).Render(
+			lipgloss.JoinVertical(lipgloss.Left,
+				p.listHeader("[Sessions]"),
+				listView,
+				"",
+			),
+		)
 	}
 
+	if p.sessionsList.IsFiltering() {
+		p.sessionsList.SetShowStatusBar(false)
+	} else {
+		p.sessionsList.SetShowStatusBar(true)
+	}
+
+	borderColor = p.colors.ActiveTabBorderColor
+	tips := []string{
+		p.keyMap.addNew.Help().Desc,
+		p.keyMap.rename.Help().Desc + " • " + p.keyMap.delete.Help().Desc + " • / filter",
+	}
+	_, paneHeight := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
+
+	lowerRows := ""
+	if p.operationTargetId != NoTargetSession {
+		lowerRows = "\n" + p.textInput.View()
+	} else {
+		lowerRows = util.HelpStyle.Render(strings.Join(tips, "\n"))
+	}
+
+	// todo: move calculation to dimensions
+	listView = p.sessionsList.EditListView(paneHeight - len(tips) + 1)
 	return p.container.BorderForeground(borderColor).Render(
 		lipgloss.JoinVertical(lipgloss.Left,
-			p.listHeader("Sessions"),
+			p.listHeader("[Sessions]"),
 			listView,
-			editForm,
+			lowerRows,
 		),
 	)
 }
