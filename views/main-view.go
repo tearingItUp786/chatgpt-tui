@@ -207,8 +207,10 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, m.keys.cancel):
-			if m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
+			if m.cancelInference != nil {
 				m.cancelInference()
+				m.cancelInference = nil
+				cmds = append(cmds, util.SendProcessingStateChangedMsg(false))
 			}
 
 		case key.Matches(msg, m.keys.zenMode):
