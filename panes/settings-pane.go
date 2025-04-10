@@ -121,14 +121,14 @@ func (p SettingsPane) listItemRenderer(heading string, value string) string {
 	headingEl := listItemHeading.Render
 	spanEl := listItemSpan.Foreground(p.colors.DefaultTextColor).Render
 
-	return headingEl("■ "+heading, spanEl(value))
+	return headingEl(util.ListHeadingDot+" "+heading, spanEl(value))
 }
 
 func (p SettingsPane) presetItemRenderer(value string) string {
 	headingEl := presetItemHeading.Render
 	spanEl := listItemSpan.Bold(true).Foreground(p.colors.DefaultTextColor).Render
 
-	return headingEl("■ Preset:", spanEl(value))
+	return headingEl(util.ListHeadingDot+" Preset:", spanEl(value))
 }
 
 func initSpinner() spinner.Model {

@@ -68,7 +68,7 @@ func (l *PresetsList) View() string {
 	if l.confirmationActive {
 		view += "\n Remove preset? y/n"
 	} else {
-		view += util.HelpStyle.Render("\n d delete • / filter")
+		view += util.HelpStyle.Render("\n d delete" + util.TipsSeparator + "/ filter")
 	}
 	return view
 }
@@ -90,13 +90,11 @@ func (l PresetsList) getCurrentPreset() (PresetsListItem, int) {
 }
 
 func (l *PresetsList) hideConfirmation() {
-	// l.list.SetHeight(l.list.Height() + 1)
 	l.confirmationActive = false
 }
 
 func (l *PresetsList) showConfirmation() {
 	l.confirmationActive = true
-	// l.list.SetHeight(l.list.Height() - 1)
 }
 
 func (l *PresetsList) removePreset() {

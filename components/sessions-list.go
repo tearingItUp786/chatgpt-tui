@@ -126,11 +126,9 @@ func NewSessionsList(items []list.Item, w, h int, colors util.SchemeColors) Sess
 	}
 }
 
-func (l *SessionsList) EditListView(paneHeight int) string {
-	l.list.SetHeight(paneHeight)
+func (l *SessionsList) EditListView() string {
 	return lipgloss.
 		NewStyle().
-		MaxHeight(paneHeight).
 		PaddingLeft(util.DefaultElementsPadding).
 		Render(l.list.View())
 }

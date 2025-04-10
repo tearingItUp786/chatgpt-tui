@@ -45,6 +45,17 @@ var defaultSessionsKeyMap = sessionsKeyMap{
 	addNew: key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "ctrl+n add new")),
 }
 
+var tips = []string{
+	defaultSessionsKeyMap.addNew.Help().Desc,
+	strings.Join([]string{
+		defaultSessionsKeyMap.rename.Help().Desc,
+		util.TipsSeparator,
+		defaultSessionsKeyMap.delete.Help().Desc,
+		util.TipsSeparator,
+		"/ filter"}, ""),
+}
+var tipsOffset = len(tips) - 1 // 1 is the input field height
+
 type SessionsPane struct {
 	sessionsListData []sessions.Session
 	sessionsList     components.SessionsList
@@ -116,7 +127,7 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		p.sessionsListData = msg.AllSessions
 		p.currentSessionId = msg.CurrentActiveSessionID
 		listItems := constructSessionsListItems(msg.AllSessions, msg.CurrentActiveSessionID)
-		w, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
+		w, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight, 0)
 		p.sessionsList = components.NewSessionsList(listItems, w, h, p.colors)
 		p.operationMode = defaultMode
 		p.sessionsListReady = true
@@ -124,6 +135,8 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 	case util.FocusEvent:
 		p.isFocused = msg.IsFocused
 		p.operationMode = defaultMode
+		width, height := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight, tipsOffset)
+		p.sessionsList.SetSize(width, height)
 
 	case tea.WindowSizeMsg:
 		p.terminalWidth = msg.Width
@@ -131,7 +144,11 @@ func (p SessionsPane) Update(msg tea.Msg) (SessionsPane, tea.Cmd) {
 		width, height := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
 		p.container = p.container.Width(width).Height(height)
 		if p.sessionsListReady {
-			width, height = util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
+			offset := 0
+			if p.isFocused {
+				offset = tipsOffset
+			}
+			width, height = util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight, offset)
 			p.sessionsList.SetSize(width, height)
 		}
 
@@ -188,12 +205,6 @@ func (p SessionsPane) View() string {
 	}
 
 	borderColor = p.colors.ActiveTabBorderColor
-	tips := []string{
-		p.keyMap.addNew.Help().Desc,
-		p.keyMap.rename.Help().Desc + " • " + p.keyMap.delete.Help().Desc + " • / filter",
-	}
-	_, paneHeight := util.CalcSessionsPaneSize(p.terminalWidth, p.terminalHeight)
-
 	lowerRows := ""
 	if p.operationTargetId != NoTargetSession {
 		lowerRows = "\n" + p.textInput.View()
@@ -201,12 +212,10 @@ func (p SessionsPane) View() string {
 		lowerRows = util.HelpStyle.Render(strings.Join(tips, "\n"))
 	}
 
-	// todo: move calculation to dimensions
-	listView = p.sessionsList.EditListView(paneHeight - len(tips) + 1)
 	return p.container.BorderForeground(borderColor).Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			p.listHeader("[Sessions]"),
-			listView,
+			p.sessionsList.EditListView(),
 			lowerRows,
 		),
 	)
@@ -389,7 +398,7 @@ func (p SessionsPane) listItem(heading string, value string, isActive bool, widt
 
 	value = util.TrimListItem(value, widthCap)
 
-	return headingEl("■ "+heading, spanEl(value))
+	return headingEl(util.ListHeadingDot+" "+heading, spanEl(value))
 }
 
 func (p SessionsPane) normalListView() string {
@@ -403,7 +412,7 @@ func (p SessionsPane) normalListView() string {
 		)
 	}
 
-	w, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight)
+	w, h := util.CalcSessionsListSize(p.terminalWidth, p.terminalHeight, 0)
 
 	return lipgloss.NewStyle().
 		Width(w).

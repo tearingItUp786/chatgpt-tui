@@ -161,13 +161,13 @@ func CalcSessionsPaneSize(tw, th int) (w, h int) {
 	return sessionsPaneWidth, sessionsPaneHeight
 }
 
-func CalcSessionsListSize(tw, th int) (w, h int) {
+func CalcSessionsListSize(tw, th, tipsOffset int) (w, h int) {
 	if tw < WidthMinScalingLimit {
 		return 0, 0
 	}
 	_, chatPaneHeight := CalcChatPaneSize(tw, th, NormalMode)
 	sessionsPaneListWidth := oneThird(tw) - SidePaneLeftPadding
-	sessionsPaneListHeight := twoThirds(chatPaneHeight) - StatsBarPaneHeight - SessionsPaneHeightCounterweight
+	sessionsPaneListHeight := twoThirds(chatPaneHeight) - StatsBarPaneHeight - SessionsPaneHeightCounterweight - tipsOffset
 
 	sessionsPaneListWidth = ensureNonNegative(sessionsPaneListWidth)
 	sessionsPaneListHeight = ensureNonNegative(sessionsPaneListHeight)

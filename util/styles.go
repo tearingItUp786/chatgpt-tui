@@ -7,3 +7,7 @@ var HelpStyle = lipgloss.NewStyle().Padding(0, 0, 0, 2).Foreground(subduedColor)
 
 const ActiveDot = "■"
 const InactiveDot = "•"
+
+const ListHeadingDot = "■"
+
+const TipsSeparator = " • "
