@@ -66,7 +66,7 @@ func (c GeminiClient) RequestCompletion(
 
 		iter := cs.SendMessageStream(ctx, genai.Text(currentPrompt))
 
-		processResultID := 0
+		processResultID := util.ChunkIndexStart
 		var citations []string
 		for {
 			resp, err := iter.Next()

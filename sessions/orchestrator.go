@@ -241,7 +241,7 @@ func (m *Orchestrator) assertChoiceContentString(choice util.Choice) (string, te
 	return choiceString, nil
 }
 
-func constructJsonMessage(arrayOfProcessResult []util.ProcessApiCompletionResponse) (util.MessageToSend, error) {
+func (m Orchestrator) constructJsonMessage(arrayOfProcessResult []util.ProcessApiCompletionResponse) (util.MessageToSend, error) {
 	newMessage := util.MessageToSend{Role: "assistant", Content: ""}
 
 	for _, aMessage := range arrayOfProcessResult {
@@ -276,15 +276,19 @@ func constructJsonMessage(arrayOfProcessResult []util.ProcessApiCompletionRespon
 
 func (m *Orchestrator) handleFinalChoiceMessage() tea.Cmd {
 	// if the json for whatever reason is malformed, bail out
-	jsonMessages, err := constructJsonMessage(m.ArrayOfProcessResult)
+	response, err := m.constructJsonMessage(m.ArrayOfProcessResult)
 	if err != nil {
 		log.Println("Failed to construct json message. Processing stopped.", err)
 		return m.resetStateAndCreateError(err.Error())
 	}
 
+	if response.Content != "" {
+		response.Content = "**" + m.Settings.Model + "**\n" + response.Content
+	}
+
 	m.ArrayOfMessages = append(
 		m.ArrayOfMessages,
-		jsonMessages,
+		response,
 	)
 
 	/*

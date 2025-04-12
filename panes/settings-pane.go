@@ -222,7 +222,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 		p.terminalWidth = msg.Width
 		p.terminalHeight = msg.Height
 		w, h := util.CalcSettingsPaneSize(p.terminalWidth, p.terminalHeight)
-		p.container.Width(w).Height(h)
+		p.container = p.container.Width(w).Height(h)
 
 	case spinner.TickMsg:
 		p.spinner, cmd = p.spinner.Update(msg)

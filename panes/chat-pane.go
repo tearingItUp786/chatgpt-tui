@@ -63,7 +63,7 @@ var chatContainerStyle = lipgloss.NewStyle().
 
 func NewChatPane(ctx context.Context, w, h int) ChatPane {
 	chatView := viewport.New(w, h)
-	chatView.SetContent(util.MotivationalMessage)
+	chatView.SetContent(util.DefaultMessage)
 	msgChan := make(chan util.ProcessApiCompletionResponse)
 
 	config, ok := config.FromContext(ctx)
@@ -86,8 +86,8 @@ func NewChatPane(ctx context.Context, w, h int) ChatPane {
 		chatContainer:          chatContainerStyle,
 		chatView:               chatView,
 		chatViewReady:          false,
-		chatContent:            util.MotivationalMessage,
-		renderedContent:        util.MotivationalMessage,
+		chatContent:            util.DefaultMessage,
+		renderedContent:        util.DefaultMessage,
 		isChatContainerFocused: false,
 		msgChan:                msgChan,
 		terminalWidth:          util.DefaultTerminalWidth,
@@ -281,7 +281,7 @@ func (p ChatPane) initializePane(session sessions.Session) (ChatPane, tea.Cmd) {
 
 	oldContent := util.GetMessagesAsPrettyString(session.Messages, paneWidth, p.colors)
 	if oldContent == "" {
-		oldContent = util.MotivationalMessage
+		oldContent = util.DefaultMessage
 	}
 	rendered := util.GetVisualModeView(session.Messages, paneWidth, p.colors)
 	p.renderedContent = wrap.String(rendered, paneWidth)

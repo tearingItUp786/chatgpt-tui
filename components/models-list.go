@@ -15,6 +15,7 @@ type ModelsList struct {
 	list list.Model
 }
 
+var tips = "/ filter"
 var listItemSpan = lipgloss.NewStyle().
 	PaddingLeft(util.ListItemPaddingLeft)
 
@@ -58,7 +59,10 @@ func (l *ModelsList) View() string {
 	} else {
 		l.list.SetShowStatusBar(true)
 	}
-	return l.list.View()
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		l.list.View(),
+		util.HelpStyle.Render(tips))
 }
 
 func (l *ModelsList) GetSelectedItem() (ModelsListItem, bool) {
@@ -77,6 +81,7 @@ func (l ModelsList) Update(msg tea.Msg) (ModelsList, tea.Cmd) {
 }
 
 func NewModelsList(items []list.Item, w, h int, colors util.SchemeColors) ModelsList {
+	h = h - 1 // account for tips row
 	l := list.New(items, modelItemDelegate{}, w, h)
 
 	l.SetStatusBarItemName("fetched", "fetched")

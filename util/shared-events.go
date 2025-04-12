@@ -4,7 +4,6 @@ import (
 	"slices"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type PrompInputMode int
@@ -102,10 +101,6 @@ func getFocuesPanes(mode ViewMode, pane Pane, tw int) []Pane {
 
 	return focusPanes
 }
-
-var MotivationalMessage = lipgloss.NewStyle().
-	PaddingLeft(1).
-	Render("There's something scary about a blank canvas...that's why I'm here 😄!")
 
 type ModelsLoaded struct {
 	Models []string

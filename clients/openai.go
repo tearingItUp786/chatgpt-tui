@@ -43,7 +43,7 @@ func (c OpenAiClient) RequestCompletion(
 ) tea.Cmd {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	path := "v1/chat/completions"
-	processResultID := 0 // Initialize a counter for ProcessResult IDs
+	processResultID := util.ChunkIndexStart
 
 	return func() tea.Msg {
 		config, ok := config.FromContext(ctx)
