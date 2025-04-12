@@ -243,8 +243,7 @@ func processResponseChunk(response *genai.GenerateContentResponse, id int) (proc
 			if candidate.CitationMetadata != nil && len(candidate.CitationMetadata.CitationSources) > 0 {
 				for _, source := range candidate.CitationMetadata.CitationSources {
 					if source.URI != nil {
-						log.Println(source.URI)
-						sourceString := fmt.Sprintf("\t* [%s](%s)", *source.URI, *source.URI)
+						sourceString := fmt.Sprintf("\t> %s", *source.URI)
 						result.citations = append(result.citations, sourceString)
 					}
 				}
