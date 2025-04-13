@@ -46,14 +46,6 @@ func main() {
 	}
 	defer f.Close()
 
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if "" == apiKey {
-		fmt.Println("OPENAI_API_KEY not set; set it in your profile")
-		fmt.Printf("export OPENAI_API_KEY=your_key in the config for :%v \n", os.Getenv("SHELL"))
-		fmt.Println("Exiting...")
-		os.Exit(1)
-	}
-
 	// delete files if in dev mode
 	util.DeleteFilesIfDevMode()
 	// validate config

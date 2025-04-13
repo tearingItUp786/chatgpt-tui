@@ -128,7 +128,30 @@ func CreateAndValidateConfig() Config {
 		panic(fmt.Errorf("Invalid config"))
 	}
 
+	config.checkApiKeys()
+
 	return config
+}
+
+func (c Config) checkApiKeys() {
+	switch c.Provider {
+	case util.GeminiProviderType:
+		apiKey := os.Getenv("GEMINI_API_KEY")
+		if "" == apiKey {
+			fmt.Println("GEMINI_API_KEY not set; set it in your profile")
+			fmt.Printf("export GEMINI_API_KEY=your_key in the config for :%v \n", os.Getenv("SHELL"))
+			fmt.Println("Exiting...")
+			os.Exit(1)
+		}
+	case util.OpenAiProviderType:
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if "" == apiKey {
+			fmt.Println("OPENAI_API_KEY not set; set it in your profile")
+			fmt.Printf("export OPENAI_API_KEY=your_key in the config for :%v \n", os.Getenv("SHELL"))
+			fmt.Println("Exiting...")
+			os.Exit(1)
+		}
+	}
 }
 
 func (c *Config) setDefaults() {
