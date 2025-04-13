@@ -45,6 +45,7 @@ type PromptPane struct {
 	colors     util.SchemeColors
 	keys       keyMap
 
+	pendingInsert  string
 	operation      util.Operation
 	viewMode       util.ViewMode
 	isSessionIdle  bool
@@ -146,6 +147,11 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 			p.input.Blur()
 			p.input.Reset()
 
+			if p.pendingInsert != "" {
+				currentInput += "\n" + p.pendingInsert
+				p.pendingInsert = ""
+			}
+
 			p.textEditor.SetValue(currentInput)
 		} else {
 			p.input.Width = w
@@ -155,7 +161,7 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 
 			p.input.SetValue(currentInput)
 		}
-		p.container = p.container.Copy().MaxWidth(p.terminalWidth).Width(w)
+		p.container = p.container.MaxWidth(p.terminalWidth).Width(w)
 
 	case util.ProcessingStateChanged:
 		p.isSessionIdle = msg.IsProcessing == false
@@ -166,7 +172,7 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 		if p.isFocused {
 			p.inputMode = util.PromptNormalMode
 			p.container = p.container.BorderForeground(p.colors.ActiveTabBorderColor)
-			p.input.PromptStyle = p.input.PromptStyle.Copy().Foreground(p.colors.ActiveTabBorderColor)
+			p.input.PromptStyle = p.input.PromptStyle.Foreground(p.colors.ActiveTabBorderColor)
 		} else {
 			p.inputMode = util.PromptNormalMode
 			p.container = p.container.BorderForeground(p.colors.NormalTabBorderColor)
@@ -187,7 +193,7 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 		} else {
 			p.input.Width = w
 		}
-		p.container = p.container.Copy().MaxWidth(p.terminalWidth).Width(w)
+		p.container = p.container.MaxWidth(p.terminalWidth).Width(w)
 
 	case tea.KeyMsg:
 		if !p.ready {
@@ -280,6 +286,12 @@ func (p PromptPane) Update(msg tea.Msg) (PromptPane, tea.Cmd) {
 			if p.isFocused {
 				buffer, _ := clipboard.ReadAll()
 				content := strings.TrimSpace(buffer)
+
+				if p.viewMode != util.TextEditMode && strings.Contains(content, "\n") {
+					cmds = append(cmds, util.SendViewModeChangedMsg(util.TextEditMode))
+					p.pendingInsert = content
+				}
+
 				clipboard.WriteAll(content)
 			}
 
