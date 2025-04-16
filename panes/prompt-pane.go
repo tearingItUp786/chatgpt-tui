@@ -11,8 +11,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tearingItUp786/chatgpt-tui/config"
-	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/nekot/config"
+	"github.com/tearingItUp786/nekot/util"
 )
 
 const ResponseWaitingMsg = "> Please wait ..."

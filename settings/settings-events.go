@@ -2,7 +2,7 @@ package settings
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/nekot/util"
 )
 
 type UpdateSettingsEvent struct {

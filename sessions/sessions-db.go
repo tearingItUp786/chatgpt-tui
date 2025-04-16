@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/nekot/util"
 )
 
 type Session struct {
