@@ -39,14 +39,14 @@ archives:
   - id: chatgpt-tui
     builds:
       - darwin-amd64-chatgpt-tui
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "chatgpt-tui_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: zip
     wrap_in_directory: true
     
   - id: nekot
     builds:
       - darwin-amd64-nekot
-    name_template: "nekot_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: zip
     wrap_in_directory: true
 
