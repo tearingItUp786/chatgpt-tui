@@ -79,7 +79,7 @@ To build a binary:
 
 We provide a `config.json` file within your directory for easy access to essential settings.
 - On **MacOS & Linux**, the path is `~/.chatgpt-tui/config.json`.
-- On **Windows**, the path is `\Users\%UserName%\.chatgpt-tui\config.json`
+- On **Windows**, the path is `C:\Users\%UserName%\.chatgpt-tui\config.json` or `%HOMEPATH%\.chatgpt-tui\config.json`
 
 ### Example
 ```json
