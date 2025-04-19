@@ -115,6 +115,12 @@ Available themes:
  * `Blue`
  * `Groove`
 
+
+## Data migration
+
+If you need your settings and chats on other machine - simply copy `chat.db` and `config.json` from the `.nekot/` directory 
+and paste to the same directory on other machine. 
+
 ## Cache invalidation
 
 Models list is cached for 14 days upon loading. If you need to invalidate cache use `--purge-cache` flag:

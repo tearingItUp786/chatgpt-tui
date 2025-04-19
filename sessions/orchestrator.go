@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/atotto/clipboard"
@@ -282,8 +283,9 @@ func (m *Orchestrator) handleFinalChoiceMessage() tea.Cmd {
 		return m.resetStateAndCreateError(err.Error())
 	}
 
-	if response.Content != "" {
-		response.Content = "**" + m.Settings.Model + "**\n" + response.Content
+	modelName := "**" + m.Settings.Model + "**\n"
+	if response.Content != "" && !strings.HasPrefix(response.Content, modelName) {
+		response.Content = modelName + response.Content
 	}
 
 	m.ArrayOfMessages = append(
