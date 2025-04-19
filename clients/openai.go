@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/tearingItUp786/nekot/util"
 	"github.com/tearingItUp786/nekot/config"
+	"github.com/tearingItUp786/nekot/util"
 )
 
 type OpenAiClient struct {
@@ -57,7 +57,7 @@ func (c OpenAiClient) RequestCompletion(
 			return util.MakeErrorMsg(err.Error())
 		}
 
-		resp, err := c.postOpenAiAPI(apiKey, path, body)
+		resp, err := c.postOpenAiAPI(ctx, apiKey, path, body)
 		if err != nil {
 			return util.MakeErrorMsg(err.Error())
 		}

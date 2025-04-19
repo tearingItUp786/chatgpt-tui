@@ -1,6 +1,6 @@
 package clients
 
-import "github.com/tearingItUp786/chatgpt-tui/util"
+import "github.com/tearingItUp786/nekot/util"
 
 func ResolveLlmClient(apiType string, apiUrl string, systemMessage string) util.LlmClient {
 	switch apiType {

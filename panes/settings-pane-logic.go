@@ -10,9 +10,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tearingItUp786/chatgpt-tui/components"
-	"github.com/tearingItUp786/chatgpt-tui/settings"
-	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/nekot/components"
+	"github.com/tearingItUp786/nekot/settings"
+	"github.com/tearingItUp786/nekot/util"
 )
 
 const floatPrescision = 32
