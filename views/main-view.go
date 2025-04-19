@@ -13,10 +13,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 
-	"github.com/tearingItUp786/chatgpt-tui/clients"
-	"github.com/tearingItUp786/chatgpt-tui/panes"
-	"github.com/tearingItUp786/chatgpt-tui/sessions"
-	"github.com/tearingItUp786/chatgpt-tui/util"
+	"github.com/tearingItUp786/nekot/clients"
+	"github.com/tearingItUp786/nekot/panes"
+	"github.com/tearingItUp786/nekot/sessions"
+	"github.com/tearingItUp786/nekot/util"
 )
 
 const pulsarIntervalMs = 300

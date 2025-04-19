@@ -1,12 +1,11 @@
 builds:
-  - id: darwin-amd64
+  - id: darwin-amd64-rc-chatgpt-tui
     main: ./
     goos:
       - darwin
     goarch:
       - amd64
       - arm64
-
     env:
       - PKG_CONFIG_SYSROOT_DIR=/sysroot/macos/amd64
       - PKG_CONFIG_PATH=/sysroot/macos/amd64/usr/local/lib/pkgconfig
@@ -16,16 +15,41 @@ builds:
       - -mod=readonly
     ldflags:
       - -s -w -X main.version={{.Version}}
-    # Use 'binary' to set the final name of your binary.
-    # This is the name that will be used in archives et al.
     binary: bin/rc-chatgpt-tui
+    
+  - id: darwin-amd64-rc-nekot
+    main: ./
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - PKG_CONFIG_SYSROOT_DIR=/sysroot/macos/amd64
+      - PKG_CONFIG_PATH=/sysroot/macos/amd64/usr/local/lib/pkgconfig
+      - CC=o64-clang
+      - CXX=o64-clang++
+    flags:
+      - -mod=readonly
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    binary: bin/rc-nekot
+
 archives:
   - id: rc-chatgpt-tui
     builds:
-      - darwin-amd64
+      - darwin-amd64-rc-chatgpt-tui
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: zip
     wrap_in_directory: true
+
+  - id: rc-nekot
+    builds:
+      - darwin-amd64-rc-nekot
+    name_template: "rc-nekot_{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: zip
+    wrap_in_directory: true
+
 checksum:
   name_template: "checksums.txt"
 snapshot:
@@ -42,7 +66,27 @@ release:
   draft: false
 
 brews:
+  - name: rc-nekot
+    ids:
+      - rc-nekot
+    tap:
+      owner: tearingItUp786
+      name: homebrew-tearingitup786
+    homepage: https://github.com/tearingItUp786/chatgpt-tui
+    commit_author:
+      name: tearingitup786
+    # Setting this will prevent goreleaser to actually try to commit the updated
+    # formula - instead, the formula file will be stored on the dist folder only,
+    # leaving the responsibility of publishing it to the user.
+    # If set to auto, the release will not be uploaded to the homebrew tap
+    # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
+    #
+    # Templates: allowed
+    skip_upload: false
+
   - name: rc-chatgpt-tui
+    ids:
+      - rc-chatgpt-tui
     tap:
       owner: tearingItUp786
       name: homebrew-tearingitup786
@@ -58,3 +102,5 @@ brews:
     #
     # Templates: allowed
     skip_upload: false
+    post_install: |
+      opoo "⚠︎ rc-chatgpt-tui is deprecated and will be removed in the future. Use rc-nekot instead."

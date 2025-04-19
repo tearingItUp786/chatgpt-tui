@@ -8,10 +8,22 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
 )
+
+func GetAppDirName() string {
+	exePath, err := os.Executable()
+	if err != nil {
+		return ".chatgpt-tui" // fallback
+	}
+	binaryName := filepath.Base(exePath)
+	binaryName = strings.TrimSuffix(binaryName, filepath.Ext(binaryName)) // remove .exe if present
+
+	return "." + binaryName
+}
 
 func GetAppDataPath() (string, error) {
 	// Get the user's home directory
@@ -21,7 +33,7 @@ func GetAppDataPath() (string, error) {
 	}
 
 	// Define the application-specific part of the path
-	appDirName := ".chatgpt-tui"
+	appDirName := GetAppDirName()
 
 	// Combine them to form the full path
 	fullPath := filepath.Join(homeDir, appDirName)
