@@ -210,7 +210,7 @@ func (p SettingsPane) Update(msg tea.Msg) (SettingsPane, tea.Cmd) {
 			break
 		}
 		cmds = append(cmds, settings.MakeSettingsUpdateMsg(p.settings, nil))
-		cmds = append(cmds, util.SendNotificationMsg(util.SysPromptChangedNotifiaction))
+		cmds = append(cmds, util.SendNotificationMsg(util.SysPromptChangedNotification))
 
 	case util.FocusEvent:
 		p.isFocused = msg.IsFocused

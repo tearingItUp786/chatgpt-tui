@@ -186,7 +186,7 @@ func (p InfoPane) View() string {
 			notificationLabel = p.notificationLabel.
 				Background(p.colors.AccentColor).
 				Width(paneWidth - 1)
-		case util.SysPromptChangedNotifiaction:
+		case util.SysPromptChangedNotification:
 			notificationText = sysPromptChangedLabelText
 			notificationLabel = p.notificationLabel.
 				Background(p.colors.AccentColor).

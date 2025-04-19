@@ -33,7 +33,7 @@ const (
 const (
 	CopiedNotification Notification = iota
 	CancelledNotification
-	SysPromptChangedNotifiaction
+	SysPromptChangedNotification
 	PresetSavedNotification
 )
 

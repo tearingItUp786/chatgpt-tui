@@ -1,6 +1,6 @@
-# ChatGPT tui 
+# NEKOT tui README
 
-A terminal util for chatting with LLMs
+A terminal util for chatting with LLMs. Shout out to BalanceBalls for the name!
 
 ## Features
  * **Support for OpenAI compatible APIs** (ChatGPT, Mistral, Ollama, LMStudio, and more)
@@ -54,8 +54,8 @@ After API keys are set, proceed to installtion
 
 ```bash
 brew tap tearingitup786/tearingitup786
-brew install chatgpt-tui
-chatgpt-tui
+brew install nekot
+nekot
 ```
 
 #### Manual (Mac,Windows,Linux)
@@ -63,23 +63,23 @@ chatgpt-tui
 * Install go - [manual](https://go.dev/doc/install)
 * Clone repo and cd into the directory
 ```bash
-git clone https://github.com/tearingItUp786/chatgpt-tui.git
-cd ./chatgpt-tui
+git clone https://github.com/tearingItUp786/nekot.git
+cd ./nekot
 ```
 To install as a go binary:
 * Run `go install`
 
 To build a binary:
 * Build binary `go build .`
-* Allow execution of the binary `chmod +x ./chatgpt-tui` (if needed)
-* Run binary `./chatgpt-tui` . For windows `./chatgpt-tui.exe`
+* Allow execution of the binary `chmod +x ./nekot` (if needed)
+* Run binary `./nekot` . For windows `./nekot.exe`
 
 
 ## Config
 
 We provide a `config.json` file within your directory for easy access to essential settings.
-- On **MacOS & Linux**, the path is `~/.chatgpt-tui/config.json`.
-- On **Windows**, the path is `C:\Users\%UserName%\.chatgpt-tui\config.json` or `%HOMEPATH%\.chatgpt-tui\config.json`
+- On **MacOS & Linux**, the path is `~/.nekot/config.json`.
+- On **Windows**, the path is `C:\Users\%UserName%\.nekot\config.json` or `%HOMEPATH%\.nekot\config.json`
 
 ### Example
 ```json
@@ -119,7 +119,7 @@ Available themes:
 
 Models list is cached for 14 days upon loading. If you need to invalidate cache use `--purge-cache` flag:
 ```bash
-./chatgpt-tui --purge-cache
+nekot --purge-cache
 ```
 
 ## Global Keybindings
@@ -210,13 +210,13 @@ Please refer to this guide as you navigate the TUI. Happy exploring!
 
 ### Dev notes
 
-The SQL db is stored in you `your/home/directory/.chatgpt-tui`, as well as the debug log. To enable `debug` mode, `export DEBUG=1` before running the program.
+The SQL db is stored in you `your/home/directory/.nekot`, as well as the debug log. To enable `debug` mode, `export DEBUG=1` before running the program.
 
 To get access to the release candidates, install command:
 
 ```bash
-brew install rc-chatgpt-tui
-rc-chatgpt-tui
+brew install rc-nekot
+rc-nekot
 ```
 
 ## Technologies
