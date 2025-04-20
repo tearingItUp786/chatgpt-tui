@@ -110,7 +110,7 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 	case key.Matches(msg, p.keyMap.changeModel):
 		p.loading = true
 		return tea.Batch(
-			func() tea.Msg { return p.loadModels(p.config.Provider, p.config.ChatGPTApiUrl) },
+			func() tea.Msg { return p.loadModels(p.config.Provider, p.config.ProviderBaseUrl) },
 			p.spinner.Tick)
 
 	case key.Matches(msg, p.keyMap.reset):

@@ -1,5 +1,5 @@
 {
-  "chatGPTApiUrl": "https://api.openai.com",
+  "providerBaseUrl": "https://api.openai.com",
   "systemMessage": "",
   "defaultModel": "",
   "colorScheme": "Pink",

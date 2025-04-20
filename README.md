@@ -84,7 +84,8 @@ We provide a `config.json` file within your directory for easy access to essenti
 ### Example
 ```json
 {
-  "chatGPTApiUrl": "https://api.openai.com", // Or ollama http://localhost:1143, or any other OpenAi compatible API
+  "chatGPTApiUrl": "https://api.openai.com", // obsolete, use "providerBaseUrl" instead
+  "providerBaseUrl": "https://api.openai.com", // Or ollama http://localhost:1143, or any other OpenAi compatible API
   "systemMessage": "",
   "defaultModel": "",
   "colorScheme": "Groove", // Pink, Blue, Groove
@@ -92,7 +93,8 @@ We provide a `config.json` file within your directory for easy access to essenti
 }
 ```
 
- - `chatGPTApiUrl`: The url can be anything that follows OpenAI API standard ( [ollama](https://ollama.com/), [lmstudio](https://lmstudio.ai/), etc)
+ - `providerBaseUrl`: The url can be anything that follows OpenAI API standard ( [ollama](http://localhost:11434), [lmstudio](http://127.0.0.1:1234), etc)
+ - `chatGPTApiUrl` [obsolete]: same as `providerBaseUrl` 
  - `systemMessage` field is available for customizing system prompt messages. **Better to set it from the app**
  - `defaultModel` field sets the default model.  **Better to set it from the app**
 
@@ -105,7 +107,7 @@ Available providers:
  * `gemini`
 
 To use **GeminiAPI**, just set `"provider": "gemini"` (make sure to set GEMINI_API_KEY env variable).
-When using the `gemini` provider, `chatGPTApiUrl` param is not used.
+When using the `gemini` provider, `providerBaseUrl` param is not used.
 
 ### Themes
 You can change colorscheme using the `colorScheme` field.

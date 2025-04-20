@@ -94,7 +94,7 @@ func (ss *SettingsService) GetSettings(ctx context.Context, id int, cfg config.C
 		&settings.PresetName,
 	)
 
-	availableModels, modelsError := ss.GetProviderModels(ctx, cfg.Provider, cfg.ChatGPTApiUrl)
+	availableModels, modelsError := ss.GetProviderModels(ctx, cfg.Provider, cfg.ProviderBaseUrl)
 
 	if modelsError != nil {
 		return UpdateSettingsEvent{

@@ -58,7 +58,7 @@ func NewOrchestrator(db *sql.DB, ctx context.Context) Orchestrator {
 	}
 
 	settingsService := settings.NewSettingsService(db)
-	llmClient := clients.ResolveLlmClient(config.Provider, config.ChatGPTApiUrl, config.SystemMessage)
+	llmClient := clients.ResolveLlmClient(config.Provider, config.ProviderBaseUrl, config.SystemMessage)
 
 	return Orchestrator{
 		mainCtx:              ctx,

@@ -147,7 +147,7 @@ func NewSettingsPane(db *sql.DB, ctx context.Context) SettingsPane {
 	}
 
 	settingsService = settings.NewSettingsService(db)
-	llmClient := clients.ResolveLlmClient(config.Provider, config.ChatGPTApiUrl, config.SystemMessage)
+	llmClient := clients.ResolveLlmClient(config.Provider, config.ProviderBaseUrl, config.SystemMessage)
 
 	colors := config.ColorScheme.GetColors()
 	listItemSpan = listItemSpan.Foreground(colors.DefaultTextColor)

@@ -31,11 +31,12 @@ func FromContext(ctx context.Context) (*Config, bool) {
 }
 
 type Config struct {
-	ChatGPTApiUrl string           `json:"chatGPTAPiUrl"`
-	SystemMessage string           `json:"systemMessage"`
-	DefaultModel  string           `json:"defaultModel"`
-	Provider      string           `json:"provider"`
-	ColorScheme   util.ColorScheme `json:"colorScheme"`
+	ChatGPTApiUrl   string           `json:"chatGPTAPiUrl"`
+	ProviderBaseUrl string           `json:"providerBaseUrl"`
+	SystemMessage   string           `json:"systemMessage"`
+	DefaultModel    string           `json:"defaultModel"`
+	Provider        string           `json:"provider"`
+	ColorScheme     util.ColorScheme `json:"colorScheme"`
 }
 
 //go:embed config.json
@@ -87,8 +88,8 @@ func validateConfig(config Config) bool {
 	case util.GeminiProviderType:
 		return true
 	case util.OpenAiProviderType:
-		// Validate the ChatAPIURL format (simple example)
-		match, _ := regexp.MatchString(`^https?://`, config.ChatGPTApiUrl)
+		// Validate provider base url format
+		match, _ := regexp.MatchString(`^https?://`, config.ProviderBaseUrl)
 		if !match {
 			fmt.Println("ChatAPIURL must be a valid URL")
 			return false
@@ -155,6 +156,10 @@ func (c Config) checkApiKeys() {
 }
 
 func (c *Config) setDefaults() {
+	if c.ProviderBaseUrl == "" {
+		c.ProviderBaseUrl = c.ChatGPTApiUrl
+	}
+
 	if c.Provider == "" {
 		c.Provider = util.OpenAiProviderType
 	}
