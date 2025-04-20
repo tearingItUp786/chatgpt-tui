@@ -91,7 +91,7 @@ func validateConfig(config Config) bool {
 		// Validate provider base url format
 		match, _ := regexp.MatchString(`^https?://`, config.ProviderBaseUrl)
 		if !match {
-			fmt.Println("ChatAPIURL must be a valid URL")
+			fmt.Println("ProviderBaseUrl must be a valid URL")
 			return false
 		}
 		// Add any other validation logic here
@@ -156,6 +156,7 @@ func (c Config) checkApiKeys() {
 }
 
 func (c *Config) setDefaults() {
+	// for backwards compatibility
 	if c.ProviderBaseUrl == "" {
 		c.ProviderBaseUrl = c.ChatGPTApiUrl
 	}
