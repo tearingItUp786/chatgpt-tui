@@ -17,10 +17,12 @@ import (
 const notificationDisplayDurationSec = 2
 
 const (
-	copiedLabelText     = "Copied to clipboard"
-	cancelledLabelText  = "Inference interrupted"
-	idleLabelText       = "IDLE"
-	processingLabelText = "Processing"
+	copiedLabelText           = "Copied to clipboard"
+	cancelledLabelText        = "Inference interrupted"
+	sysPromptChangedLabelText = "System prompt updated"
+	presetSavedLabelText      = "Preset saved"
+	idleLabelText             = "IDLE"
+	processingLabelText       = "Processing"
 )
 
 var infoSpinnerStyle = lipgloss.NewStyle()
@@ -78,6 +80,7 @@ func NewInfoPane(db *sql.DB, ctx context.Context) InfoPane {
 	notificationLabel := defaultLabelStyle.Copy().
 		Background(colors.NormalTabBorderColor).
 		BorderLeftForeground(colors.HighlightColor).
+		Align(lipgloss.Left).
 		Foreground(colors.DefaultTextColor)
 
 	return InfoPane{
@@ -178,17 +181,25 @@ func (p InfoPane) View() string {
 		notificationText := ""
 
 		switch p.notification {
+		case util.PresetSavedNotification:
+			notificationText = presetSavedLabelText
+			notificationLabel = p.notificationLabel.
+				Background(p.colors.AccentColor).
+				Width(paneWidth - 1)
+		case util.SysPromptChangedNotification:
+			notificationText = sysPromptChangedLabelText
+			notificationLabel = p.notificationLabel.
+				Background(p.colors.AccentColor).
+				Width(paneWidth - 1)
 		case util.CopiedNotification:
 			notificationText = copiedLabelText
 			notificationLabel = p.notificationLabel.
 				Background(p.colors.NormalTabBorderColor).
-				Align(lipgloss.Left).
 				Width(paneWidth - 1)
 		case util.CancelledNotification:
 			notificationText = cancelledLabelText
 			notificationLabel = p.notificationLabel.
 				Background(p.colors.ErrorColor).
-				Align(lipgloss.Left).
 				Width(paneWidth - 1)
 		}
 

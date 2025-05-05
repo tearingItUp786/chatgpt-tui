@@ -31,10 +31,12 @@ func FromContext(ctx context.Context) (*Config, bool) {
 }
 
 type Config struct {
-	ChatGPTApiUrl string           `json:"chatGPTAPiUrl"`
-	SystemMessage string           `json:"systemMessage"`
-	DefaultModel  string           `json:"defaultModel"`
-	ColorScheme   util.ColorScheme `json:"colorScheme"`
+	ChatGPTApiUrl   string           `json:"chatGPTAPiUrl"`
+	ProviderBaseUrl string           `json:"providerBaseUrl"`
+	SystemMessage   string           `json:"systemMessage"`
+	DefaultModel    string           `json:"defaultModel"`
+	Provider        string           `json:"provider"`
+	ColorScheme     util.ColorScheme `json:"colorScheme"`
 }
 
 //go:embed config.json
@@ -82,14 +84,22 @@ func createConfig() (string, error) {
 }
 
 func validateConfig(config Config) bool {
-	// Validate the ChatAPIURL format (simple example)
-	match, _ := regexp.MatchString(`^https?://`, config.ChatGPTApiUrl)
-	if !match {
-		fmt.Println("ChatAPIURL must be a valid URL")
+	switch config.Provider {
+	case util.GeminiProviderType:
+		return true
+	case util.OpenAiProviderType:
+		// Validate provider base url format
+		match, _ := regexp.MatchString(`^https?://`, config.ProviderBaseUrl)
+		if !match {
+			fmt.Println("ProviderBaseUrl must be a valid URL")
+			return false
+		}
+		// Add any other validation logic here
+		return true
+	default:
+		fmt.Println("Incorrect provider type. Supported values: 'openai', 'gemini'")
 		return false
 	}
-	// Add any other validation logic here
-	return true
 }
 
 func CreateAndValidateConfig() Config {
@@ -112,11 +122,46 @@ func CreateAndValidateConfig() Config {
 		fmt.Printf("Error parsing config JSON: %s", err)
 		panic(err)
 	}
+	config.setDefaults()
 
 	isValidConfig := validateConfig(config)
 	if !isValidConfig {
 		panic(fmt.Errorf("Invalid config"))
 	}
 
+	config.checkApiKeys()
+
 	return config
+}
+
+func (c Config) checkApiKeys() {
+	switch c.Provider {
+	case util.GeminiProviderType:
+		apiKey := os.Getenv("GEMINI_API_KEY")
+		if "" == apiKey {
+			fmt.Println("GEMINI_API_KEY not set; set it in your profile")
+			fmt.Printf("export GEMINI_API_KEY=your_key in the config for :%v \n", os.Getenv("SHELL"))
+			fmt.Println("Exiting...")
+			os.Exit(1)
+		}
+	case util.OpenAiProviderType:
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if "" == apiKey {
+			fmt.Println("OPENAI_API_KEY not set; set it in your profile")
+			fmt.Printf("export OPENAI_API_KEY=your_key in the config for :%v \n", os.Getenv("SHELL"))
+			fmt.Println("Exiting...")
+			os.Exit(1)
+		}
+	}
+}
+
+func (c *Config) setDefaults() {
+	// for backwards compatibility
+	if c.ProviderBaseUrl == "" {
+		c.ProviderBaseUrl = c.ChatGPTApiUrl
+	}
+
+	if c.Provider == "" {
+		c.Provider = util.OpenAiProviderType
+	}
 }

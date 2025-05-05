@@ -29,6 +29,7 @@ type keyMap struct {
 	editorMode key.Binding
 	nextPane   key.Binding
 	jumpToPane key.Binding
+	newSession key.Binding
 	quit       key.Binding
 }
 
@@ -39,6 +40,7 @@ var defaultKeyMap = keyMap{
 	quit:       key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit app")),
 	jumpToPane: key.NewBinding(key.WithKeys("1", "2", "3", "4"), key.WithHelp("1,2,3,4", "jump to specific pane")),
 	nextPane:   key.NewBinding(key.WithKeys(tea.KeyTab.String()), key.WithHelp("TAB", "move to next pane")),
+	newSession: key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "add new session")),
 }
 
 type MainView struct {
@@ -108,7 +110,6 @@ func (m MainView) Init() tea.Cmd {
 		m.sessionsPane.Init(),
 		m.chatPane.Init(),
 		m.settingsPane.Init(),
-		m.sessionsPane.Init(),
 		func() tea.Msg { return dimensionsPulsar() },
 	)
 }
@@ -137,6 +138,12 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 
+	case util.ErrorEvent:
+		m.sessionOrchestrator.ProcessingMode = sessions.IDLE
+		m.error = msg
+		m.viewReady = true
+		cmds = append(cmds, util.SendProcessingStateChangedMsg(false))
+
 	case checkDimensionsMsg:
 		if runtime.GOOS == "windows" {
 			w, h, _ := term.GetSize(int(os.Stdout.Fd()))
@@ -149,6 +156,12 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case util.ViewModeChanged:
 		m.viewMode = msg.Mode
 
+	case util.SwitchToPaneMsg:
+		if util.IsFocusAllowed(m.viewMode, msg.Target, m.terminalWidth) {
+			m.focused = msg.Target
+			m.resetFocus()
+		}
+
 	case util.AsyncDependencyReady:
 		m.loadedDeps = append(m.loadedDeps, msg.Dependency)
 		for _, dependency := range asyncDeps {
@@ -158,13 +171,6 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewReady = true
 		}
 		m.promptPane = m.promptPane.Enable()
-
-	case util.ErrorEvent:
-		util.Log("Error: ", msg.Message)
-		m.sessionOrchestrator.ProcessingMode = sessions.IDLE
-		m.error = msg
-		m.viewReady = true
-		cmds = append(cmds, util.SendProcessingStateChangedMsg(false))
 
 	case util.PromptReady:
 		m.error = util.ErrorEvent{}
@@ -181,15 +187,30 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			util.SendViewModeChangedMsg(m.viewMode))
 
 	case tea.KeyMsg:
+		if key.Matches(msg, m.keys.quit) {
+			return m, tea.Quit
+		}
+
 		if !m.viewReady {
 			break
 		}
 
 		switch {
 
+		case key.Matches(msg, m.keys.newSession):
+			cmds = append(cmds, util.AddNewSession())
+			if util.IsFocusAllowed(m.viewMode, util.PromptPane, m.terminalWidth) {
+				if m.focused != util.SessionsPane {
+					m.focused = util.PromptPane
+					m.resetFocus()
+				}
+			}
+
 		case key.Matches(msg, m.keys.cancel):
-			if m.sessionOrchestrator.ProcessingMode == sessions.PROCESSING {
+			if m.cancelInference != nil {
 				m.cancelInference()
+				m.cancelInference = nil
+				cmds = append(cmds, util.SendProcessingStateChangedMsg(false))
 			}
 
 		case key.Matches(msg, m.keys.zenMode):
@@ -252,9 +273,6 @@ func (m MainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.focused = util.GetNewFocusMode(m.viewMode, m.focused, m.terminalWidth)
 			m.resetFocus()
-
-		case key.Matches(msg, m.keys.quit):
-			return m, tea.Quit
 		}
 
 	case tea.WindowSizeMsg:
@@ -324,7 +342,7 @@ func (m *MainView) resetFocus() {
 
 // TODO: use event to lock/unlock allowFocusChange flag
 func (m MainView) isFocusChangeAllowed() bool {
-	if m.promptPane.IsTypingInProcess() ||
+	if !m.promptPane.AllowFocusChange() ||
 		!m.chatPane.AllowFocusChange() ||
 		!m.settingsPane.AllowFocusChange() ||
 		!m.sessionsPane.AllowFocusChange() ||
