@@ -12,6 +12,10 @@ import (
 const multiplier = 100000
 const negativeSignCode = -9999999999
 
+const FrequencyRange = "[-2.0, 2.0)"
+const TemperatureRange = "[0.0, 2.0]"
+const TopPRange = "[0.0, 1.0]"
+
 var DeleteSessionValidator = func(input string) error {
 	allowed := []string{"y", "n"}
 	if len(input) > 1 || !slices.Contains(allowed, input) {

@@ -129,11 +129,11 @@ func (p *SettingsPane) handleViewMode(msg tea.KeyMsg) tea.Cmd {
 		cmd = util.SwitchToEditor(content, util.SystemMessageEditing)
 
 	case key.Matches(msg, p.keyMap.editFrequency):
-		cmd = p.configureInput("Enter Frequency Number", util.FrequencyValidator, frequencyChange)
+		cmd = p.configureInput("Enter Frequency "+util.FrequencyRange, util.FrequencyValidator, frequencyChange)
 	case key.Matches(msg, p.keyMap.editTemp):
-		cmd = p.configureInput("Enter Temperature Number", util.TemperatureValidator, tempChange)
+		cmd = p.configureInput("Enter Temperature "+util.TemperatureRange, util.TemperatureValidator, tempChange)
 	case key.Matches(msg, p.keyMap.editTopP):
-		cmd = p.configureInput("Enter TopP Number", util.TopPValidator, topPChange)
+		cmd = p.configureInput("Enter TopP "+util.TopPRange, util.TopPValidator, topPChange)
 	case key.Matches(msg, p.keyMap.editMaxTokens):
 		cmd = p.configureInput("Enter Max Tokens", util.MaxTokensValidator, maxTokensChange)
 	}
